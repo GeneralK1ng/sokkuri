@@ -51,21 +51,6 @@ kotlin {
         iosArm64Main.get().dependsOn(iosMain)
         iosSimulatorArm64Main.get().dependsOn(iosMain)
 
-        // Test-side mirror of the main-source wiring: common test resources
-        // (testcases.json) need platform readers, shared per platform family.
-        val jvmAndroidTest by creating {
-            dependsOn(commonTest.get())
-        }
-        jvmTest.get().dependsOn(jvmAndroidTest)
-        // withHostTest() creates this source set without a type-safe accessor.
-        named("androidHostTest") { dependsOn(jvmAndroidTest) }
-
-        val iosTest by creating {
-            dependsOn(commonTest.get())
-        }
-        iosArm64Test.get().dependsOn(iosTest)
-        iosSimulatorArm64Test.get().dependsOn(iosTest)
-
         commonMain.dependencies {
             api(project(":sokkuri-api"))
             implementation(project(":sokkuri-engine"))

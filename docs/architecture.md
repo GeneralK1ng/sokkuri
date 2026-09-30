@@ -44,9 +44,13 @@ sokkuri-runtime    聚合门面 + 平台资源加载器 actual + 打包词典数
             │               ConversionChain、Segmentation、Converter
             └── sokkuri-api   稳定公开面:Config、Options、Inspection、
                               异常体系、@SokkuriInternalApi
-tools:dictgen(未来)  词典编译器;同构建的普通模块,非发布产物。
-                  落地任务拆解见 milestones/m1-dictgen-sok.md(.sok 格式
-                  字节级规范以该文档为唯一事实源)。
+tools:dictgen(已实现,M1)  词典编译器;同构建的普通模块,非发布产物。
+                  上游 data/dictionary → `.sok`、上游 config → 重写后的打包
+                  JSON,16 个 config + 22 个 `.sok` 落入 sokkuri-runtime
+                  资源;`:tools:dictgen:run` 生成,`:tools:dictgen:
+                  checkDictionaries` 做漂移校验(确定性,DoD 4)。落地过程
+                  见 milestones/m1-dictgen-sok.md(.sok 格式字节级规范以该
+                  文档为唯一事实源)。
 ```
 
 ### 2.2 模块职责与允许依赖
@@ -152,12 +156,12 @@ interface Dictionary {
 
 ### 4.2 词典实现谱系
 
-- `SortedListDictionary` = 上游 `TextDict`(有序数组 + 二分),inline
-  词典与 `.sok` 格式的参照实现;
-- `.sok`(生产格式,v1 由 dictgen 落地)= 新 `Dictionary` 实现 +
-  注册 `"sok"` 类型,**编解码读写同侧**:decoder 与 internal encoder
-  都放 `sokkuri-resource`,`tools:dictgen` 调用 encoder 与 decoder 做
-  往返校验——格式单一事实源,两端永不腐化;
+- `SortedListDictionary` = 上游 `TextDict`(有序数组 + 二分),inline 词典的参照实现,与 `.sok` 共享 `SortedTableRetrieval`
+  检索算法;
+- `.sok`(生产格式,M1 已落地)= `SokDictionary`:零拷贝 (保留文件字节、 按键/值偏移按需解码 UTF-8)、检索与
+  `SortedListDictionary` 同算法, 注册 `"sok"` 类型, **编解码读写同侧**:decoder 与 encoder 同放
+  `sokkuri-resource`(encoder 经 `@SokkuriInternalApi` 跨模块公开给 dictgen),`tools:dictgen` 编译全部打包词典——格式单一事实源,两端
+  永不腐化;
 - `ocd`/`ocd2` 以 `UnsupportedDictionaryFormat` 注册,报精确、可行动的
   错误。
 
@@ -229,8 +233,8 @@ interface Dictionary {
 ### 8.1 String view 匹配
 
 **问题**:Kotlin 没有跨平台零拷贝 `string_view`。当前
-`PrefixMatch(length, value)` 令基于大块连续存储的实现(如 `.sok` 的
-trie)在每次命中时物化 value 字符串。
+`PrefixMatch(length, value)` 令基于大块连续存储的实现在每次命中时 物化 value 字符串——v1 `.sok`(连续字节缓冲 + 按需 UTF-8
+解码)即这种 形态,M1 §7 实测其转换吞吐较文本词典约慢 3 倍 (23.0 vs 7.6 µs/op)。
 
 **目标形态**:`Dictionary` 增加带默认实现的 view 匹配方法,返回
 value 的缓冲区偏移视图;`Conversion` 热路径改经 `StringBuilder
@@ -292,16 +296,16 @@ runtime 资源;④ README/登记表更新。对 exhaustive `when` 消费者是
 
 ## 9. 决策实现状态总表
 
-| 决策 | 内容 | 代码状态 |
-|---|---|---|
-| D1 | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留) | 已实现 |
-| D2 | `Inspection` 平铺 `normalizationStages` | 已实现 |
-| D3 | 进程级强引用共享词典缓存(加载器实例 scope) | 已实现 |
-| D4 | `Options` 改 Builder 模式 | 已实现 |
-| D5 | inline 词典 `may_output_tofu` 严格报错 | 已实现 |
-| D6 | `.sok` 编解码读写同侧 | 原则已立;代码随 dictgen 里程碑 |
-| D7 | 流式转换不进 v1 | 架构预留(8.5) |
-| D8 | 自定义 loader 公开化路径(扩展手册 #12) | 架构预留 |
+| 决策 | 内容                                                            | 代码状态      |
+|------|-----------------------------------------------------------------|---------------|
+| D1   | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留) | 已实现        |
+| D2   | `Inspection` 平铺 `normalizationStages`                         | 已实现        |
+| D3   | 进程级强引用共享词典缓存(加载器实例 scope)                      | 已实现        |
+| D4   | `Options` 改 Builder 模式                                       | 已实现        |
+| D5   | inline 词典 `may_output_tofu` 严格报错                          | 已实现        |
+| D6   | `.sok` 编解码读写同侧                                           | 已实现        |
+| D7   | 流式转换不进 v1                                                 | 架构预留(8.5) |
+| D8   | 自定义 loader 公开化路径(扩展手册 #12)                          | 架构预留      |
 
 ## 10. 测试与对齐策略
 

@@ -3,14 +3,18 @@ package com.generalk1ng.sokkuri
 import kotlin.test.Test
 
 /**
- * Records the pilot's text-dictionary baseline: first-create (cold decode)
- * latency, warm-create latency (exercising the process-wide
- * [DictionaryCache] sharing, D3), and steady-state conversion throughput.
+ * Records the standing create/conversion baseline for the packaged
+ * dictionary stack: first-create (cold decode) latency, warm-create latency
+ * (exercising the process-wide [DictionaryCache] sharing, D3), and
+ * steady-state conversion throughput.
  *
- * The numbers are printed to the test log and transcribed into
- * `docs/milestones/m1-dictgen-sok.md` §7; the `.sok` format (milestone step
- * 5.1) must decode no slower than this baseline. Nothing is asserted — this
- * is a measuring instrument, not a gate.
+ * Originally the step-0 instrument for the pilot's *text* dictionaries; the
+ * `.sok` stack (milestone M1) is what it measures now — same profile, same
+ * probe text, so the §7 rows for both formats are directly comparable. The
+ * numbers are printed to the test log and transcribed into
+ * `docs/milestones/m1-dictgen-sok.md` §7; per-dictionary text-vs-`.sok`
+ * decode figures come from [DictionaryDecodeComparisonTest]. Nothing is
+ * asserted — this is a measuring instrument, not a gate.
  */
 class PilotBaselineTest {
 

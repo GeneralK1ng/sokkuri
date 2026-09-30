@@ -31,23 +31,20 @@ sokkuri-runtime    聚合门面 + 打包词典（config/、*.sok）
 - **sokkuri-config** —— OpenCC `data/config/*.json` 文档的宽松
   （JSONC）解析器，包含 tofu 风险词典过滤与 match-policy 校验，
   通过 `DictionaryProvider` 接口落地词典加载。
-- **sokkuri-resource** —— 唯一感知 IO 的层：`ResourceLoader` 接口、
-  文本词典解码器、未来的 `.sok` 二进制格式注册表，以及带锁带缓存的
-  `ResourceDictionaryProvider`（等价 OpenCC 的 `DictCache`）。
+- **sokkuri-resource** —— 唯一感知 IO 的层：`ResourceLoader` 接口、 文本/`.sok` 词典格式注册表（`.sok` 零拷贝、编解码读写同侧），以及
+  带锁带缓存的 `ResourceDictionaryProvider`（等价 OpenCC 的 `DictCache`）。
 - **sokkuri-runtime** —— 消费者唯一需要依赖的聚合模块。承载平台默认
   资源加载器（JVM 走 classpath，Android 走 assets 并需
-  `Sokkuri.init(context)`，iOS 走 bundle），词典数据编译好后也落在这里。
+  `Sokkuri.init(context)`，iOS 走 bundle），打包词典数据 （`config/*.json` + `dictionary/*.sok`）落在这里。
 
 架构的完整约定（模块边界、依赖法则、扩展方式、上游偏离登记）见
 [docs/architecture.md](docs/architecture.md)。
 
 ## 内置配置与词典数据
 
-`Sokkuri.create` 读取打包资源中的 `config/<stem>.json`。注意这些是**生成
-产物**：由未来的 `tools/dictgen` 构建工具将 OpenCC 上游配置重写为引用
-`.sok` 词典，并非上游原文。因此存在一个隐式契约——`Config` 枚举的每个
-stem 在打包资源中都有对应的 `config/<stem>.json`；dictgen 落地后由构建
-保证这一点。
+`Sokkuri.create` 读取打包资源中的 `config/<stem>.json`。注意这些是**生成 产物**：由 `tools/dictgen` 构建工具（
+`./gradlew :tools:dictgen:run`）将 OpenCC 上游配置重写为引用 `.sok` 词典、并把上游词典表编译为 `.sok`， 并非上游原文。
+`./gradlew :tools:dictgen:checkDictionaries` 可随时校验 打包产物与上游源零漂移（重跑确定性由它保证）。
 
 ## 使用
 
@@ -66,10 +63,14 @@ Android 应用须在启动时调用一次 `Sokkuri.init(context)`，
 ./gradlew build                              # 全平台构建
 ./gradlew :sokkuri-runtime:jvmTest           # JVM 测试
 ./gradlew :sokkuri-runtime:iosSimulatorArm64Test   # iOS 测试（Apple Silicon 主机）
+./gradlew :sokkuri-runtime:testAndroidHostTest     # Android 宿主单元测试（JVM）
+./gradlew :tools:dictgen:checkDictionaries       # 词典产物 vs 上游源 漂移校验
 ```
 
 ## 当前状态
 
-骨架阶段：管线架构与测试套件已就位，JVM / Android（宿主测试）/ iOS
-全平台绿灯，但 OpenCC 词典尚未生成进聚合模块——这是下一个里程碑
-（参考克隆见 `OpenCC/`，已 gitignore）。
+**16 个 profile 端到端可用**（M1 已交付）：全部词典以自研 `.sok` 二进制 格式打包（零拷贝解码，冷启动 create ≈22ms、驻留堆
+≈2.4MiB），golden 对齐上游 `testcases.json` 全量语料——16 个移植 stem × 553 条期望， JVM / Android 宿主 / iOS 模拟器三平台全绿（3
+条例外经逐案分析登记为 tofu 风险词典的刻意分叉，开启 `includeTofuRiskDictionaries` 后全部消解）。
+`tools:dictgen` 词典编译器与配置重写器已落地，打包产物可由
+`checkDictionaries` 持续校验。已知优化方向：转换吞吐的 String-view 化（见 `docs/architecture.md` §8.1）。
