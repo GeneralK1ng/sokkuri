@@ -32,7 +32,10 @@ internal class AndroidResourceLoader internal constructor() : ResourceLoader {
         return try {
             context.assets.open(path).use { stream -> stream.readBytes() }
         } catch (e: IOException) {
-            null
+            // KMP commonMain resources land in the library jar on Android,
+            // not in assets; fall back to the class loader so packaged
+            // resources resolve on device as well as in host tests.
+            ClasspathResourceLoader().load(path)
         }
     }
 }

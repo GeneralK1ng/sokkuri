@@ -21,11 +21,19 @@ import platform.posix.rewind
  * the main bundle (when resources are copied into the app package). File
  * reads go through POSIX stdio so no Foundation factory-selector bindings
  * are involved.
+ *
+ * Framework lookup: Kotlin/Native generates the framework's
+ * CFBundleIdentifier from the baseName — `com.generalk1ng.sokkuri.Sokkuri`
+ * for this module — so both that spelling and the bare namespace are
+ * probed. The resources sit in the framework bundle via an explicit Gradle
+ * copy (sokkuri-runtime/build.gradle.kts); Kotlin/Native does not place
+ * processed resources there by itself.
  */
 internal class BundleResourceLoader internal constructor() : ResourceLoader {
 
     private val bundles: List<NSBundle> by lazy {
         listOfNotNull(
+            NSBundle.bundleWithIdentifier("com.generalk1ng.sokkuri.Sokkuri"),
             NSBundle.bundleWithIdentifier("com.generalk1ng.sokkuri"),
             NSBundle.mainBundle,
         ).distinct()
