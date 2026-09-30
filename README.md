@@ -1,78 +1,84 @@
 # Sokkuri
 
-Sokkuri（すっきり / 晰）是 [OpenCC](https://github.com/BYVoid/OpenCC)（开放中文转换）的
-Kotlin Multiplatform 移植，目标平台为 JVM、Android 与 iOS。行为对齐 OpenCC 的 C++
-核心：相同的转换管线（归一化 → 可选 mmseg 分词 → 转换链）、相同的词典语义
-（最长前缀匹配、`short_circuit` / `union` 组策略）、相同的 IDS
-（表意文字描述序列）处理——并额外暴露分级转换结果（`inspect`），
-这是 OpenCC 本身没有的能力。
+**Sokkuri（すっきり / 晰）** 是 [OpenCC](https://github.com/BYVoid/OpenCC)（开放中文转换）的 Kotlin Multiplatform 移植，一套代码运行在
+**JVM、Android、iOS** 三个平台。
 
-## 模块结构
+名称取自日语「すっきり」（sokkuri）——清爽、利落、一目了然；汉字取「晰」， 寓意转换结果清晰、无歧义。
 
-一个家族五个 Gradle 模块，统一发布在 `com.generalk1ng.sokkuri` 坐标下。
-依赖方向严格向下，下层绝不依赖上层。
+简繁转换从来不是一一对应的机械替换：简转繁有通用、台湾、香港多套字形标准， 词汇在各地又各有说法（内存/記憶體、硬盘/硬碟/隨身碟）；繁转简要处理多对一的
+合并字；日文还有新字体与旧字体之别。Sokkuri 完整移植 OpenCC 的 **16 种转换 配置**，并以 OpenCC 上游测试语料逐条对齐行为。
 
-```
-sokkuri-runtime    聚合门面 + 打包词典（config/、*.sok）
-└── sokkuri-resource  资源加载接口 + 词典格式注册
-    └── sokkuri-config  JSONC 配置解析（OpenCC data/config 模式）
-        └── sokkuri-engine  纯转换引擎：UTF/IDS、词典、
-            │              词典组、转换链、mmseg 分词
-            └── sokkuri-api  公开 API：Config 预设配置、Options、
-                           Inspection、异常体系、SokkuriInternalApi
-```
+## 独特优势
 
-- **sokkuri-api** —— 应用开发者需要的全部内容：`Config`（OpenCC 内置的
-  16 种配置档）、`Options`、`Inspection`、异常体系，以及
-  `@SokkuriInternalApi` 标记（ opting-in 后才可见，避免下层 API 混进日常补全）。
-- **sokkuri-engine** —— OpenCC 算法移植，无 IO 的纯 Kotlin：
-  码点序、有序数组词典（等价 `TextDict`）、组策略、带 IDS 原子性的
-  最长前缀转换、mmseg 最大正向分词、分阶段转换器。
-- **sokkuri-config** —— OpenCC `data/config/*.json` 文档的宽松
-  （JSONC）解析器，包含 tofu 风险词典过滤与 match-policy 校验，
-  通过 `DictionaryProvider` 接口落地词典加载。
-- **sokkuri-resource** —— 唯一感知 IO 的层：`ResourceLoader` 接口、 文本/`.sok` 词典格式注册表（`.sok` 零拷贝、编解码读写同侧），以及
-  带锁带缓存的 `ResourceDictionaryProvider`（等价 OpenCC 的 `DictCache`）。
-- **sokkuri-runtime** —— 消费者唯一需要依赖的聚合模块。承载平台默认
-  资源加载器（JVM 走 classpath，Android 走 assets 并需
-  `Sokkuri.init(context)`，iOS 走 bundle），打包词典数据 （`config/*.json` + `dictionary/*.sok`）落在这里。
-
-架构的完整约定（模块边界、依赖法则、扩展方式、上游偏离登记）见
-[docs/architecture.md](docs/architecture.md)。
-
-## 内置配置与词典数据
-
-`Sokkuri.create` 读取打包资源中的 `config/<stem>.json`。注意这些是**生成 产物**：由 `tools/dictgen` 构建工具（
-`./gradlew :tools:dictgen:run`）将 OpenCC 上游配置重写为引用 `.sok` 词典、并把上游词典表编译为 `.sok`， 并非上游原文。
-`./gradlew :tools:dictgen:checkDictionaries` 可随时校验 打包产物与上游源零漂移（重跑确定性由它保证）。
+- **真多平台**：纯 Kotlin 实现，无 JNI、无平台原生二进制依赖。OpenCC 官方为 C++，社区 Swift 移植只覆盖 Apple 生态；Sokkuri
+  让后端与两个移动端共用同一 份词典数据和同一份算法实现。
+- **`inspect()` 结构化结果**：除了最终字符串，还返回分词结果与转换链每一级 的分段输出（OpenCC 只有最终字符串），可直接驱动高亮、diff、转换溯源等
+  场景。
+- **零拷贝词典**：自研 `.sok` 二进制格式，词典驻留内存 ≈ 文件原始大小 （16 档全部词典 ≈ 2.4 MiB）；检索全程零物化——探针直接比较字节区段与
+  输入窗口，命中值直写输出缓冲，s2t 实测 9.4µs/op（较物化实现快 2.3–2.6×）。
+- **与上游逐条对齐**：golden 测试套件移植 OpenCC `testcases.json` 全部 553 条期望，JVM / Android 宿主 / iOS 模拟器三端全绿；与上游仅有的
+  3 处 差异（tofu 风险词典默认排除，与 OpenCC CLI 默认一致）逐案登记在案， 一个开关即可消解。
+- **配置齐全**：16 档含上游较新的香港词汇档（`s2hkp` / `hk2sp`）。
 
 ## 使用
 
 ```kotlin
-val converter = Sokkuri.create(Config.S2TWP)          // 简 → 台（含在地词）
-val output = converter.convert("鼠标里面的硅二极管坏了")
-val inspection = converter.inspect(input)             // 逐级分段结果
+val converter = Sokkuri.create(Config.S2TWP)   // 简体 → 台湾正体（含台湾词汇）
+converter.convert("鼠标里面的硅二极管坏了，导致光标分辨率降低。")
+// → 滑鼠裡面的矽二極體壞了，導致游標解析度降低。
 ```
 
-Android 应用须在启动时调用一次 `Sokkuri.init(context)`，
-以便定位打包在 assets 中的词典。
+16 种配置，`s`=简体、`t`=繁体、`tw`=台湾、`hk`=香港、`jp`=日文、`p`=含在地词汇：
 
-## 构建与测试
+| 简 → 繁               | 繁 → 简 | 繁体互转        | 日文                 |
+|-----------------------|---------|-----------------|----------------------|
+| `s2t` 通用繁体        | `t2s`   | `t2tw` / `tw2t` | `jp2t` 新字体→旧字体 |
+| `s2tw` 台湾字形       | `tw2s`  | `t2hk` / `hk2t` | `t2jp` 旧字体→新字体 |
+| `s2twp` 台湾字形+词汇 | `tw2sp` |                 |                      |
+| `s2hk` 香港字形       | `hk2s`  |                 |                      |
+| `s2hkp` 香港字形+词汇 | `hk2sp` |                 |                      |
+
+同一句简体，各档实测输出：
+
+```
+输入  内存里的一只烤面包机正在读取打印服务器的硬盘。
+s2t   內存裏的一隻烤麪包機正在讀取打印服務器的硬盤。
+s2hk  內存裏的一隻烤麪包機正在讀取打印服務器的硬盤。
+s2tw  內存裡的一隻烤麵包機正在讀取打印服務器的硬盤。
+s2twp 記憶體裡的一隻烤麵包機正在讀取列印伺服器的硬碟。
+```
+
+`inspect()` 查看分级转换过程：
+
+```kotlin
+val inspection = Sokkuri.create(Config.S2T).inspect("软件和网络")
+inspection.segments  // [软件和网络]         ← 分词结果
+inspection.stages    // stage 1: [軟件和網絡] ← 转换链每级输出
+inspection.output    // 軟件和網絡
+```
+
+繁 → 简方向默认排除可能在部分设备上显示为缺字"豆腐块"的极端字映射；需要与上游测试语料完全一致时打开开关：
+
+```kotlin
+val converter = Sokkuri.create(
+    Config.T2S,
+    Options { includeTofuRiskDictionaries = true },
+)
+```
+
+Android 应用须在启动时调用一次 `Sokkuri.init(context)`，以便定位打包在 assets 中的词典；JVM 走 classpath，iOS 走 framework
+bundle，均开箱即用。
+
+## 测试与演示
 
 ```bash
-./gradlew build                              # 全平台构建
-./gradlew :sokkuri-runtime:jvmTest           # JVM 测试
-./gradlew :sokkuri-runtime:iosSimulatorArm64Test   # iOS 测试（Apple Silicon 主机）
-./gradlew :sokkuri-runtime:testAndroidHostTest     # Android 宿主单元测试（JVM）
-./gradlew :tools:dictgen:checkDictionaries       # 词典产物 vs 上游源 漂移校验
-./gradlew :tools:benchmark:run --args="convert --profile all"   # 性能基线（convert/create/decode/inspect 四子命令，--help 自描述）
+./gradlew build                                   # 全平台构建 + 全部测试
+./gradlew :sokkuri-runtime:jvmTest                # JVM 测试
+./gradlew :sokkuri-runtime:iosSimulatorArm64Test  # iOS 模拟器（Apple Silicon 主机）
+./gradlew :sokkuri-runtime:testAndroidHostTest    # Android 宿主单元测试
 ```
 
-## 当前状态
-
-**16 个 profile 端到端可用**（M1 已交付）：全部词典以自研 `.sok` 二进制 格式打包（零拷贝解码，冷启动 create ≈22ms、驻留堆
-≈2.4MiB），golden 对齐上游 `testcases.json` 全量语料——16 个移植 stem × 553 条期望， JVM / Android 宿主 / iOS 模拟器三平台全绿（3
-条例外经逐案分析登记为 tofu 风险词典的刻意分叉，开启 `includeTofuRiskDictionaries` 后全部消解）。
-`tools:dictgen` 词典编译器与配置重写器已落地，打包产物可由
-`checkDictionaries` 持续校验。 **String-view 化已完成**：`.sok` 词典检索全程 零物化（探针零解码、命中值直写输出），转换吞吐较优化前提升
-2.3–2.6×（s2t 21.4→9.4µs/op， 同机基线），零拷贝驻留堆不变；剩余差距为零拷贝解码的固有代价，进一步需 trie 检索结构。
+- **golden 套件**：OpenCC `testcases.json` 553 条期望 × 16 档配置， 三端运行；
+- **词典契约测试**：`.sok` 格式解码校验、文本/二进制双后端检索行为 等价、编码器往返确定性；
+- **试用演示** `ConsumerTryoutTest`：每个 profile 的输入输出示例，可直接 运行查看；
+- **性能基线**（同机实测）：`.sok` 解码 ≈0ms、堆增量 ≈0（零拷贝实证）， 冷启动建档 ≈45ms，s2t 转换 9.4µs/op。
