@@ -11,9 +11,8 @@ import kotlin.system.exitProcess
  *
  * This file is the CLI boundary and nothing else: argument parsing,
  * dispatch, and help text. Each subcommand implementation lives in its own
- * file and is wired into [run] in the milestone step that builds it —
- * until then a known subcommand exits 1 with a pointer to its step, so an
- * invocation can never silently measure nothing.
+ * file and is wired into [run]; an unknown subcommand is an argument error,
+ * so an invocation can never silently measure nothing.
  */
 @ConsistentCopyVisibility
 internal data class BenchmarkOptions internal constructor(
@@ -54,7 +53,7 @@ internal fun run(options: BenchmarkOptions): Int {
         "convert" -> ConvertBenchmark.run(options.args)
         "create" -> CreateBenchmark.run(options.args)
         "decode" -> DecodeBenchmark.run(options.args)
-        "inspect" -> notImplemented("inspect", step = 3)
+        "inspect" -> InspectBenchmark.run(options.args)
         else -> throw BenchmarkException("unknown subcommand: '$subcommand' (see --help)")
     }
 }
@@ -73,12 +72,6 @@ internal fun printUsage() {
         Spec: docs/milestones/m2-benchmark.md (§3 subcommands, §4 samples).
         """.trimIndent(),
     )
-}
-
-/** Exit code and message for a known subcommand whose step has not landed yet. */
-private fun notImplemented(name: String, step: Int): Int {
-    System.err.println("benchmark: '$name' lands in m2-benchmark.md step $step")
-    return 1
 }
 
 /** CLI entry point: help and argument errors are handled here, not in [parseArgs]. */

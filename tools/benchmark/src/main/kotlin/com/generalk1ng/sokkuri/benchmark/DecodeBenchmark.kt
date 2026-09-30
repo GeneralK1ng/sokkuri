@@ -35,6 +35,7 @@ internal object DecodeBenchmark {
      */
     internal fun run(args: List<String>): Int {
         val options = parseArgs(args) ?: run {
+            println("usage: decode [--opencc-dir <dir>]")
             return 0
         }
         val openccDir = options.openccDir
