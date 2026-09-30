@@ -1,0 +1,21 @@
+{
+  "name": "Old Japanese Kanji (Kyūjitai) to New Japanese Kanji (Shinjitai)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "sok",
+        "file": "dictionary/CJK_Compatibility_Ideographs.sok",
+        "may_output_tofu": false
+      }
+    }
+  ],
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "sok",
+        "file": "dictionary/JPShinjitaiCharactersRev.sok",
+        "may_output_tofu": false
+      }
+    }
+  ]
+}

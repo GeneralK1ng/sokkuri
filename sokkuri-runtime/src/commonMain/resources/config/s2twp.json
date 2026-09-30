@@ -1,0 +1,89 @@
+{
+  "name": "Simplified Chinese to Traditional Chinese (Taiwan Standard, with Taiwan Phrases)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "sok",
+        "file": "dictionary/CJK_Compatibility_Ideographs.sok",
+        "may_output_tofu": false
+      }
+    }
+  ],
+  "segmentation": {
+    "type": "mmseg",
+    "dict": {
+      "type": "group",
+      "match_policy": "union",
+      "dicts": [
+        {
+          "type": "sok",
+          "file": "dictionary/STPhrases.sok",
+          "may_output_tofu": false
+        },
+        {
+          "type": "sok",
+          "file": "dictionary/STPhrases_GeneratedFromRegionalPhrases.sok",
+          "may_output_tofu": false
+        }
+      ],
+      "may_output_tofu": false
+    }
+  },
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "match_policy": "short_circuit",
+        "dicts": [
+          {
+            "type": "group",
+            "match_policy": "union",
+            "dicts": [
+              {
+                "type": "sok",
+                "file": "dictionary/STPhrases.sok",
+                "may_output_tofu": false
+              },
+              {
+                "type": "sok",
+                "file": "dictionary/STPhrases_GeneratedFromRegionalPhrases.sok",
+                "may_output_tofu": false
+              }
+            ],
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/STCharacters.sok",
+            "may_output_tofu": false
+          }
+        ],
+        "may_output_tofu": false
+      }
+    },
+    {
+      "dict": {
+        "type": "group",
+        "match_policy": "short_circuit",
+        "dicts": [
+          {
+            "type": "sok",
+            "file": "dictionary/TWPhrases.sok",
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TWVariantsPhrases.sok",
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TWVariants.sok",
+            "may_output_tofu": false
+          }
+        ],
+        "may_output_tofu": false
+      }
+    }
+  ]
+}

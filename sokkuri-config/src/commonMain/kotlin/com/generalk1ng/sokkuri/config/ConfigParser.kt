@@ -95,6 +95,7 @@ public class ConfigParser public constructor(
             is DictDocument.Text -> openFileBacked("text", document.file, document.mayOutputTofu, includeTofu)
             is DictDocument.Ocd -> openFileBacked("ocd", document.file, document.mayOutputTofu, includeTofu)
             is DictDocument.Ocd2 -> openFileBacked("ocd2", document.file, document.mayOutputTofu, includeTofu)
+            is DictDocument.Sok -> openFileBacked("sok", document.file, document.mayOutputTofu, includeTofu)
             is DictDocument.Group -> {
                 if (document.mayOutputTofu && !includeTofu) return null
                 // OpenCC resolves the match policy before filtering children:

@@ -1,6 +1,7 @@
 package com.generalk1ng.sokkuri.resource
 
 import com.generalk1ng.sokkuri.SokkuriException
+import com.generalk1ng.sokkuri.SokkuriInternalApi
 import com.generalk1ng.sokkuri.engine.Utf
 
 /**
@@ -17,14 +18,19 @@ import com.generalk1ng.sokkuri.engine.Utf
  * Deterministic by construction: same input entries always produce
  * byte-identical output (no timestamps, no hash-order dependence), which the
  * dictgen `--check` mode relies on (m1-dictgen-sok, DoD 4).
+ *
+ * Cross-module internal API: `tools:dictgen` calls this to compile the
+ * packaged dictionaries, so it lives behind [SokkuriInternalApi] rather
+ * than Kotlin `internal` (which stops at module boundaries).
  */
-internal object SokDictionaryEncoder {
+@SokkuriInternalApi
+public object SokDictionaryEncoder {
 
     /**
      * Encodes [entries] into `.sok` bytes. Throws
      * [SokkuriException.InvalidFormat] on the first validation failure.
      */
-    internal fun encode(entries: List<Pair<String, List<String>>>): ByteArray {
+    public fun encode(entries: List<Pair<String, List<String>>>): ByteArray {
         val sorted = entries.sortedWith { a, b -> Utf.compareByCodePoint(a.first, b.first) }
 
         val encodedKeys = ArrayList<ByteArray>(sorted.size)

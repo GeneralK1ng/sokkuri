@@ -1,35 +1,32 @@
-@file:OptIn(com.generalk1ng.sokkuri.SokkuriInternalApi::class)
+@file:OptIn(SokkuriInternalApi::class)
 
 package com.generalk1ng.sokkuri
 
 import com.generalk1ng.sokkuri.engine.Utf
+import com.generalk1ng.sokkuri.resource.SokDictionaryEncoder
 import java.io.File
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.*
 
 /**
- * Dev-only regenerator/verifier for the pilot's derived dictionary
- * `STPhrases_GeneratedFromRegionalPhrases.txt`.
+ * Dev-only verifier for the packaged derived dictionary
+ * `dictionary/STPhrases_GeneratedFromRegionalPhrases.sok`.
  *
- * Upstream generates this file by converting the keys of `HKPhrases.txt`
- * and `TWPhrases.txt` through t2s (see OpenCC
+ * Upstream generates this lexicon by converting the keys of `HKPhrases.txt`
+ * and `TWPhrases.txt` through t2s (OpenCC
  * `data/scripts/generate_st_phrases_from_regional_phrases.py`). This test
- * reproduces that derivation by dogfooding Sokkuri's own T2S converter, so
- * the pilot needs no upstream build. tools:dictgen (milestone M1, step 3.4)
- * replaces this with the permanent Kotlin implementation.
+ * reproduces that derivation by dogfooding Sokkuri's own T2S converter and
+ * asserts the packaged `.sok` is **byte-identical** to a fresh encoding of
+ * it — guarding against a stale packaged artifact whenever the clone's
+ * regional phrase tables or the derivation chain change.
  *
- * Runs only when `OPENCC_DIR` points at a reference clone:
- * - generates the expected content in memory and asserts it is
- *   **byte-identical** to the committed resource (when present);
- * - when `SOKKURI_REGEN_DIR` is set, also writes the file there (used once
- *   to produce the committed copy; harmless to re-run — output is
- *   deterministic).
+ * `tools:dictgen` (milestone M1) is the permanent generator; this test is
+ * the runtime-side tripwire that its products are current. Runs only when
+ * `OPENCC_DIR` points at a reference clone.
  */
 class RegionalStPhrasesDerivationTest {
 
     @Test
-    fun derivedDictionaryMatchesUpstreamScriptSemantics() {
+    fun packagedDerivedDictionaryMatchesFreshDerivationByteForByte() {
         val openccDir = System.getenv("OPENCC_DIR") ?: return
         val t2s = Sokkuri.create(
             Config.T2S,
@@ -59,22 +56,25 @@ class RegionalStPhrasesDerivationTest {
 
         val entries = collisions.entries
             .sortedWith { a, b -> Utf.compareByCodePoint(a.key, b.key) }
-        val generated = buildString {
-            append(HEADER)
-            for ((key, originals) in entries) {
-                append(key).append('\t').append(originals[0]).append('\n')
-            }
-        }
+            .map { (converted, originals) -> converted to listOf(originals[0]) }
 
-        System.getenv("SOKKURI_REGEN_DIR")?.let { outDir ->
-            File(outDir, "STPhrases_GeneratedFromRegionalPhrases.txt")
-                .writeText(generated)
-        }
+        // The encoder is deterministic (m1-dictgen-sok DoD 4), so identical
+        // lexicons imply identical bytes; any drift in the derivation chain
+        // or the packaged artifact shows up as a byte mismatch.
+        val fresh = SokDictionaryEncoder.encode(entries)
+        val packaged = javaClass.classLoader
+            ?.getResourceAsStream("dictionary/STPhrases_GeneratedFromRegionalPhrases.sok")
+            ?.use { it.readBytes() }
+        assertNotNull(packaged, "packaged STPhrases_GeneratedFromRegionalPhrases.sok missing")
+        assertContentEquals(fresh, packaged)
 
-        val resource = javaClass.classLoader
-            ?.getResourceAsStream("dictionary/STPhrases_GeneratedFromRegionalPhrases.txt")
-        if (resource != null) {
-            assertEquals(generated, resource.readBytes().decodeToString())
+        // Decode-side smoke check: the packaged dictionary must answer every
+        // derived key with its original regional phrase as the candidate.
+        val decoded = com.generalk1ng.sokkuri.resource.SokDictionaryFormat.decode(packaged)
+        for ((converted, originals) in entries) {
+            val entry = decoded.matchExact(converted)
+            assertNotNull(entry, "packaged dictionary lost key '$converted'")
+            assertEquals(listOf(originals[0]), entry.candidates, "candidate drift for '$converted'")
         }
     }
 
@@ -86,23 +86,5 @@ class RegionalStPhrasesDerivationTest {
             count += 1
         }
         return count
-    }
-
-    private companion object {
-        // Byte-exact replica of the header emitted by upstream
-        // generate_st_phrases_from_regional_phrases.py (standalone variant).
-        // Note: the Format line contains a literal TAB, as upstream does.
-        val HEADER: String = """
-            # Open Chinese Convert (OpenCC) Dictionary
-            # File: STPhrases_GeneratedFromRegionalPhrases.txt
-            # Format: key	value(s) (values separated by spaces)
-            # License: Apache-2.0 (see LICENSE)
-            # Source: generated from HKPhrases.txt, TWPhrases.txt keys via t2s.json
-            # Used in configs: s2hkp.json, s2twp.json
-            #
-            # This generated ST phrase dictionary preserves Simplified-input spans
-            # before applying regional phrase vocabulary.
-
-        """.trimIndent() + "\n"
     }
 }

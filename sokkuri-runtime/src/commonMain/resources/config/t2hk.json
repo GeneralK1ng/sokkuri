@@ -1,5 +1,5 @@
 {
-  "name": "Traditional Chinese (OpenCC Standard) to Simplified Chinese",
+  "name": "Traditional Chinese (OpenCC Standard) to Traditional Chinese (Hong Kong variant)",
   "normalization": [
     {
       "dict": {
@@ -17,17 +17,12 @@
         "dicts": [
           {
             "type": "sok",
-            "file": "dictionary/TSPhrases.sok",
+            "file": "dictionary/HKVariantsPhrases.sok",
             "may_output_tofu": false
           },
           {
             "type": "sok",
-            "file": "dictionary/TSCharactersExt.sok",
-            "may_output_tofu": true
-          },
-          {
-            "type": "sok",
-            "file": "dictionary/TSCharacters.sok",
+            "file": "dictionary/HKVariants.sok",
             "may_output_tofu": false
           }
         ],

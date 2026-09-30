@@ -1,5 +1,5 @@
 {
-  "name": "Traditional Chinese (OpenCC Standard) to Simplified Chinese",
+  "name": "Traditional Chinese (Taiwan Standard) to Simplified Chinese",
   "normalization": [
     {
       "dict": {
@@ -9,7 +9,34 @@
       }
     }
   ],
+  "segmentation": {
+    "type": "mmseg",
+    "dict": {
+      "type": "sok",
+      "file": "dictionary/TSPhrases.sok",
+      "may_output_tofu": false
+    }
+  },
   "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "match_policy": "short_circuit",
+        "dicts": [
+          {
+            "type": "sok",
+            "file": "dictionary/TWVariantsRevPhrases.sok",
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TWVariantsRev.sok",
+            "may_output_tofu": false
+          }
+        ],
+        "may_output_tofu": false
+      }
+    },
     {
       "dict": {
         "type": "group",

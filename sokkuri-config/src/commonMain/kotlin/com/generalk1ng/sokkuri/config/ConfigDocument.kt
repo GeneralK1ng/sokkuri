@@ -79,6 +79,20 @@ public sealed class DictDocument {
         @SerialName("may_output_tofu") val mayOutputTofu: Boolean = false,
     ) : DictDocument()
 
+    /**
+     * The `.sok` binary format produced by `tools:dictgen` — the production
+     * dictionary type of this library, replacing OpenCC's `.ocd2` in the
+     * packaged configs. Decoded through the `sok` entry of the
+     * [com.generalk1ng.sokkuri.resource.DictionaryFormat] registry like any
+     * other file-backed type.
+     */
+    @Serializable
+    @SerialName("sok")
+    public data class Sok public constructor(
+        val file: String,
+        @SerialName("may_output_tofu") val mayOutputTofu: Boolean = false,
+    ) : DictDocument()
+
     @Serializable
     @SerialName("inline")
     public data class Inline public constructor(

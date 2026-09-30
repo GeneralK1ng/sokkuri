@@ -1,0 +1,70 @@
+{
+  "name": "Traditional Chinese (Taiwan Standard) to Simplified Chinese (Mainland China Phrases)",
+  "normalization": [
+    {
+      "dict": {
+        "type": "sok",
+        "file": "dictionary/CJK_Compatibility_Ideographs.sok",
+        "may_output_tofu": false
+      }
+    }
+  ],
+  "segmentation": {
+    "type": "mmseg",
+    "dict": {
+      "type": "sok",
+      "file": "dictionary/TSPhrases.sok",
+      "may_output_tofu": false
+    }
+  },
+  "conversion_chain": [
+    {
+      "dict": {
+        "type": "group",
+        "match_policy": "short_circuit",
+        "dicts": [
+          {
+            "type": "sok",
+            "file": "dictionary/TWPhrasesRev.sok",
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TWVariantsRevPhrases.sok",
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TWVariantsRev.sok",
+            "may_output_tofu": false
+          }
+        ],
+        "may_output_tofu": false
+      }
+    },
+    {
+      "dict": {
+        "type": "group",
+        "match_policy": "short_circuit",
+        "dicts": [
+          {
+            "type": "sok",
+            "file": "dictionary/TSPhrases.sok",
+            "may_output_tofu": false
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TSCharactersExt.sok",
+            "may_output_tofu": true
+          },
+          {
+            "type": "sok",
+            "file": "dictionary/TSCharacters.sok",
+            "may_output_tofu": false
+          }
+        ],
+        "may_output_tofu": false
+      }
+    }
+  ]
+}

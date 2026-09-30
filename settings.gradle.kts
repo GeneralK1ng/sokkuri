@@ -43,3 +43,7 @@ include(":sokkuri-api")
 include(":sokkuri-engine")
 include(":sokkuri-config")
 include(":sokkuri-resource")
+// Dictionary compiler: same-build module under tools/ (see the pinned note
+// above about why this is include() and not includeBuild). Not part of the
+// published family; JVM-only application.
+include(":tools:dictgen")
