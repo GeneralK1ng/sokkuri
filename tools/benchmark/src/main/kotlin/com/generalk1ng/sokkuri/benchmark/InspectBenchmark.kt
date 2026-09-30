@@ -27,6 +27,7 @@ internal object InspectBenchmark {
      */
     internal fun run(args: List<String>): Int {
         val profile = parseArgs(args) ?: run {
+            println("usage: inspect [--profile <stem>]")
             return 0
         }
 

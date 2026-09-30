@@ -65,6 +65,7 @@ Android 应用须在启动时调用一次 `Sokkuri.init(context)`，
 ./gradlew :sokkuri-runtime:iosSimulatorArm64Test   # iOS 测试（Apple Silicon 主机）
 ./gradlew :sokkuri-runtime:testAndroidHostTest     # Android 宿主单元测试（JVM）
 ./gradlew :tools:dictgen:checkDictionaries       # 词典产物 vs 上游源 漂移校验
+./gradlew :tools:benchmark:run --args="convert --profile all"   # 性能基线（convert/create/decode/inspect 四子命令，--help 自描述）
 ```
 
 ## 当前状态
