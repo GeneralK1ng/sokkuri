@@ -253,4 +253,43 @@ class ConfigParserTest {
         val dictionary: Dictionary = TextDictionaryFormat.decode("干\t幹 干 乾\n".encodeToByteArray())
         assertEquals(listOf("幹", "干", "乾"), dictionary.matchExact("干")!!.candidates)
     }
+
+    @Test
+    fun normalizationStagesAreReportedBeforeTheMainChain() {
+        val converter = parse(
+            """
+            {
+              "normalization": [ { "dict": { "type": "inline", "entries": { "a": "A" } } } ],
+              "segmentation": { "type": "mmseg", "dict": { "type": "inline", "entries": { "A": "A" } } },
+              "conversion_chain": [ { "dict": { "type": "inline", "entries": { "A": "X" } } } ]
+            }
+            """.trimIndent(),
+        )
+        assertEquals("X", converter.convert("a"))
+
+        val inspection = converter.inspect("a")
+        assertEquals(1, inspection.normalizationStages.size)
+        assertEquals(1, inspection.normalizationStages[0].index)
+        assertEquals(listOf("A"), inspection.normalizationStages[0].segments)
+        assertEquals(listOf("A"), inspection.segments)
+        assertEquals(1, inspection.stages.size)
+        assertEquals(1, inspection.stages[0].index)
+        assertEquals(listOf("X"), inspection.stages[0].segments)
+        assertEquals("X", inspection.output)
+    }
+
+    @Test
+    fun inlineDictionaryRejectsMayOutputTofu() {
+        val failure = assertFailsWith<SokkuriException.InvalidFormat> {
+            parse(
+                """
+                { "conversion_chain": [ { "dict": {
+                    "type": "inline", "may_output_tofu": true,
+                    "entries": { "a": "A" }
+                } } ] }
+                """.trimIndent(),
+            )
+        }
+        assertTrue(failure.message!!.contains("may_output_tofu"))
+    }
 }

@@ -38,6 +38,9 @@ sokkuri-runtime    聚合门面 + 打包词典（config/、*.sok）
   资源加载器（JVM 走 classpath，Android 走 assets 并需
   `Sokkuri.init(context)`，iOS 走 bundle），词典数据编译好后也落在这里。
 
+架构的完整约定（模块边界、依赖法则、扩展方式、上游偏离登记）见
+[docs/architecture.md](docs/architecture.md)。
+
 ## 内置配置与词典数据
 
 `Sokkuri.create` 读取打包资源中的 `config/<stem>.json`。注意这些是**生成

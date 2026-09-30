@@ -81,6 +81,9 @@ public sealed class DictDocument {
     @SerialName("inline")
     public data class Inline public constructor(
         val entries: Map<String, String>,
+        // Present only to reject it: OpenCC's LoadInlineDict errors when an
+        // inline dictionary carries may_output_tofu.
+        @SerialName("may_output_tofu") val mayOutputTofu: Boolean = false,
     ) : DictDocument()
 
     @Serializable

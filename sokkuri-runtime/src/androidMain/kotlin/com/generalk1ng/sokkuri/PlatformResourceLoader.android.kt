@@ -37,5 +37,10 @@ internal class AndroidResourceLoader internal constructor() : ResourceLoader {
     }
 }
 
+// Singleton so every Sokkuri.create shares one loader identity and therefore
+// one dictionary-cache scope (docs/architecture.md §4.3); the loader itself
+// is stateless and reads the static AndroidResourceContext.
+private val defaultLoader: ResourceLoader = AndroidResourceLoader()
+
 @OptIn(SokkuriInternalApi::class)
-internal actual fun defaultResourceLoader(): ResourceLoader = AndroidResourceLoader()
+internal actual fun defaultResourceLoader(): ResourceLoader = defaultLoader

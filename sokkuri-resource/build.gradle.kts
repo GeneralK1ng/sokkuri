@@ -31,5 +31,8 @@ kotlin {
             api(project(":sokkuri-engine"))
             api(project(":sokkuri-config"))
         }
+        commonTest.dependencies {
+            implementation(libs.kotlin.test)
+        }
     }
 }

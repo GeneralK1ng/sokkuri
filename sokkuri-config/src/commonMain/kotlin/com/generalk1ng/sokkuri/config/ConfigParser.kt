@@ -22,16 +22,22 @@ import kotlinx.serialization.decodeFromString
  * Semantics mirrored from the C++ implementation:
  *
  * - `normalization` stages form a pre-pass applied to the whole input
- *   before segmentation (`ConfigBasedConverter`);
+ *   before segmentation, assembled as a [Converter.Normalizing] wrapper
+ *   (upstream `ConfigBasedConverter`); an empty array degenerates to the
+ *   main converter alone (observationally identical, as an empty chain is
+ *   the identity conversion);
  * - `segmentation` must be of type `mmseg`; its dictionary is loaded with
  *   tofu-risk dictionaries *included* (OpenCC's `ParseSegmentation` passes
  *   `includeTofuRiskDictionaries = true`);
  * - each `conversion_chain` stage drops out when its dictionary is excluded
  *   by the tofu policy (`ParseConversion` returning null), and an empty
  *   chain degenerates to identity;
- * - groups honor `match_policy`, defaulting to `short_circuit`;
- * - `inline` dictionaries are single-candidate and validated for non-empty
- *   keys and values.
+ * - groups honor `match_policy`, defaulting to `short_circuit`, validated
+ *   before child filtering (an unknown policy is an error even for groups
+ *   whose children all filter out);
+ * - `inline` dictionaries are single-candidate, reject `may_output_tofu`
+ *   (upstream `LoadInlineDict`), and are validated for non-empty keys and
+ *   values.
  */
 @SokkuriInternalApi
 public class ConfigParser public constructor(
@@ -41,12 +47,17 @@ public class ConfigParser public constructor(
 
     public fun parse(configJson: String): Converter {
         val document = decode(configJson)
-        val normalization: ConversionChain? = document.normalization
-            .takeIf { it.isNotEmpty() }
-            ?.let { buildChain(it) }
-        val segmentation: Segmentation? = document.segmentation?.let { buildSegmentation(it) }
+        val segmentation: Segmentation? = document.segmentation?.let(::buildSegmentation)
         val chain: ConversionChain = buildChain(document.conversionChain)
-        return Converter(normalization, segmentation, chain)
+        val main = Converter.SingleStage(segmentation, chain)
+        val normalization: Converter? = document.normalization
+            .takeIf { it.isNotEmpty() }
+            ?.let { Converter.SingleStage(segmentation = null, chain = buildChain(it)) }
+        return if (normalization != null) {
+            Converter.Normalizing(normalization, main)
+        } else {
+            main
+        }
     }
 
     private fun decode(configJson: String): ConfigDocument {
@@ -102,6 +113,11 @@ public class ConfigParser public constructor(
     }
 
     private fun buildInline(document: DictDocument.Inline): Dictionary {
+        if (document.mayOutputTofu) {
+            throw SokkuriException.InvalidFormat(
+                "inline dictionary does not support may_output_tofu",
+            )
+        }
         val pairs = document.entries.entries.map { (key, value) ->
             if (key.isEmpty() || value.isEmpty()) {
                 throw SokkuriException.InvalidConfig("inline dictionary entries must be non-empty")
