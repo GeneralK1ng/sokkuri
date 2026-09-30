@@ -57,4 +57,35 @@ internal object Timing {
             p90Us = rank(0.90) / 1_000.0,
         )
     }
+
+    /**
+     * Median wall-clock of [runs] executions of [action], in milliseconds.
+     * For one-shot operations (dictionary decode, assembly) where per-op
+     * sampling makes no sense; each run is a fresh call, nothing is warm.
+     */
+    internal fun medianMillis(runs: Int, action: () -> Unit): Long {
+        val samples = (1..runs).map {
+            val start = System.nanoTime()
+            action()
+            (System.nanoTime() - start) / 1_000_000
+        }.sorted()
+        return samples[runs / 2]
+    }
+
+    /**
+     * Best-effort retained-heap estimate around [action], in KiB: a
+     * GC-prompted baseline, the action, then a second GC before reading
+     * the delta. The produced instance is referenced until after the
+     * second GC so it cannot be collected before measurement.
+     */
+    internal fun retainedHeapKiB(action: () -> Any): Long {
+        val runtime = Runtime.getRuntime()
+        System.gc()
+        val before = runtime.totalMemory() - runtime.freeMemory()
+        val kept = action()
+        System.gc()
+        val after = runtime.totalMemory() - runtime.freeMemory()
+        kept.hashCode() // keep strongly live until after the second GC
+        return (after - before) / 1024
+    }
 }

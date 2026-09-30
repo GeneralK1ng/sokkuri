@@ -36,8 +36,6 @@ class BenchmarkCliTest {
 
     @Test
     fun knownSubcommandsExitOneWithStepPointerUntilTheirStepLands() {
-        assertEquals(1, run(BenchmarkOptions("create", emptyList())))
-        assertEquals(1, run(BenchmarkOptions("decode", emptyList())))
         assertEquals(1, run(BenchmarkOptions("inspect", emptyList())))
     }
 

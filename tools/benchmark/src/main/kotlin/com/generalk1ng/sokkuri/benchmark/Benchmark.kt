@@ -52,8 +52,8 @@ internal fun run(options: BenchmarkOptions): Int {
     }
     return when (subcommand) {
         "convert" -> ConvertBenchmark.run(options.args)
-        "create" -> notImplemented("create", step = 2)
-        "decode" -> notImplemented("decode", step = 2)
+        "create" -> CreateBenchmark.run(options.args)
+        "decode" -> DecodeBenchmark.run(options.args)
         "inspect" -> notImplemented("inspect", step = 3)
         else -> throw BenchmarkException("unknown subcommand: '$subcommand' (see --help)")
     }
