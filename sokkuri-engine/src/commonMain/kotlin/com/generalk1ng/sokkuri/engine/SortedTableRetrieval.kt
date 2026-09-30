@@ -43,6 +43,14 @@ public interface SortedKeyTable {
 
     /** Default candidate (first) of the entry at [index]. Materializing by design: only called on an actual match. */
     public fun defaultValueAt(index: Int): String
+
+    /**
+     * Appends the default candidate of the entry at [index] to [out] — the
+     * zero-materialization form of [defaultValueAt] (m3-string-view.md
+     * §3.4): byte-backed tables decode straight into the output buffer
+     * instead of producing an intermediate string.
+     */
+    public fun appendDefaultValueAt(index: Int, out: StringBuilder)
 }
 
 /**
@@ -72,16 +80,23 @@ public class SortedTableRetrieval private constructor(
     /** Longest key length in UTF-16 code units (invariant I1). */
     public val maxKeyLength: Int get() = table.maxKeyLength
 
-    private val firstCodePoints: Set<Int> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        buildSet {
-            for (index in 0 until table.entryCount) {
-                add(table.keyFirstCodePointAt(index))
-            }
-        }
+    /**
+     * Distinct first code points, sorted — a plain IntArray so hot-path
+     * membership checks binary-search without boxing (the previous
+     * `Set<Int>` allocated a boxed Integer per lookup on the JVM, once per
+     * scanned position). Built once per dictionary; contents identical to
+     * the distinct key set.
+     */
+    private val sortedFirstCodePoints: IntArray by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        (0 until table.entryCount)
+            .map { table.keyFirstCodePointAt(it) }
+            .distinct()
+            .sorted()
+            .toIntArray()
     }
 
     /** Whether [codePoint] begins any key of the table. */
-    public fun mayStartKey(codePoint: Int): Boolean = codePoint in firstCodePoints
+    public fun mayStartKey(codePoint: Int): Boolean = sortedFirstCodePoints.binarySearch(codePoint) >= 0
 
     /**
      * Index of [key] in the table, or `-1` when absent. Binary search by
@@ -103,12 +118,40 @@ public class SortedTableRetrieval private constructor(
      * or `null`. [PrefixMatch.length] is in UTF-16 code units.
      */
     public fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch? {
-        if (start >= end) return null
+        val found = findLongestPrefixIndex(text, start, end)
+        if (found < 0L) return null
+        return PrefixMatch(length = found.toInt(), value = table.defaultValueAt((found ushr 32).toInt()))
+    }
+
+    /**
+     * The sink form of [matchPrefix] (m3-string-view.md §3.4): appends the
+     * winning entry's default candidate straight to [out] and returns the
+     * matched length in UTF-16 code units, or `-1` when nothing matches.
+     * The scan and winner selection are byte-identical to [matchPrefix] —
+     * both funnel through [findLongestPrefixIndex] — so the two can never
+     * diverge; only the value's exit path differs (materialized vs written).
+     */
+    public fun matchAppend(text: CharArray, start: Int, end: Int, out: StringBuilder): Int {
+        val found = findLongestPrefixIndex(text, start, end)
+        if (found < 0L) return -1
+        table.appendDefaultValueAt((found ushr 32).toInt(), out)
+        return found.toInt()
+    }
+
+    /**
+     * Shared longest-prefix scan: first-code-point lower bound, then the
+     * in-group prefix scan. Returns the winning `(entryIndex, keyLength)`
+     * packed into a Long (high 32 bits index, low 32 bits length), or `-1`
+     * when no key prefixes the window.
+     */
+    private fun findLongestPrefixIndex(text: CharArray, start: Int, end: Int): Long {
+        if (start >= end) return -1L
         val first = Utf.codePointAt(text, start, end)
-        if (first !in firstCodePoints) return null
+        if (!mayStartKey(first)) return -1L
 
         var index = lowerBoundByFirstCodePoint(first)
-        var best: PrefixMatch? = null
+        var bestIndex = -1
+        var bestLength = -1
         val maxEnd = minOf(end, start + maxKeyLength)
         while (index < table.entryCount) {
             // Keys are code-point ordered: once the first code point
@@ -119,13 +162,14 @@ public class SortedTableRetrieval private constructor(
             // hits — group entries pay one fused scan, not two.
             if (table.keyPrefixesWindowAt(index, text, start, maxEnd)) {
                 val keyLength = table.keyUtf16LengthAt(index)
-                if (best == null || keyLength > best.length) {
-                    best = PrefixMatch(keyLength, table.defaultValueAt(index))
+                if (keyLength > bestLength) {
+                    bestIndex = index
+                    bestLength = keyLength
                 }
             }
             index += 1
         }
-        return best
+        return if (bestIndex < 0) -1L else (bestIndex.toLong() shl 32) or bestLength.toLong()
     }
 
     /**

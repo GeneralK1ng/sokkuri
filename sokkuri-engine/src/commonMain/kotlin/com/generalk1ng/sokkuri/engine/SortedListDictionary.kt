@@ -52,6 +52,10 @@ public class SortedListDictionary private constructor(
             Utf.startsWithAt(text, start, end, entries[index].key)
 
         override fun defaultValueAt(index: Int): String = entries[index].candidates.first()
+
+        override fun appendDefaultValueAt(index: Int, out: StringBuilder) {
+            out.append(entries[index].candidates.first())
+        }
     }
 
     override val maxKeyLength: Int get() = retrieval.maxKeyLength

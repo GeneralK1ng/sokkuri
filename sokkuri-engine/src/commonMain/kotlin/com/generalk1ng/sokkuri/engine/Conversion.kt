@@ -28,10 +28,12 @@ public class Conversion public constructor(
     ) {
         var i = start
         while (i < end) {
-            val match = dict.matchPrefix(chars, i, end)
-            if (match != null) {
-                out.append(match.value)
-                i += match.length
+            // Sink form of the prefix match (m3 §3.4): the winning value
+            // goes straight into `out`, no intermediate string on backends
+            // that override Dictionary.matchAppend (the .sok blob path).
+            val matchedLength = dict.matchAppend(chars, i, end, out)
+            if (matchedLength >= 0) {
+                i += matchedLength
                 continue
             }
 

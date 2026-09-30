@@ -79,7 +79,22 @@ public class SokDictionary internal constructor(
         }
 
         override fun defaultValueAt(index: Int): String = this@SokDictionary.defaultValueAt(index)
+
+        override fun appendDefaultValueAt(index: Int, out: StringBuilder) {
+            val cursor = valueCursor(index)
+            val length = SokFormatLayout.readU16(bytes, cursor)
+            Utf8.decodeAppend(
+                bytes,
+                cursor + SokFormatLayout.CANDIDATE_HEADER_BYTES,
+                length,
+                out,
+            )
+        }
     }
+
+    /** Cursor of the first candidate of the entry at [index]: a u16 byte length at [cursor], UTF-8 payload after it. */
+    private fun valueCursor(index: Int): Int =
+        valueBlobBase + SokFormatLayout.readU32(bytes, valueOffsetsBase + index * 4).toInt()
 
     /** Byte range `[start, end)` of the key at [index] inside [bytes]. */
     private fun keyStart(index: Int): Int =
@@ -94,6 +109,9 @@ public class SokDictionary internal constructor(
     override fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch? =
         retrieval.matchPrefix(text, start, end)
 
+    override fun matchAppend(text: CharArray, start: Int, end: Int, out: StringBuilder): Int =
+        retrieval.matchAppend(text, start, end, out)
+
     override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
     private fun keyAt(index: Int): String {
@@ -107,8 +125,7 @@ public class SokDictionary internal constructor(
     }
 
     private fun defaultValueAt(index: Int): String {
-        val cursor = valueBlobBase +
-            SokFormatLayout.readU32(bytes, valueOffsetsBase + index * 4).toInt()
+        val cursor = valueCursor(index)
         val length = SokFormatLayout.readU16(bytes, cursor)
         return bytes.decodeToString(cursor + SokFormatLayout.CANDIDATE_HEADER_BYTES, cursor + SokFormatLayout.CANDIDATE_HEADER_BYTES + length)
     }
