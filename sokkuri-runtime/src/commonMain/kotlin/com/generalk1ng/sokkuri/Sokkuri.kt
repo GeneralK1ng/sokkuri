@@ -15,6 +15,7 @@ import com.generalk1ng.sokkuri.resource.ResourceDictionaryProvider
  * sokkuri.convert("鼠标里面的硅二极管坏了") // "滑鼠裡面的矽二極體壞了"
  * ```
  */
+@OptIn(SokkuriInternalApi::class)
 public class Sokkuri private constructor(
     /** The built-in profile this instance was created from. */
     public val config: Config,

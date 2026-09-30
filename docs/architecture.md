@@ -44,7 +44,9 @@ sokkuri-runtime    聚合门面 + 平台资源加载器 actual + 打包词典数
             │               ConversionChain、Segmentation、Converter
             └── sokkuri-api   稳定公开面:Config、Options、Inspection、
                               异常体系、@SokkuriInternalApi
-tools:dictgen(未来)  词典编译器;同构建的普通模块,非发布产物
+tools:dictgen(未来)  词典编译器;同构建的普通模块,非发布产物。
+                  落地任务拆解见 milestones/m1-dictgen-sok.md(.sok 格式
+                  字节级规范以该文档为唯一事实源)。
 ```
 
 ### 2.2 模块职责与允许依赖

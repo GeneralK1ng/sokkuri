@@ -28,8 +28,8 @@ public class MaxMatchSegmentation public constructor(
         while (i < end) {
             val match = dict.matchPrefix(chars, i, end)
             if (match != null) {
-                if (runStart < i) segments.add(runStart..i - 1)
-                segments.add(i..i + match.length - 1)
+                if (runStart < i) segments.add(runStart..<i)
+                segments.add(i..<i + match.length)
                 i += match.length
                 runStart = i
                 continue
@@ -46,7 +46,7 @@ public class MaxMatchSegmentation public constructor(
             }
             i = j
         }
-        if (runStart < end) segments.add(runStart..end - 1)
+        if (runStart < end) segments.add(runStart..<end)
         return segments
     }
 }

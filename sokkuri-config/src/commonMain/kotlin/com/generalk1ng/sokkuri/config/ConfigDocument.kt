@@ -1,6 +1,7 @@
 package com.generalk1ng.sokkuri.config
 
 import com.generalk1ng.sokkuri.SokkuriInternalApi
+import kotlinx.serialization.ExperimentalSerializationApi
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -13,9 +14,9 @@ import kotlinx.serialization.json.JsonClassDiscriminator
  * ```json
  * {
  *   "name": "...",
- *   "normalization": [ { "dict": { ... } } ],
- *   "segmentation":  { "type": "mmseg", "dict": { ... } },
- *   "conversion_chain": [ { "dict": { ... } } ]
+ *   "normalization": [ { "dict": {  } } ],
+ *   "segmentation":  { "type": "mmseg", "dict": {  } },
+ *   "conversion_chain": [ { "dict": {  } } ]
  * }
  * ```
  *
@@ -51,6 +52,7 @@ public data class SegmentationDocument(
  * The `dict` node. File-backed dictionaries carry an optional
  * `may_output_tofu` flag (excluded unless requested via [com.generalk1ng.sokkuri.Options]).
  */
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 @JsonClassDiscriminator("type")
 @SokkuriInternalApi

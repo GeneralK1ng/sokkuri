@@ -13,7 +13,6 @@ import com.generalk1ng.sokkuri.engine.MaxMatchSegmentation
 import com.generalk1ng.sokkuri.engine.Segmentation
 import com.generalk1ng.sokkuri.engine.SortedListDictionary
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.decodeFromString
 
 /**
  * Builds an immutable engine [Converter] from an OpenCC configuration JSON

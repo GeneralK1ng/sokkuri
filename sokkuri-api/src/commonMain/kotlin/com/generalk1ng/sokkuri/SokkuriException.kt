@@ -7,7 +7,7 @@ package com.generalk1ng.sokkuri
  * (`FileNotFound` / `InvalidFormat` / `InvalidFormat` for configs),
  * so behavior stays diagnosable for users coming from other OpenCC ports.
  */
-public sealed class SokkuriException protected constructor(
+public sealed class SokkuriException(
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause) {

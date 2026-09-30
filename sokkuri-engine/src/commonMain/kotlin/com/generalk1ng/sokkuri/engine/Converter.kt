@@ -13,7 +13,6 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  * exclusively by the config layer ([com.generalk1ng.sokkuri.config.ConfigParser]),
  * never by consumers.
  *
- * @see com.generalk1ng.sokkuri.Sokkuri
  */
 @SokkuriInternalApi
 public sealed interface Converter {

@@ -59,7 +59,7 @@ public class DictGroup public constructor(
                 var best: PrefixMatch? = null
                 for (child in children) {
                     val hit = child.matchPrefix(text, start, end)
-                    if (hit != null && (best == null || hit.length > best!!.length)) {
+                    if (hit != null && (best == null || hit.length > best.length)) {
                         best = hit
                     }
                 }

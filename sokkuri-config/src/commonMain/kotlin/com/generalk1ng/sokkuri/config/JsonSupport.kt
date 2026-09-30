@@ -2,7 +2,6 @@ package com.generalk1ng.sokkuri.config
 
 import com.generalk1ng.sokkuri.SokkuriInternalApi
 
-import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 
 /**
@@ -17,7 +16,6 @@ import kotlinx.serialization.json.Json
  * Deliberately *not* `isLenient`: Sokkuri must not accept malformed configs
  * that upstream OpenCC rejects.
  */
-@OptIn(ExperimentalSerializationApi::class)
 @SokkuriInternalApi
 public object JsonSupport {
 

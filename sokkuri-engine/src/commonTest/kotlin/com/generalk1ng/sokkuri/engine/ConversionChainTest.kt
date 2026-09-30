@@ -1,9 +1,6 @@
 @file:OptIn(com.generalk1ng.sokkuri.SokkuriInternalApi::class)
 package com.generalk1ng.sokkuri.engine
 
-import com.generalk1ng.sokkuri.engine.Conversion
-import com.generalk1ng.sokkuri.engine.ConversionChain
-import com.generalk1ng.sokkuri.engine.SortedListDictionary
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
