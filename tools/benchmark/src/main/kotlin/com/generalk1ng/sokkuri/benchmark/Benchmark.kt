@@ -51,7 +51,7 @@ internal fun run(options: BenchmarkOptions): Int {
         return 0
     }
     return when (subcommand) {
-        "convert" -> notImplemented("convert", step = 1)
+        "convert" -> ConvertBenchmark.run(options.args)
         "create" -> notImplemented("create", step = 2)
         "decode" -> notImplemented("decode", step = 2)
         "inspect" -> notImplemented("inspect", step = 3)
