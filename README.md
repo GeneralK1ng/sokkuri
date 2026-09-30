@@ -1,0 +1,72 @@
+# Sokkuri
+
+Sokkuri（すっきり / 晰）是 [OpenCC](https://github.com/BYVoid/OpenCC)（开放中文转换）的
+Kotlin Multiplatform 移植，目标平台为 JVM、Android 与 iOS。行为对齐 OpenCC 的 C++
+核心：相同的转换管线（归一化 → 可选 mmseg 分词 → 转换链）、相同的词典语义
+（最长前缀匹配、`short_circuit` / `union` 组策略）、相同的 IDS
+（表意文字描述序列）处理——并额外暴露分级转换结果（`inspect`），
+这是 OpenCC 本身没有的能力。
+
+## 模块结构
+
+一个家族五个 Gradle 模块，统一发布在 `com.generalk1ng.sokkuri` 坐标下。
+依赖方向严格向下，下层绝不依赖上层。
+
+```
+sokkuri-runtime    聚合门面 + 打包词典（config/、*.sok）
+└── sokkuri-resource  资源加载接口 + 词典格式注册
+    └── sokkuri-config  JSONC 配置解析（OpenCC data/config 模式）
+        └── sokkuri-engine  纯转换引擎：UTF/IDS、词典、
+            │              词典组、转换链、mmseg 分词
+            └── sokkuri-api  公开 API：Config 预设配置、Options、
+                           Inspection、异常体系、SokkuriInternalApi
+```
+
+- **sokkuri-api** —— 应用开发者需要的全部内容：`Config`（OpenCC 内置的
+  16 种配置档）、`Options`、`Inspection`、异常体系，以及
+  `@SokkuriInternalApi` 标记（ opting-in 后才可见，避免下层 API 混进日常补全）。
+- **sokkuri-engine** —— OpenCC 算法移植，无 IO 的纯 Kotlin：
+  码点序、有序数组词典（等价 `TextDict`）、组策略、带 IDS 原子性的
+  最长前缀转换、mmseg 最大正向分词、分阶段转换器。
+- **sokkuri-config** —— OpenCC `data/config/*.json` 文档的宽松
+  （JSONC）解析器，包含 tofu 风险词典过滤与 match-policy 校验，
+  通过 `DictionaryProvider` 接口落地词典加载。
+- **sokkuri-resource** —— 唯一感知 IO 的层：`ResourceLoader` 接口、
+  文本词典解码器、未来的 `.sok` 二进制格式注册表，以及带锁带缓存的
+  `ResourceDictionaryProvider`（等价 OpenCC 的 `DictCache`）。
+- **sokkuri-runtime** —— 消费者唯一需要依赖的聚合模块。承载平台默认
+  资源加载器（JVM 走 classpath，Android 走 assets 并需
+  `Sokkuri.init(context)`，iOS 走 bundle），词典数据编译好后也落在这里。
+
+## 内置配置与词典数据
+
+`Sokkuri.create` 读取打包资源中的 `config/<stem>.json`。注意这些是**生成
+产物**：由未来的 `tools/dictgen` 构建工具将 OpenCC 上游配置重写为引用
+`.sok` 词典，并非上游原文。因此存在一个隐式契约——`Config` 枚举的每个
+stem 在打包资源中都有对应的 `config/<stem>.json`；dictgen 落地后由构建
+保证这一点。
+
+## 使用
+
+```kotlin
+val converter = Sokkuri.create(Config.S2TWP)          // 简 → 台（含在地词）
+val output = converter.convert("鼠标里面的硅二极管坏了")
+val inspection = converter.inspect(input)             // 逐级分段结果
+```
+
+Android 应用须在启动时调用一次 `Sokkuri.init(context)`，
+以便定位打包在 assets 中的词典。
+
+## 构建与测试
+
+```bash
+./gradlew build                              # 全平台构建
+./gradlew :sokkuri-runtime:jvmTest           # JVM 测试
+./gradlew :sokkuri-runtime:iosSimulatorArm64Test   # iOS 测试（Apple Silicon 主机）
+```
+
+## 当前状态
+
+骨架阶段：管线架构与测试套件已就位，JVM / Android（宿主测试）/ iOS
+全平台绿灯，但 OpenCC 词典尚未生成进聚合模块——这是下一个里程碑
+（参考克隆见 `OpenCC/`，已 gitignore）。
