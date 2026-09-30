@@ -47,3 +47,7 @@ include(":sokkuri-resource")
 // above about why this is include() and not includeBuild). Not part of the
 // published family; JVM-only application.
 include(":tools:dictgen")
+// Benchmark harness: same-build module under tools/ (it must depend on this
+// build's :sokkuri-runtime/:sokkuri-resource). Not published; JVM-only
+// application, deliberately not wired into check (m2-benchmark.md §2.1).
+include(":tools:benchmark")

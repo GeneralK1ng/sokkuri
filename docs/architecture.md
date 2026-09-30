@@ -51,18 +51,24 @@ tools:dictgen(已实现,M1)  词典编译器;同构建的普通模块,非发布�
                   checkDictionaries` 做漂移校验(确定性,DoD 4)。落地过程
                   见 milestones/m1-dictgen-sok.md(.sok 格式字节级规范以该
                   文档为唯一事实源)。
+tools:benchmark(M2)  基准工具;同构建的普通模块,非发布产物。转换吞吐、
+                  装配延迟、词典解码、inspect 开销的测量,只走消费视角
+                  (runtime/resource 白名单依赖,禁 engine/config),不挂
+                  check。子命令与输出格式见 milestones/m2-benchmark.md
+                  (§3 为唯一事实源)。
 ```
 
 ### 2.2 模块职责与允许依赖
 
-| 模块 | 职责 | 允许依赖 | 禁止 |
-|---|---|---|---|
-| `sokkuri-api` | 消费者需要知道的全部类型 | 无 | IO、平台 API、internal 原语(本平台原语已于骨架期移出) |
-| `sokkuri-engine` | 转换算法,无 IO 纯 Kotlin | `sokkuri-api`(api) | IO、序列化库、平台 API |
-| `sokkuri-config` | 配置文档模型与组装语义 | api、engine(均为 api——签名泄漏)、kotlinx-serialization | IO(经 `DictionaryProvider` / `SegmentationProvider` 出界) |
-| `sokkuri-resource` | 字节加载、格式解码、缓存 | api、engine、config(均为 api) | 转换语义(不理解 config 文档结构) |
-| `sokkuri-runtime` | `Sokkuri` 门面、平台 loader | api(api)、其余(implementation) | 转换/解析逻辑(只组装) |
-| `tools:dictgen` | 上游数据 → `.sok` + 重写配置 | 依赖主构建模块(必须是同构建普通模块) | 发布、持有独立格式实现 |
+| 模块               | 职责                                   | 允许依赖                                               | 禁止                                                      |
+|--------------------|----------------------------------------|--------------------------------------------------------|-----------------------------------------------------------|
+| `sokkuri-api`      | 消费者需要知道的全部类型               | 无                                                     | IO、平台 API、internal 原语(本平台原语已于骨架期移出)     |
+| `sokkuri-engine`   | 转换算法,无 IO 纯 Kotlin               | `sokkuri-api`(api)                                     | IO、序列化库、平台 API                                    |
+| `sokkuri-config`   | 配置文档模型与组装语义                 | api、engine(均为 api——签名泄漏)、kotlinx-serialization | IO(经 `DictionaryProvider` / `SegmentationProvider` 出界) |
+| `sokkuri-resource` | 字节加载、格式解码、缓存               | api、engine、config(均为 api)                          | 转换语义(不理解 config 文档结构)                          |
+| `sokkuri-runtime`  | `Sokkuri` 门面、平台 loader            | api(api)、其余(implementation)                         | 转换/解析逻辑(只组装)                                     |
+| `tools:dictgen`    | 上游数据 → `.sok` + 重写配置           | 依赖主构建模块(必须是同构建普通模块)                   | 发布、持有独立格式实现                                    |
+| `tools:benchmark`  | 性能测量:公开路径端到端 + 格式解码对照 | runtime、resource(白名单)                              | 发布、依赖 engine/config、测量进 check                    |
 
 ### 2.3 法则(可引用编号)
 
