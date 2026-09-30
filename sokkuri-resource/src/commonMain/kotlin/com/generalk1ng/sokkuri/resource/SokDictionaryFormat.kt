@@ -2,10 +2,7 @@ package com.generalk1ng.sokkuri.resource
 
 import com.generalk1ng.sokkuri.SokkuriException
 import com.generalk1ng.sokkuri.SokkuriInternalApi
-import com.generalk1ng.sokkuri.engine.Dictionary
-import com.generalk1ng.sokkuri.engine.DictionaryEntry
-import com.generalk1ng.sokkuri.engine.PrefixMatch
-import com.generalk1ng.sokkuri.engine.SortedTableRetrieval
+import com.generalk1ng.sokkuri.engine.*
 
 /**
  * Decoder for the `.sok` binary dictionary format, the production
@@ -44,12 +41,52 @@ public class SokDictionary internal constructor(
     private val valueBlobBase: Int,
 ) : Dictionary {
 
-    private val retrieval = SortedTableRetrieval(
-        entryCount = entryCount,
-        maxKeyLength = maxKeyLength,
-        keyAt = { keyAt(it) },
-        defaultValueAt = { defaultValueAt(it) },
-    )
+    private val retrieval = SortedTableRetrieval.over(BlobTable())
+
+    /**
+     * [SortedKeyTable] over this dictionary's byte blobs: probes read the
+     * offset table and compare raw UTF-8 regions against input windows
+     * ([Utf8]), so the binary-search and group-scan hot paths decode
+     * nothing — m3-string-view.md §3.1's probe elimination. No decoded-key
+     * caching anywhere (zero-copy invariant): every access recomputes from
+     * the immutable `bytes`, keeping the dictionary thread-safe (I3) at
+     * raw-file memory.
+     */
+    private inner class BlobTable : SortedKeyTable {
+
+        override val entryCount: Int get() = this@SokDictionary.entryCount
+
+        override val maxKeyLength: Int get() = this@SokDictionary.maxKeyLength
+
+        override fun keyFirstCodePointAt(index: Int): Int {
+            val start = keyStart(index)
+            return Utf8.firstCodePointAt(bytes, start, keyEnd(index) - start)
+        }
+
+        override fun keyUtf16LengthAt(index: Int): Int {
+            val start = keyStart(index)
+            return Utf8.utf16LengthOf(bytes, start, keyEnd(index) - start)
+        }
+
+        override fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int {
+            val keyOffset = keyStart(index)
+            return Utf8.compareRegionToWindow(bytes, keyOffset, keyEnd(index) - keyOffset, text, start, end)
+        }
+
+        override fun keyPrefixesWindowAt(index: Int, text: CharArray, start: Int, end: Int): Boolean {
+            val keyOffset = keyStart(index)
+            return Utf8.startsWithRegionAt(bytes, keyOffset, keyEnd(index) - keyOffset, text, start, end)
+        }
+
+        override fun defaultValueAt(index: Int): String = this@SokDictionary.defaultValueAt(index)
+    }
+
+    /** Byte range `[start, end)` of the key at [index] inside [bytes]. */
+    private fun keyStart(index: Int): Int =
+        keyBlobBase + SokFormatLayout.readU32(bytes, keyOffsetsBase + index * 4).toInt()
+
+    private fun keyEnd(index: Int): Int =
+        keyBlobBase + SokFormatLayout.readU32(bytes, keyOffsetsBase + (index + 1) * 4).toInt()
 
     override fun matchExact(key: String): DictionaryEntry? =
         retrieval.indexOf(key).let { if (it < 0) null else entryAt(it) }

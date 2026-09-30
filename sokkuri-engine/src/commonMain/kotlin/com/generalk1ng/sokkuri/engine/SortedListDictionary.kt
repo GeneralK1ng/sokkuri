@@ -1,8 +1,7 @@
 package com.generalk1ng.sokkuri.engine
 
-import com.generalk1ng.sokkuri.SokkuriInternalApi
-
 import com.generalk1ng.sokkuri.SokkuriException
+import com.generalk1ng.sokkuri.SokkuriInternalApi
 
 /**
  * A dictionary backed by a key-sorted array with binary search — the port of
@@ -32,12 +31,28 @@ public class SortedListDictionary private constructor(
         override val candidates: List<String>,
     ) : DictionaryEntry
 
-    private val retrieval = SortedTableRetrieval(
-        entryCount = entries.size,
-        maxKeyLength = entries.maxOfOrNull { it.key.length } ?: 0,
-        keyAt = { entries[it].key },
-        defaultValueAt = { entries[it].candidates.first() },
-    )
+    private val retrieval = SortedTableRetrieval.over(EntryTable(entries))
+
+    private class EntryTable(
+        private val entries: Array<Entry>,
+    ) : SortedKeyTable {
+
+        override val entryCount: Int get() = entries.size
+
+        override val maxKeyLength: Int = entries.maxOfOrNull { it.key.length } ?: 0
+
+        override fun keyFirstCodePointAt(index: Int): Int = Utf.codePointAt(entries[index].key, 0)
+
+        override fun keyUtf16LengthAt(index: Int): Int = entries[index].key.length
+
+        override fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int =
+            Utf.compareByCodePoint(entries[index].key, text, start, end)
+
+        override fun keyPrefixesWindowAt(index: Int, text: CharArray, start: Int, end: Int): Boolean =
+            Utf.startsWithAt(text, start, end, entries[index].key)
+
+        override fun defaultValueAt(index: Int): String = entries[index].candidates.first()
+    }
 
     override val maxKeyLength: Int get() = retrieval.maxKeyLength
 

@@ -169,6 +169,27 @@ public object Utf {
         return (a.length - i) - (b.length - j)
     }
 
+    /**
+     * Compares [text] against the `chars[start, end)` window by code-point
+     * order — the mixed String/CharArray form of [compareByCodePoint], added
+     * for storage-agnostic key tables (m3-string-view.md §3.3) so the String
+     * backend of [SortedTableRetrieval] compares without materializing the
+     * window. Semantics: identical to
+     * `compareByCodePoint(text, window-as-String)`, sign included.
+     */
+    public fun compareByCodePoint(text: String, chars: CharArray, start: Int, end: Int): Int {
+        var i = 0
+        var j = start
+        while (i < text.length && j < end) {
+            val ct = codePointAt(text, i)
+            val cw = codePointAt(chars, j, end)
+            if (ct != cw) return ct - cw
+            i += charCount(ct)
+            j += charCount(cw)
+        }
+        return (text.length - i) - (end - j)
+    }
+
     /** Whether [text] starts with [prefix] at [start] (code-unit comparison). */
     public fun startsWithAt(text: CharArray, start: Int, end: Int, prefix: String): Boolean {
         if (end - start < prefix.length) return false
