@@ -9,6 +9,10 @@ import com.generalk1ng.sokkuri.SokkuriException
  * OpenCC's `TextDict`. Used for `inline` config dictionaries and as the
  * reference implementation for validating the production binary format.
  *
+ * Retrieval is delegated to [SortedTableRetrieval], the shared sorted-table
+ * algorithm also used by the `.sok` binary dictionary, so the two backends
+ * cannot drift (docs/milestones/m1-dictgen-sok.md §3.3).
+ *
  * Entries must have unique keys; they are sorted by code-point order
  * ([Utf.compareByCodePoint]) when unsorted input is given.
  */
@@ -28,68 +32,24 @@ public class SortedListDictionary private constructor(
         override val candidates: List<String>,
     ) : DictionaryEntry
 
-    override val maxKeyLength: Int = entries.maxOfOrNull { it.key.length } ?: 0
+    private val retrieval = SortedTableRetrieval(
+        entryCount = entries.size,
+        maxKeyLength = entries.maxOfOrNull { it.key.length } ?: 0,
+        keyAt = { entries[it].key },
+        defaultValueAt = { entries[it].candidates.first() },
+    )
 
-    private val firstCodePoints: Set<Int> by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        entries.mapTo(HashSet()) { Utf.codePointAt(it.key, 0) }
-    }
+    override val maxKeyLength: Int get() = retrieval.maxKeyLength
 
-    override fun matchExact(key: String): DictionaryEntry? {
-        val index = lowerBound(key)
-        return if (index < entries.size && Utf.compareByCodePoint(entries[index].key, key) == 0) {
-            entries[index]
-        } else {
-            null
-        }
-    }
+    override fun matchExact(key: String): DictionaryEntry? =
+        retrieval.indexOf(key).let { if (it < 0) null else entries[it] }
 
-    override fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch? {
-        if (start >= end) return null
-        val first = Utf.codePointAt(text, start, end)
-        if (first !in firstCodePoints) return null
+    override fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch? =
+        retrieval.matchPrefix(text, start, end)
 
-        val probe = singleCodePointString(first)
-        var index = lowerBound(probe)
-        var best: PrefixMatch? = null
-        val maxEnd = minOf(end, start + maxKeyLength)
-        while (index < entries.size) {
-            val key = entries[index].key
-            // Keys are code-point ordered: once the first code point diverges,
-            // no further entry can prefix this text.
-            if (Utf.codePointAt(key, 0) != first) break
-            if (key.length <= maxEnd - start && Utf.startsWithAt(text, start, maxEnd, key)) {
-                if (best == null || key.length > best.length) {
-                    best = PrefixMatch(key.length, entries[index].candidates.first())
-                }
-            }
-            index += 1
-        }
-        return best
-    }
-
-    override fun mayStartKey(codePoint: Int): Boolean = codePoint in firstCodePoints
-
-    /** First index whose key is >= [probe] in code-point order. */
-    private fun lowerBound(probe: String): Int {
-        var lo = 0
-        var hi = entries.size
-        while (lo < hi) {
-            val mid = (lo + hi) ushr 1
-            if (Utf.compareByCodePoint(entries[mid].key, probe) < 0) lo = mid + 1 else hi = mid
-        }
-        return lo
-    }
+    override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
     public companion object {
-        /** One-code-point string without JVM-only `Character.toChars`. */
-        private fun singleCodePointString(codePoint: Int): String {
-            if (codePoint < 0x10000) return Char(codePoint).toString()
-            return charArrayOf(
-                Char(((codePoint - 0x10000) ushr 10) + 0xD800),
-                Char(((codePoint - 0x10000) and 0x3FF) + 0xDC00),
-            ).concatToString()
-        }
-
         private fun toEntries(pairs: List<Pair<String, List<String>>>): List<Entry> {
             val sorted = pairs.sortedWith { a, b -> Utf.compareByCodePoint(a.first, b.first) }
             val result = ArrayList<Entry>(sorted.size)

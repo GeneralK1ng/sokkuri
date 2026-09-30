@@ -32,6 +32,11 @@ public class ResourceDictionaryProvider public constructor(
             ?: throw SokkuriException.FileNotFound(file)
         val decoded = try {
             format.decode(bytes)
+        } catch (e: SokkuriException.InvalidFormat) {
+            // Decode errors are field-level (".sok: flags must be 0"); the
+            // file path only exists at this layer, so compose both here
+            // (m1-dictgen-sok §3.2 requires the message to carry both).
+            throw SokkuriException.InvalidFormat("$file: ${e.detail}")
         } catch (e: SokkuriException) {
             throw e
         } catch (e: Exception) {

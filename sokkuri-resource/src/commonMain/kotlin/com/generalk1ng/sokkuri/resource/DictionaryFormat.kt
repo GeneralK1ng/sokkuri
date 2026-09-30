@@ -1,5 +1,6 @@
 package com.generalk1ng.sokkuri.resource
 
+import com.generalk1ng.sokkuri.SokkuriException
 import com.generalk1ng.sokkuri.SokkuriInternalApi
 
 import com.generalk1ng.sokkuri.engine.Dictionary
@@ -29,13 +30,15 @@ public class UnsupportedDictionaryFormat public constructor(
     private val reason: String,
 ) : DictionaryFormat {
     override fun decode(bytes: ByteArray): Dictionary {
-        throw com.generalk1ng.sokkuri.SokkuriException.Unsupported("dictionary type '$type': $reason")
+        throw SokkuriException.Unsupported("dictionary type '$type': $reason")
     }
 }
 
 /** Formats understood by [ResourceDictionaryProvider]. */
+@OptIn(SokkuriInternalApi::class)
 public val DefaultDictionaryFormats: Map<String, DictionaryFormat> = mapOf(
     TextDictionaryFormat.type to TextDictionaryFormat,
+    SokDictionaryFormat.type to SokDictionaryFormat,
     "ocd2" to UnsupportedDictionaryFormat(
         "ocd2",
         "marisa-trie binaries are not portable across platforms; " +

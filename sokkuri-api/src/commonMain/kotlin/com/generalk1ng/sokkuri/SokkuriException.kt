@@ -24,9 +24,15 @@ public sealed class SokkuriException protected constructor(
         detail: String? = null,
     ) : SokkuriException("Resource not found: $path" + if (detail != null) " ($detail)" else "")
 
-    /** A resource was located but its content violates the expected format. */
+    /**
+     * A resource was located but its content violates the expected format.
+     *
+     * [detail] is exposed (not just embedded in the message) so outer layers
+     * can re-contextualize — e.g. the dictionary provider prefixes the
+     * decoder's field-level detail with the offending file path.
+     */
     public class InvalidFormat public constructor(
-        detail: String,
+        public val detail: String,
     ) : SokkuriException("Invalid format: $detail")
 
     /** A conversion configuration is structurally invalid. */
