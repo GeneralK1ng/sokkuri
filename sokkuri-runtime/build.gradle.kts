@@ -1,4 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -48,6 +51,21 @@ kotlin {
         iosArm64Main.get().dependsOn(iosMain)
         iosSimulatorArm64Main.get().dependsOn(iosMain)
 
+        // Test-side mirror of the main-source wiring: common test resources
+        // (testcases.json) need platform readers, shared per platform family.
+        val jvmAndroidTest by creating {
+            dependsOn(commonTest.get())
+        }
+        jvmTest.get().dependsOn(jvmAndroidTest)
+        // withHostTest() creates this source set without a type-safe accessor.
+        named("androidHostTest") { dependsOn(jvmAndroidTest) }
+
+        val iosTest by creating {
+            dependsOn(commonTest.get())
+        }
+        iosArm64Test.get().dependsOn(iosTest)
+        iosSimulatorArm64Test.get().dependsOn(iosTest)
+
         commonMain.dependencies {
             api(project(":sokkuri-api"))
             implementation(project(":sokkuri-engine"))
@@ -56,6 +74,9 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            // Golden harness parses testcases.json with the same lenient
+            // JSONC policy as configs (JsonSupport) plus JsonElement walking.
+            implementation(libs.kotlinx.serialization.json)
         }
     }
 }
@@ -73,16 +94,18 @@ kotlin {
 // ---------------------------------------------------------------------------
 val appleProcessedResources = layout.buildDirectory.dir("processedResources")
 
-kotlin.targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget>().configureEach {
+kotlin.targets.withType<KotlinNativeTarget>().configureEach {
     val nativeTarget = this
     val mainResources = appleProcessedResources.map { it.dir("${nativeTarget.name}/main") }
+    val testResources = appleProcessedResources.map { it.dir("${nativeTarget.name}/test") }
 
     // The Copy tasks below read the ProcessResources output directory, which
     // carries no task-dependency information through the directory provider;
     // wire the dependency explicitly for every copy task.
     val processResources = tasks.matching { it.name == nativeTarget.name + "ProcessResources" }
+    val processTestResources = tasks.matching { it.name == nativeTarget.name + "TestProcessResources" }
 
-    binaries.withType<org.jetbrains.kotlin.gradle.plugin.mpp.Framework>().configureEach {
+    binaries.withType<Framework>().configureEach {
         val framework = this
         val copyResources = tasks.register<Copy>(
             "copyResourcesInto" + framework.name.replaceFirstChar { it.uppercase() } +
@@ -98,15 +121,18 @@ kotlin.targets.withType<org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarge
         linkTaskProvider.configure { finalizedBy(copyResources) }
     }
 
-    binaries.withType<org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable>().configureEach {
+    binaries.withType<TestExecutable>().configureEach {
         val testBinary = this
         val copyResources = tasks.register<Copy>(
             "copyResourcesBeside" + testBinary.name.replaceFirstChar { it.uppercase() } +
                 nativeTarget.name.replaceFirstChar { it.uppercase() },
         ) {
+            description = "Copy the test resources beside the test binary for simulator/device execution"
             from(mainResources)
+            from(testResources)
             into(testBinary.outputFile.parentFile)
             dependsOn(processResources)
+            dependsOn(processTestResources)
         }
         linkTaskProvider.configure { finalizedBy(copyResources) }
         // The simulator/device test task consumes the binary's directory as

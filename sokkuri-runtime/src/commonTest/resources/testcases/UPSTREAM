@@ -1,0 +1,13 @@
+Source: https://github.com/BYVoid/OpenCC
+Path:    test/testcases/testcases.json
+Commit:  2939943bd6f4d459b46d7fdcf07a885ab3f01761
+Date:    2026-09-26 (Add 况況, 擧舉 and 衛衞 to staging Allographs and re-sort it)
+
+Copied verbatim (JSONC: comments + trailing commas). 262 cases, 568
+stem expectations across 19 stems; the four `*seal*` stems (15
+expectations) are excluded because the seal profiles are deliberately
+not ported (docs/architecture.md). Golden coverage: 16 ported stems,
+568 - 15 = 553 expectations; see OpenccTestcasesGoldenTest.
+
+Refresh: cp OpenCC/test/testcases/testcases.json sokkuri-runtime/src/commonTest/resources/testcases/testcases.json
+(update this note when the clone moves).
