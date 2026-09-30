@@ -74,4 +74,5 @@ Android 应用须在启动时调用一次 `Sokkuri.init(context)`，
 ≈2.4MiB），golden 对齐上游 `testcases.json` 全量语料——16 个移植 stem × 553 条期望， JVM / Android 宿主 / iOS 模拟器三平台全绿（3
 条例外经逐案分析登记为 tofu 风险词典的刻意分叉，开启 `includeTofuRiskDictionaries` 后全部消解）。
 `tools:dictgen` 词典编译器与配置重写器已落地，打包产物可由
-`checkDictionaries` 持续校验。已知优化方向：转换吞吐的 String-view 化（见 `docs/architecture.md` §8.1）。
+`checkDictionaries` 持续校验。 **String-view 化已完成**：`.sok` 词典检索全程 零物化（探针零解码、命中值直写输出），转换吞吐较优化前提升
+2.3–2.6×（s2t 21.4→9.4µs/op， 同机基线），零拷贝驻留堆不变；剩余差距为零拷贝解码的固有代价，进一步需 trie 检索结构。

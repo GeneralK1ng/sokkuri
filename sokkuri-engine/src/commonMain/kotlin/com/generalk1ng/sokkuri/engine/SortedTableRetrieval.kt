@@ -95,8 +95,27 @@ public class SortedTableRetrieval private constructor(
             .toIntArray()
     }
 
-    /** Whether [codePoint] begins any key of the table. */
-    public fun mayStartKey(codePoint: Int): Boolean = sortedFirstCodePoints.binarySearch(codePoint) >= 0
+    /**
+     * Whether [codePoint] begins any key of the table. Hand-rolled binary
+     * search rather than the stdlib's `IntArray.binarySearch`: the stdlib
+     * overloads are not visible to every backend's common compilation
+     * (K/N and metadata compilation rejected them while JVM accepted),
+     * and the loop mirrors [lowerBoundByFirstCodePoint]'s shape anyway.
+     * The array is read into a local first: the property's `lazy`
+     * delegate publishes through a volatile field, and a volatile read
+     * cannot be hoisted out of a loop — one read per call, not per probe
+     * (measured ~15% on s2t when read inside the loop).
+     */
+    public fun mayStartKey(codePoint: Int): Boolean {
+        val firstCodePoints = sortedFirstCodePoints
+        var lo = 0
+        var hi = firstCodePoints.size
+        while (lo < hi) {
+            val mid = (lo + hi) ushr 1
+            if (firstCodePoints[mid] < codePoint) lo = mid + 1 else hi = mid
+        }
+        return lo < firstCodePoints.size && firstCodePoints[lo] == codePoint
+    }
 
     /**
      * Index of [key] in the table, or `-1` when absent. Binary search by

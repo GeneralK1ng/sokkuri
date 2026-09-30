@@ -20,14 +20,14 @@
 
 **非目标(v1 不实现,但架构必须允许后续添加——见第 8 章)**
 
-| 项 | 性质 | 预留位置 |
-|---|---|---|
-| ocd / ocd2 词典读取 | 字节序/字宽不可移植 | 注册表保留类型名,报精确错误 |
-| jieba 及插件分词 | 范围控制 | `SegmentationProvider` 注册表缝 |
-| `*_seal` 配置档 | 纯数据 | `Config` 枚举加法 + dictgen |
-| 流式 chunked 转换 | 范围控制 | `Converter` 纯函数接口之上的包装 |
-| String view 匹配 | Kotlin 无通用零拷贝视图 | `Dictionary` internal 接口演进 |
-| 配置 schema 校验 | 上游 warn-only,净效应有限 | 注入式 `ConfigValidator` 缝 |
+| 项                  | 性质                      | 预留位置                                                            |
+|---------------------|---------------------------|---------------------------------------------------------------------|
+| ocd / ocd2 词典读取 | 字节序/字宽不可移植       | 注册表保留类型名,报精确错误                                         |
+| jieba 及插件分词    | 范围控制                  | `SegmentationProvider` 注册表缝                                     |
+| `*_seal` 配置档     | 纯数据                    | `Config` 枚举加法 + dictgen                                         |
+| 流式 chunked 转换   | 范围控制                  | `Converter` 纯函数接口之上的包装                                    |
+| String view 匹配    | Kotlin 无通用零拷贝视图   | `Dictionary` internal 接口演进,**已实现**(M3,sink 式 `matchAppend`) |
+| 配置 schema 校验    | 上游 warn-only,净效应有限 | 注入式 `ConfigValidator` 缝                                         |
 
 ## 2. 模块边界与依赖法则
 
@@ -188,20 +188,20 @@ interface Dictionary {
 > 每行给出改动位置与**明确禁止**触碰的部分。拿不准时回到第 2.3 节
 > 的法则。
 
-| # | 场景 | 改动位置 | 禁止 |
-|---|---|---|---|
-| 1 | 新词典格式(`.sok` 及其他) | resource:新 `Dictionary` 实现 + `DictionaryFormat`,注册 `DefaultDictionaryFormats`;编码器放同模块 internal | engine、config 改动;在 dictgen 另写编码器 |
-| 2 | 新分词器(jieba 类) | engine:实现 `Segmentation`;config:`SegmentationProvider` 注册表接入(8.3);用户经 `Sokkuri.create` 高级重载注入 | `Conversion`、热路径改动 |
-| 3 | 新配置字段 | config:`ConfigDocument` 加字段 + `ConfigParser` 消费;上游语义优先;未知键继续忽略 | 改变已知键的宽容度(R8) |
-| 4 | 新内置 profile(seal 类) | api:`Config` 枚举加法(遵守 I8);dictgen:词典 + 重写配置进 runtime 资源;README 与第 7 章登记 | 重排/删除枚举值 |
-| 5 | 新 Options | api:`Options.Builder` 加 `var`;默认值对齐上游或登记偏离 | 构造函数加法(破坏 ABI) |
-| 6 | 新转换能力(candidates / ambiguities 类) | engine:基于 `Dictionary.matchExact` 的纯函数;api:新类型;runtime:`Sokkuri` 委托 | `Dictionary` 接口膨胀(4.1) |
-| 7 | 新平台 target(macOS/watchOS 等) | 各模块 `build.gradle.kts` 加 target;resource:`SokkuriLock` actual(可抽 appleMain);runtime:手工接线 source set + loader actual | 新增层;api/engine/config 出现 actual(R5) |
-| 8 | 流式 chunked 转换 | runtime 之上加有状态窗口包装(8.5);engine `Converter` 纯函数接口不动 | 在 `Converter` 接口引入流式方法 |
-| 9 | `Inspection` 演进 | 结构调整 = api 破坏性,major 版本管理;优先"加"不"改" | minor 版本改公开签名 |
-| 10 | String view 匹配 | 按 8.1 清单演进 `Dictionary`/`PrefixMatcher`(internal,自由) | 提前在 v1 引入(无收益) |
-| 11 | schema 校验 | 按 8.2 注入 `ConfigValidator`(warn-only) | 改为硬失败(偏离上游语义) |
-| 12 | 自定义资源加载 | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API | 把 loader 接口下放engine/config(R3) |
+| #  | 场景                                    | 改动位置                                                                                                                      | 禁止                                                |
+|----|-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
+| 1  | 新词典格式(`.sok` 及其他)               | resource:新 `Dictionary` 实现 + `DictionaryFormat`,注册 `DefaultDictionaryFormats`;编码器放同模块 internal                    | engine、config 改动;在 dictgen 另写编码器           |
+| 2  | 新分词器(jieba 类)                      | engine:实现 `Segmentation`;config:`SegmentationProvider` 注册表接入(8.3);用户经 `Sokkuri.create` 高级重载注入                 | `Conversion`、热路径改动                            |
+| 3  | 新配置字段                              | config:`ConfigDocument` 加字段 + `ConfigParser` 消费;上游语义优先;未知键继续忽略                                              | 改变已知键的宽容度(R8)                              |
+| 4  | 新内置 profile(seal 类)                 | api:`Config` 枚举加法(遵守 I8);dictgen:词典 + 重写配置进 runtime 资源;README 与第 7 章登记                                    | 重排/删除枚举值                                     |
+| 5  | 新 Options                              | api:`Options.Builder` 加 `var`;默认值对齐上游或登记偏离                                                                       | 构造函数加法(破坏 ABI)                              |
+| 6  | 新转换能力(candidates / ambiguities 类) | engine:基于 `Dictionary.matchExact` 的纯函数;api:新类型;runtime:`Sokkuri` 委托                                                | `Dictionary` 接口膨胀(4.1)                          |
+| 7  | 新平台 target(macOS/watchOS 等)         | 各模块 `build.gradle.kts` 加 target;resource:`SokkuriLock` actual(可抽 appleMain);runtime:手工接线 source set + loader actual | 新增层;api/engine/config 出现 actual(R5)            |
+| 8  | 流式 chunked 转换                       | runtime 之上加有状态窗口包装(8.5);engine `Converter` 纯函数接口不动                                                           | 在 `Converter` 接口引入流式方法                     |
+| 9  | `Inspection` 演进                       | 结构调整 = api 破坏性,major 版本管理;优先"加"不"改"                                                                           | minor 版本改公开签名                                |
+| 10 | String view 匹配                        | **已实现(M3)**:`Dictionary` 加 sink 式 `matchAppend`(默认实现=旧行为),检索共享扫描双出口(internal,自由)                       | 破坏 `matchPrefix` 既有语义(默认实现与契约套件守门) |
+| 11 | schema 校验                             | 按 8.2 注入 `ConfigValidator`(warn-only)                                                                                      | 改为硬失败(偏离上游语义)                            |
+| 12 | 自定义资源加载                          | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API                                            | 把 loader 接口下放engine/config(R3)                 |
 
 ## 6. 不变量清单
 
@@ -221,39 +221,48 @@ interface Dictionary {
 
 ## 7. 上游对齐与偏离登记表
 
-| # | 点 | 上游 | Sokkuri | 理由 | 状态 |
-|---|---|---|---|---|---|
-| 1 | 词典缓存 | 进程级 weak + mtime 失效 | 进程级强引用共享 | 资源不可变;KMP 无 common 弱引用 | 已实现 |
-| 2 | tofu 词典默认 | core 默认包含;CLI 默认排除 | 默认排除,`Options` 开启 | 移动端字体 tofu 风险 | 已实现 |
-| 3 | ocd / ocd2 | 支持 | `UnsupportedDictionaryFormat` 精确报错 | 字节序/字宽不可移植 | 已实现 |
-| 4 | jieba / seal | 支持 | 不移植 | 范围控制 | 架构预留(8.3/8.4) |
-| 5 | 流式转换 | `ConverterStream` | 不实现 | 范围控制;接口兼容(8.5) | 架构预留 |
-| 6 | `matchPrefix` 携带 key/value view | 携带(string_view) | 仅 length + 默认 value | Kotlin 无零拷贝 view;见 8.1 | 架构预留 |
-| 7 | schema 校验 | warn-only | 不实现 | 结构解码已覆盖净效应;见 8.2 | 架构预留 |
-| 8 | inline 词典 `may_output_tofu` | 报错 | 报错 | 对齐 | 已实现 |
-| 9 | `PipelineConverter` | 支持 | 接口预留 | 无多 stage 配置需求 | 架构预留 |
-| 10 | 插件动态库加载 | dlopen | 永不 | KMP 无统一 ABI;改走注册表注入 | 已决 |
+| #  | 点                                | 上游                       | Sokkuri                                                               | 理由                                  | 状态                  |
+|----|-----------------------------------|----------------------------|-----------------------------------------------------------------------|---------------------------------------|-----------------------|
+| 1  | 词典缓存                          | 进程级 weak + mtime 失效   | 进程级强引用共享                                                      | 资源不可变;KMP 无 common 弱引用       | 已实现                |
+| 2  | tofu 词典默认                     | core 默认包含;CLI 默认排除 | 默认排除,`Options` 开启                                               | 移动端字体 tofu 风险                  | 已实现                |
+| 3  | ocd / ocd2                        | 支持                       | `UnsupportedDictionaryFormat` 精确报错                                | 字节序/字宽不可移植                   | 已实现                |
+| 4  | jieba / seal                      | 支持                       | 不移植                                                                | 范围控制                              | 架构预留(8.3/8.4)     |
+| 5  | 流式转换                          | `ConverterStream`          | 不实现                                                                | 范围控制;接口兼容(8.5)                | 架构预留              |
+| 6  | `matchPrefix` 携带 key/value view | 携带(string_view)          | sink 式 `matchAppend`:返回 length,值直写输出缓冲,无中间字符串(见 8.1) | Kotlin 无零拷贝 view;以 sink 替代视图 | 已实现(2026-09-30,M3) |
+| 7  | schema 校验                       | warn-only                  | 不实现                                                                | 结构解码已覆盖净效应;见 8.2           | 架构预留              |
+| 8  | inline 词典 `may_output_tofu`     | 报错                       | 报错                                                                  | 对齐                                  | 已实现                |
+| 9  | `PipelineConverter`               | 支持                       | 接口预留                                                              | 无多 stage 配置需求                   | 架构预留              |
+| 10 | 插件动态库加载                    | dlopen                     | 永不                                                                  | KMP 无统一 ABI;改走注册表注入         | 已决                  |
 
-## 8. 设计预留:v1 不实现,但架构保证可添加
+## 8. 设计预留:架构保证可添加
+
+> 8.1 (String view 匹配)已于 2026-09-30 由 M3 落地,该节保留为
+> 已实现形态的记录;其余各节仍为预留。
 
 ### 8.1 String view 匹配
 
-**问题**:Kotlin 没有跨平台零拷贝 `string_view`。当前
-`PrefixMatch(length, value)` 令基于大块连续存储的实现在每次命中时 物化 value 字符串——v1 `.sok`(连续字节缓冲 + 按需 UTF-8
-解码)即这种 形态,M1 §7 实测其转换吞吐较文本词典约慢 3 倍 (23.0 vs 7.6 µs/op)。
+**状态:已实现 (2026-09-30,M3)**。实现形态 = 立项时备选三态中的 **sink 式**(本节目标形态描述按实现现状改写):
 
-**目标形态**:`Dictionary` 增加带默认实现的 view 匹配方法,返回
-value 的缓冲区偏移视图;`Conversion` 热路径改经 `StringBuilder
-.appendRange` 写出。备选形态(届时择一):自定义 `CharSequence` 视图
-或 `(buffer, offset, length)` 三元组。
+- `Dictionary` 增加 `matchAppend(text, start, end, out): Int`——命中时 把默认 candidate 直写 `out` 并返回命中长度 (UTF-16
+  码元),未命中 返回 -1; **默认实现 = `matchPrefix` + append**,storage-aware 后端覆写;
+- `SortedTableRetrieval` 的 `matchPrefix` 与 `matchAppend` 共享同一个
+  `findLongestPrefixIndex` 扫描 (下界 + 组扫单源),胜者选择不可能分叉, 只有值的出口不同 (物化 vs 直写);
+- 键表泛化为 `SortedKeyTable`(首码点 / 码点序比较 / 前缀判定 / UTF-16 长度 / 值的物化与直写两个出口):String 后端引用直达,
+  `.sok` byte 后端 经 `Utf8` 原语 (UTF-8 区段 vs CharArray 窗口直接码点比较,探针零解码, 非法输入全序降级 U+FFFD);
+  `SortedListDictionary` 无需跟进 (默认实现 即旧行为);
+- `DictGroup` 不转发 sink (union/short_circuit 先经子 `matchPrefix`
+  定胜负,胜者物化一次)——组语义天然由默认实现获得;
+- `Conversion` 热路径 (I6 写出点)切换为 `matchAppend`;Inspection、
+  `matchExact`、mmseg 接口不变。
 
-**v1 已铺好的路**:I6(热路径窗口化、无输入拷贝)使热路径的写出点
-收敛到一处;`Dictionary`/`PrefixMatch` 均为 internal,加方法不破坏
-公开面;`SortedListDictionary` 无需跟进(默认实现回退现行为)。
+**实测 (m3 §8,同机 vs 开工基线)**:s2t medium 21.42 → 9.4µs (2.3×), 重档 2.3–2.6×;零拷贝不回退 (`decode`
+sokHeapKiB≈0,无任何解码缓存); inspect/convert 开销比 1.05。
 
-**届时改动清单**:① `Dictionary` 加 view 方法(默认实现 = 现行为);
-② `Conversion`/`PrefixMatcher` 热路径切到 view;③ `.sok` 实现覆盖
-view 方法;④ 登记表 #6 状态翻转。
+**教训 (立项假设的修正)**:① JVM escape analysis 使命中值物化免费,
+"值直写"层在 JVM 实测 **零收益**(其收益应在 Native,未实测);② 最大 单项收益来自组扫 **双扫描融合**(前缀命中才算长度);③
+剩余差距 (文本时代 7.6µs)判定为零拷贝逐字节解码的固有 ALU 代价——进一步需 双数组 trie 检索 (= `.sok` 格式 v2)或解码缓存
+(违零拷贝),均不在 本节范围。M3 性能门槛经裁决由"≤8µs 对齐文本时代"修正为"≥2.2× vs 开工基线"(2.3× 达成),完整归因见
+m3-string-view.md §8。
 
 ### 8.2 配置 schema 校验
 
