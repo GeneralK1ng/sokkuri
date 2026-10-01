@@ -1,0 +1,55 @@
+# Release workflow: a pushed v* tag is the only trigger. The tagged commit is
+# built and tested on all platforms first (./gradlew build is the gate), then
+# uploaded to Maven Central as a USER_MANAGED deployment (manual mode, see
+# docs/milestones/m4-distribution.md sections 3.2/3.3). Releasing the deployment
+# stays a deliberate one-click step in the Central Portal UI; flip to
+# publishAndReleaseToMavenCentral only after the manual flow has proven itself.
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+# Portal uploads are not idempotent; never run two builds for the same tag.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    # macOS is required: the library ships iosArm64/iosSimulatorArm64 targets
+    # and `build` runs the iOS simulator test suite as part of the gate.
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The macOS runner carries no Android SDK; AGP needs the compileSdk
+      # platform (android-compileSdk in gradle/libs.versions.toml). Accepted
+      # licenses also let AGP auto-download any missing build-tools.
+      - uses: android-actions/setup-android@v3
+      - name: Accept SDK licenses and install compileSdk platform
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platforms;android-37"
+
+      - name: Build and test all platforms
+        run: ./gradlew build
+
+      - name: Publish to Maven Central (USER_MANAGED deployment)
+        run: ./gradlew publishToMavenCentral
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_IN_MEMORY_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
+          # signingInMemoryKeyId is intentionally not set: the keyring holds a
+          # single key (auto-selected), Gradle rejects 16-char fingerprints,
+          # and a wrong 8-char id fails the build (m4 doc, step 2 record).
