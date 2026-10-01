@@ -22,23 +22,32 @@ jobs:
     # and `build` runs the iOS simulator test suite as part of the gate.
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
-      # The macOS runner carries no Android SDK; AGP needs the compileSdk
-      # platform (android-compileSdk in gradle/libs.versions.toml). Accepted
-      # licenses also let AGP auto-download any missing build-tools.
-      - uses: android-actions/setup-android@v3
-      - name: Accept SDK licenses and install compileSdk platform
+      # The macOS runner carries no Android SDK, and android-actions/
+      # setup-android@v3 is unusable: it unconditionally installs the
+      # deprecated `tools` package, which no longer exists in the Google
+      # repository, and hard-fails (v0.1.0-rc.1 CI run). Install the
+      # command-line tools directly; AGP picks up ANDROID_HOME and can
+      # auto-download anything still missing against the accepted licenses.
+      - name: Install Android SDK
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-37"
+          SDK_ROOT="$HOME/android-sdk"
+          mkdir -p "$SDK_ROOT/cmdline-tools"
+          curl -sSLo /tmp/cmdline-tools.zip "https://dl.google.com/android/repository/commandlinetools-mac-11076708_latest.zip"
+          unzip -q /tmp/cmdline-tools.zip -d "$SDK_ROOT/cmdline-tools"
+          mv "$SDK_ROOT/cmdline-tools/cmdline-tools" "$SDK_ROOT/cmdline-tools/latest"
+          echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --licenses > /dev/null
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" "platforms;android-37" "build-tools;37.0.0"
 
       - name: Build and test all platforms
         run: ./gradlew build
