@@ -20,6 +20,50 @@
   3 处 差异（tofu 风险词典默认排除，与 OpenCC CLI 默认一致）逐案登记在案， 一个开关即可消解。
 - **配置齐全**：16 档含上游较新的香港词汇档（`s2hkp` / `hk2sp`）。
 
+## 安装
+
+Maven Central 坐标（只需一个依赖，传递引入其余四个模块）:
+
+```kotlin
+// build.gradle.kts
+repositories { mavenCentral() }
+
+dependencies {
+    implementation("com.generalk1ng.sokkuri:sokkuri-runtime:0.1.0")
+}
+```
+
+JVM / Android 开箱即用（Android 记得 `Sokkuri.init(context)`）。iOS 端的词典随 klib 以 `kotlin_resources` variant 投递：应用了 Compose Multiplatform 插件的工程零配置；纯 KMP 工程在 shared 模块加一段接线——把资源引入 compilation，并显式拷入 framework 产物包（Kotlin/Native 不会自动拷）:
+
+```kotlin
+// shared/build.gradle.kts
+import org.jetbrains.kotlin.gradle.ComposeKotlinGradlePluginApi
+import org.jetbrains.kotlin.gradle.plugin.extraProperties
+import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+import org.jetbrains.kotlin.gradle.plugin.mpp.resources.KotlinTargetResourcesPublication
+
+@OptIn(ComposeKotlinGradlePluginApi::class)
+kotlin.targets.withType<KotlinNativeTarget>().configureEach {
+    val kmpResources = project.extraProperties
+        .get(KotlinTargetResourcesPublication.EXTENSION_NAME) as KotlinTargetResourcesPublication
+    val sokkuriResources = kmpResources.resolveResources(this)
+
+    compilations["main"].defaultSourceSet.resources.srcDir(sokkuriResources)
+
+    // 词典资源拷进 framework bundle（iOS loader 经 NSBundle 读取）
+    binaries.withType<Framework>().configureEach {
+        val copyDictionaries = tasks.register<Copy>("copySokkuriDictionaries") {
+            from(sokkuriResources)
+            into(outputFile)
+        }
+        linkTaskProvider.configure { finalizedBy(copyDictionaries) }
+    }
+}
+```
+
+模拟器/真机单元测试同理，把 `sokkuriResources` 拷到测试二进制所在目录即可（本仓 sokkuri-runtime 构建脚本里的 `copyResourcesBeside*` 任务可作参照）。
+
 ## 使用
 
 ```kotlin
