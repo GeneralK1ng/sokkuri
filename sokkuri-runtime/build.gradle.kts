@@ -1,11 +1,17 @@
+import org.jetbrains.kotlin.gradle.ComposeKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.KotlinMultiplatformExtension
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
+import org.jetbrains.kotlin.gradle.plugin.extraProperties
 import org.jetbrains.kotlin.gradle.plugin.mpp.Framework
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.TestExecutable
+import org.jetbrains.kotlin.gradle.plugin.mpp.resources.KotlinTargetResourcesPublication
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
+    alias(libs.plugins.vanniktechMavenPublish)
 }
 
 kotlin {
@@ -78,7 +84,6 @@ kotlin {
 // to its containing directory).
 // ---------------------------------------------------------------------------
 val appleProcessedResources = layout.buildDirectory.dir("processedResources")
-
 kotlin.targets.withType<KotlinNativeTarget>().configureEach {
     val nativeTarget = this
     val mainResources = appleProcessedResources.map { it.dir("${nativeTarget.name}/main") }
@@ -132,3 +137,47 @@ kotlin.targets.withType<KotlinNativeTarget>().configureEach {
 // Dictionary data (compiled .sok lexicons + rewritten config JSON) is
 // generated into this module's resources by the future tools/dictgen
 // build tooling; see the design documentation.
+
+// ---------------------------------------------------------------------------
+// Klib resource variants (docs/milestones/m4-distribution.md §3.5).
+//
+// Kotlin 2.4 removed the old "auto-embed commonMain resources into klibs"
+// behavior: the packaged dictionaries no longer travel inside the published
+// .klib. The replacement mechanism publishes them as a kotlin_resources.zip
+// Gradle variant per Apple target; consumers resolve the variant and place
+// the files into their app/framework bundle (the iOS loader reads bundle
+// files via NSBundle + POSIX stdio, same as in this build). This wiring
+// mirrors the reference usage in the Compose Multiplatform Gradle plugin
+// (configureKmpResources in MultimoduleResources.kt). Consumers applying the
+// Compose plugin get both sides automatically; plain-KMP consumers add the
+// resolveResources snippet documented in the README.
+// ---------------------------------------------------------------------------
+@OptIn(ComposeKotlinGradlePluginApi::class)
+private fun Project.publishDictionariesAsKlibResourceVariants() {
+    val kotlinExtension = extensions.getByType(KotlinMultiplatformExtension::class.java)
+    val kmpResources = extraProperties.get(KotlinTargetResourcesPublication.EXTENSION_NAME)
+            as KotlinTargetResourcesPublication
+    val commonMainResources = provider { file("src/commonMain/resources") }
+    val emptyResources = layout.buildDirectory
+        .dir("kotlin-multiplatform-resources/emptyResourcesDir")
+        .map { it.asFile }
+
+    kotlinExtension.targets.withType(KotlinNativeTarget::class.java).configureEach {
+        kmpResources.publishResourcesAsKotlinComponent(
+            this,
+            resourcePathForSourceSet = { sourceSet ->
+                if (sourceSet.name == KotlinSourceSet.COMMON_MAIN_SOURCE_SET_NAME) {
+                    KotlinTargetResourcesPublication.ResourceRoot(commonMainResources, emptyList(), emptyList())
+                } else {
+                    // Intermediate source sets (iosMain, iosArm64Main, ...)
+                    // carry no resources; an empty root keeps the hierarchy
+                    // assembly from failing on missing directories.
+                    KotlinTargetResourcesPublication.ResourceRoot(emptyResources, emptyList(), emptyList())
+                }
+            },
+            relativeResourcePlacement = provider { File("") },
+        )
+    }
+}
+
+publishDictionariesAsKlibResourceVariants()

@@ -4,6 +4,7 @@ plugins {
     alias(libs.plugins.kotlinMultiplatform)
     alias(libs.plugins.androidMultiplatformLibrary)
     alias(libs.plugins.kotlinPluginSerialization)
+    alias(libs.plugins.vanniktechMavenPublish)
 }
 
 kotlin {
