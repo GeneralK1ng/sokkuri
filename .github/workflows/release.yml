@@ -47,7 +47,11 @@ jobs:
           echo "ANDROID_HOME=$SDK_ROOT" >> "$GITHUB_ENV"
           echo "ANDROID_SDK_ROOT=$SDK_ROOT" >> "$GITHUB_ENV"
           yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --licenses > /dev/null
-          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" "platforms;android-37" "build-tools;37.0.0"
+          "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" "build-tools;37.0.0"
+          # API 37 (Android 17) is still a preview platform: absent from the
+          # stable manifest (repository2-1.xml stops at android-36), so it
+          # must come from the canary channel as "android-37.0".
+          yes | "$SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --sdk_root="$SDK_ROOT" --channel=3 "platforms;android-37.0"
 
       - name: Build and test all platforms
         run: ./gradlew build
