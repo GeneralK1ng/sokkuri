@@ -6,14 +6,7 @@ import com.generalk1ng.sokkuri.resource.ResourceLoader
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSBundle
-import platform.posix.SEEK_END
-import platform.posix.SEEK_SET
-import platform.posix.fclose
-import platform.posix.fopen
-import platform.posix.fread
-import platform.posix.fseek
-import platform.posix.ftell
-import platform.posix.rewind
+import platform.posix.*
 
 /**
  * Reads resources from Apple bundles. Tries the embedding framework first
@@ -28,7 +21,15 @@ import platform.posix.rewind
  * probed. The resources sit in the framework bundle via an explicit Gradle
  * copy (sokkuri-runtime/build.gradle.kts); Kotlin/Native does not place
  * processed resources there by itself.
+ *
+ * Compose Multiplatform consumers get their Kotlin resources collected into
+ * a `compose-resources/` directory of the app bundle (the podspec ships
+ * `build/compose/cocoapods/compose-resources` as a folder), so that prefix
+ * is probed as well; the resources of plain-KMP consumers are copied to the
+ * bundle root and resolve through the first probe.
  */
+private const val composeResourcesDirectory = "compose-resources"
+
 internal class BundleResourceLoader internal constructor() : ResourceLoader {
 
     private val bundles: List<NSBundle> by lazy {
@@ -43,6 +44,7 @@ internal class BundleResourceLoader internal constructor() : ResourceLoader {
         for (bundle in bundles) {
             val base = bundle.resourcePath ?: continue
             readFile("$base/$path")?.let { return it }
+            readFile("$base/$composeResourcesDirectory/$path")?.let { return it }
         }
         return null
     }
