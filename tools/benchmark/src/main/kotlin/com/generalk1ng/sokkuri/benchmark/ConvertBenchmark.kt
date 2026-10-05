@@ -1,6 +1,6 @@
 package com.generalk1ng.sokkuri.benchmark
 
-import com.generalk1ng.sokkuri.Config
+import com.generalk1ng.sokkuri.SokkuriConfig
 import com.generalk1ng.sokkuri.Sokkuri
 import java.util.*
 
@@ -48,7 +48,7 @@ internal object ConvertBenchmark {
      * [Locale.ROOT]: a locale-sensitive decimal separator would break the
      * key=value contract in non-ROOT locales.
      */
-    private fun benchLine(profile: Config, sample: Sample, result: Timing.Result): String =
+    private fun benchLine(profile: SokkuriConfig, sample: Sample, result: Timing.Result): String =
         "[bench] kind=convert profile=%s sample=%s iterations=%d medianUs=%.2f p90Us=%.2f minUs=%.2f"
             .format(
                 BENCH_LINE_LOCALE,
@@ -61,9 +61,9 @@ internal object ConvertBenchmark {
             )
 
     /** `all` → every ported profile in enum order; otherwise the one stem. */
-    private fun resolveProfiles(profile: String): List<Config> {
-        if (profile == "all") return Config.entries.toList()
-        val config = Config.fromStem(profile)
+    private fun resolveProfiles(profile: String): List<SokkuriConfig> {
+        if (profile == "all") return SokkuriConfig.entries.toList()
+        val config = SokkuriConfig.fromStem(profile)
             ?: throw BenchmarkException("unknown profile: '$profile' (see --help)")
         return listOf(config)
     }

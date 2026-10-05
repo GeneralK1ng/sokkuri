@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 /**
  * Full-corpus golden alignment with OpenCC's `test/testcases/testcases.json`
  * (m1-dictgen-sok §4.2): every ported profile, every upstream expectation,
- * under default [Options]. One test method per profile so platform test
+ * under default [SokkuriOptions]. One test method per profile so platform test
  * reports isolate failures by stem; each failure message carries the case
  * id, the expected output, and the actual output.
  *
@@ -18,7 +18,7 @@ import kotlin.test.assertTrue
  * (architecture constitution D3), so the 16 profiles decode each dictionary
  * only once per process.
  *
- * Expectations that diverge under default Options (tofu-risk dictionaries
+ * Expectations that diverge under default SokkuriOptions (tofu-risk dictionaries
  * excluded) are not silently skipped: each is registered in
  * [REGISTERED_DIVERGENCES] with its analysis in the milestone acceptance
  * records (m1-dictgen-sok §7), and the registry itself is validated against
@@ -30,70 +30,70 @@ import kotlin.test.assertTrue
 class OpenccTestcasesGoldenTest {
 
     @Test
-    fun s2tMatchesUpstream() = assertStemMatches(Config.S2T)
+    fun s2tMatchesUpstream() = assertStemMatches(SokkuriConfig.S2T)
 
     @Test
-    fun t2sMatchesUpstream() = assertStemMatches(Config.T2S)
+    fun t2sMatchesUpstream() = assertStemMatches(SokkuriConfig.T2S)
 
     @Test
-    fun s2twMatchesUpstream() = assertStemMatches(Config.S2TW)
+    fun s2twMatchesUpstream() = assertStemMatches(SokkuriConfig.S2TW)
 
     @Test
-    fun s2twpMatchesUpstream() = assertStemMatches(Config.S2TWP)
+    fun s2twpMatchesUpstream() = assertStemMatches(SokkuriConfig.S2TWP)
 
     @Test
-    fun tw2sMatchesUpstream() = assertStemMatches(Config.TW2S)
+    fun tw2sMatchesUpstream() = assertStemMatches(SokkuriConfig.TW2S)
 
     @Test
-    fun tw2spMatchesUpstream() = assertStemMatches(Config.TW2SP)
+    fun tw2spMatchesUpstream() = assertStemMatches(SokkuriConfig.TW2SP)
 
     @Test
-    fun t2twMatchesUpstream() = assertStemMatches(Config.T2TW)
+    fun t2twMatchesUpstream() = assertStemMatches(SokkuriConfig.T2TW)
 
     @Test
-    fun tw2tMatchesUpstream() = assertStemMatches(Config.TW2T)
+    fun tw2tMatchesUpstream() = assertStemMatches(SokkuriConfig.TW2T)
 
     @Test
-    fun s2hkMatchesUpstream() = assertStemMatches(Config.S2HK)
+    fun s2hkMatchesUpstream() = assertStemMatches(SokkuriConfig.S2HK)
 
     @Test
-    fun s2hkpMatchesUpstream() = assertStemMatches(Config.S2HKP)
+    fun s2hkpMatchesUpstream() = assertStemMatches(SokkuriConfig.S2HKP)
 
     @Test
-    fun hk2sMatchesUpstream() = assertStemMatches(Config.HK2S)
+    fun hk2sMatchesUpstream() = assertStemMatches(SokkuriConfig.HK2S)
 
     @Test
-    fun hk2spMatchesUpstream() = assertStemMatches(Config.HK2SP)
+    fun hk2spMatchesUpstream() = assertStemMatches(SokkuriConfig.HK2SP)
 
     @Test
-    fun t2hkMatchesUpstream() = assertStemMatches(Config.T2HK)
+    fun t2hkMatchesUpstream() = assertStemMatches(SokkuriConfig.T2HK)
 
     @Test
-    fun hk2tMatchesUpstream() = assertStemMatches(Config.HK2T)
+    fun hk2tMatchesUpstream() = assertStemMatches(SokkuriConfig.HK2T)
 
     @Test
-    fun jp2tMatchesUpstream() = assertStemMatches(Config.JP2T)
+    fun jp2tMatchesUpstream() = assertStemMatches(SokkuriConfig.JP2T)
 
     @Test
-    fun t2jpMatchesUpstream() = assertStemMatches(Config.T2JP)
+    fun t2jpMatchesUpstream() = assertStemMatches(SokkuriConfig.T2JP)
 
     /**
      * The three registered t2s divergences are exactly the corpus's tofu
      * probes (chars whose mappings live only in `TSCharactersExt`,
      * `may_output_tofu` in upstream t2s.json): with tofu-risk dictionaries
      * included they must convert exactly as upstream expects, pinning the
-     * analysis that the default-Options divergence is the tofu toggle and
+     * analysis that the default-SokkuriOptions divergence is the tofu toggle and
      * nothing else.
      */
     @Test
     fun t2sTofuDivergencesResolveWithTofuDictionariesIncluded() {
-        val config = Config.T2S
+        val config = SokkuriConfig.T2S
         val registered = REGISTERED_DIVERGENCES.getValue(config.stem)
         val cases = OpenccTestcases.byStem.getValue(config.stem).filter { it.id in registered }
         assertEquals(registered.size, cases.size, "every registered divergence must exist in the corpus")
         val converter = Sokkuri.create(
             config,
-            Options { includeTofuRiskDictionaries = true },
+            SokkuriOptions { includeTofuRiskDictionaries = true },
         )
         val mismatches = cases.filter { converter.convert(it.input) != it.expected }
         assertTrue(mismatches.isEmpty()) {
@@ -102,7 +102,7 @@ class OpenccTestcasesGoldenTest {
         }
     }
 
-    private fun assertStemMatches(config: Config) {
+    private fun assertStemMatches(config: SokkuriConfig) {
         val cases = OpenccTestcases.byStem.getValue(config.stem)
         val corpusIds = cases.map { it.id }.toSet()
         val registered = REGISTERED_DIVERGENCES[config.stem].orEmpty()
@@ -112,10 +112,10 @@ class OpenccTestcasesGoldenTest {
         }
         val converter = CONVERTERS.getValue(config)
         // A registration must be necessary: a registered case that now passes
-        // under default Options is a stale registration and must be dropped.
+        // under default SokkuriOptions is a stale registration and must be dropped.
         val unjustified = cases.filter { it.id in registered && converter.convert(it.input) == it.expected }
         assertTrue(unjustified.isEmpty()) {
-            "${config.stem}: registered divergences that pass under default Options: " +
+            "${config.stem}: registered divergences that pass under default SokkuriOptions: " +
                     unjustified.map { it.id }
         }
         val active = cases.filter { it.id !in registered }
@@ -132,11 +132,11 @@ class OpenccTestcasesGoldenTest {
     private companion object {
 
         /** One converter per profile, shared across all test methods. */
-        private val CONVERTERS: Map<Config, Sokkuri> =
-            Config.entries.associateWith { Sokkuri.create(it) }
+        private val CONVERTERS: Map<SokkuriConfig, Sokkuri> =
+            SokkuriConfig.entries.associateWith { Sokkuri.create(it) }
 
         /**
-         * Expectations that diverge under default [Options] because their
+         * Expectations that diverge under default [SokkuriOptions] because their
          * only path to upstream output goes through a tofu-risk dictionary
          * (`TSCharactersExt`, flagged `may_output_tofu` in upstream
          * `t2s.json`; excluded unless `includeTofuRiskDictionaries`).

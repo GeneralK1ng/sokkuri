@@ -1,6 +1,6 @@
 package com.generalk1ng.sokkuri.benchmark
 
-import com.generalk1ng.sokkuri.Config
+import com.generalk1ng.sokkuri.SokkuriConfig
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -15,13 +15,13 @@ class SamplesTest {
 
     @Test
     fun mediumLeadsEveryProfileAndSpecialsAttachOnlyToTheirTag() {
-        for (profile in Config.entries) {
+        for (profile in SokkuriConfig.entries) {
             val samples = Samples.forProfile(profile)
             assertEquals(Samples.MEDIUM, samples.first(), "medium must lead for ${profile.stem}")
             when (profile) {
-                Config.S2T -> assertEquals(listOf("medium", "short", "phrases"), samples.map { it.id })
-                Config.S2TWP -> assertEquals(listOf("medium", "twp"), samples.map { it.id })
-                Config.S2HK -> assertEquals(listOf("medium", "hk"), samples.map { it.id })
+                SokkuriConfig.S2T -> assertEquals(listOf("medium", "short", "phrases"), samples.map { it.id })
+                SokkuriConfig.S2TWP -> assertEquals(listOf("medium", "twp"), samples.map { it.id })
+                SokkuriConfig.S2HK -> assertEquals(listOf("medium", "hk"), samples.map { it.id })
                 else -> assertEquals(listOf("medium"), samples.map { it.id })
             }
         }
@@ -35,7 +35,7 @@ class SamplesTest {
 
     @Test
     fun everySampleTextIsNonBlank() {
-        for (profile in Config.entries) {
+        for (profile in SokkuriConfig.entries) {
             for ((id, text) in Samples.forProfile(profile)) {
                 assertTrue(text.isNotBlank(), "blank sample text: $id")
             }

@@ -11,14 +11,14 @@ import com.generalk1ng.sokkuri.resource.ResourceDictionaryProvider
  * Instances are immutable and safe for concurrent use.
  *
  * ```kotlin
- * val sokkuri = Sokkuri.create(Config.S2TWP)
+ * val sokkuri = Sokkuri.create(SokkuriConfig.S2TWP)
  * sokkuri.convert("鼠标里面的硅二极管坏了") // "滑鼠裡面的矽二極體壞了"
  * ```
  */
 @OptIn(SokkuriInternalApi::class)
 public class Sokkuri private constructor(
     /** The built-in profile this instance was created from. */
-    public val config: Config,
+    public val config: SokkuriConfig,
     private val converter: Converter,
 ) {
 
@@ -44,8 +44,8 @@ public class Sokkuri private constructor(
          */
         @OptIn(SokkuriInternalApi::class)
         public fun create(
-            config: Config,
-            options: Options = Options.DEFAULT,
+            config: SokkuriConfig,
+            options: SokkuriOptions = SokkuriOptions.DEFAULT,
         ): Sokkuri {
             val loader = defaultResourceLoader()
             val configPath = "config/${config.stem}.json"
@@ -57,7 +57,9 @@ public class Sokkuri private constructor(
         }
 
         // Future extension points (source-compatible additions):
-        //   create(config, options, loader)  — custom resource loading
+        //   create(config, options, loader)  — custom resource loading;
+        //     bound DictionaryCache's loader registry first (architecture.md
+        //     §5 #12, §4.3)
         //   fromConfig(json, ...)            — user-supplied OpenCC configs
     }
 }

@@ -4,7 +4,7 @@ package com.generalk1ng.sokkuri
  * Failure modes of the conversion pipeline.
  *
  * Mirrors the exception taxonomy of OpenCC's C++ core
- * (`FileNotFound` / `InvalidFormat` / `InvalidFormat` for configs),
+ * (`FileNotFound` / `InvalidFormat` / `InvalidConfig` for configs),
  * so behavior stays diagnosable for users coming from other OpenCC ports.
  */
 public sealed class SokkuriException(

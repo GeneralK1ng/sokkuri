@@ -1,6 +1,6 @@
 package com.generalk1ng.sokkuri.benchmark
 
-import com.generalk1ng.sokkuri.Config
+import com.generalk1ng.sokkuri.SokkuriConfig
 import com.generalk1ng.sokkuri.Sokkuri
 import java.util.*
 
@@ -51,7 +51,7 @@ internal object InspectBenchmark {
      * their ratio (1.00 = inspection is free, 2.00 = it doubles the cost).
      * Numbers are formatted with [Locale.ROOT]; see ConvertBenchmark.
      */
-    private fun benchLine(profile: Config, convertUs: Double, inspectUs: Double): String =
+    private fun benchLine(profile: SokkuriConfig, convertUs: Double, inspectUs: Double): String =
         "[bench] kind=inspect profile=%s convertUs=%.2f inspectUs=%.2f ratio=%.2f"
             .format(BENCH_LINE_LOCALE, profile.stem, convertUs, inspectUs, inspectUs / convertUs)
 
@@ -59,7 +59,7 @@ internal object InspectBenchmark {
      * @return the requested profile (default `s2t`), or null on `--help`.
      * @throws BenchmarkException on unknown flags or an unknown stem.
      */
-    private fun parseArgs(args: List<String>): Config? {
+    private fun parseArgs(args: List<String>): SokkuriConfig? {
         var stem: String? = null
         var index = 0
         while (index < args.size) {
@@ -76,7 +76,7 @@ internal object InspectBenchmark {
             index += 1
         }
         val resolved = stem ?: "s2t"
-        return Config.fromStem(resolved)
+        return SokkuriConfig.fromStem(resolved)
             ?: throw BenchmarkException("unknown profile: '$resolved' (see --help)")
     }
 }

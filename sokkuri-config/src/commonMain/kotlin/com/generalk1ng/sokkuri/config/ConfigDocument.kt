@@ -50,7 +50,7 @@ public data class SegmentationDocument(
 
 /**
  * The `dict` node. File-backed dictionaries carry an optional
- * `may_output_tofu` flag (excluded unless requested via [com.generalk1ng.sokkuri.Options]).
+ * `may_output_tofu` flag (excluded unless requested via [com.generalk1ng.sokkuri.SokkuriOptions]).
  */
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable

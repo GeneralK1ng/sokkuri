@@ -9,11 +9,11 @@ C++ 核心保持一致。
 
 - **纯 Kotlin 实现，无原生依赖。** OpenCC 官方仅提供 C++ 库，社区已有移植只覆盖 Apple 平台。Sokkuri 不经过
   JNI，后端与移动端由此共享同一套实现和词典数据，行为跨端一致。
-- **`.sok` 零拷贝词典格式。** 词典驻留内存约等于文件原始大小（16 档合计约 2.4 MiB）；检索直接以字节区段比对输入，命中值写入输出缓冲，全程不产生中间字符串。s2t
+- **`.sok` 零拷贝词典格式。** 词典驻留内存约等于文件原始大小（16 档合计约 1.7 MiB）；检索直接以字节区段比对输入，命中值写入输出缓冲，全程不产生中间字符串。s2t
   实测 9.4 µs/op，较物化实现快 2.3–2.6 倍。
 - **`inspect()` 分级检查。** 除最终字符串外，返回分词结果与转换链各级的分段输出（OpenCC 仅给出最终结果），可用于高亮、diff
   与转换过程分析。
-- **与上游逐条对齐。** 测试套件移植自 OpenCC `testcases.json` 全部 553 条期望，JVM / Android 宿主 / iOS 模拟器三端全绿；与上游仅有的
+- **与上游逐条对齐。** 测试套件移植自 OpenCC `testcases.json` 全部 568 条期望，JVM / Android 宿主 / iOS 模拟器三端全绿；与上游仅有的
   3 处差异（tofu 风险词典默认排除，与 CLI 默认行为一致）已逐案登记，一个开关即可完全对齐。
 - **16 种转换配置**，含上游较新的香港词汇档 `s2hkp` / `hk2sp`。
 
@@ -68,7 +68,7 @@ kotlin.targets.withType<KotlinNativeTarget>().configureEach {
 ## 使用
 
 ```kotlin
-val converter = Sokkuri.create(Config.S2TWP)   // 简体 → 台湾正体（含台湾惯用词）
+val converter = Sokkuri.create(SokkuriConfig.S2TWP)   // 简体 → 台湾正体（含台湾惯用词）
 converter.convert("鼠标里面的硅二极管坏了，导致光标分辨率降低。")
 // → 滑鼠裡面的矽二極體壞了，導致游標解析度降低。
 ```
@@ -96,7 +96,7 @@ s2twp 記憶體裡的一隻烤麵包機正在讀取列印伺服器的硬碟。
 `inspect()` 返回转换过程：
 
 ```kotlin
-val inspection = Sokkuri.create(Config.S2T).inspect("软件和网络")
+val inspection = Sokkuri.create(SokkuriConfig.S2T).inspect("软件和网络")
 inspection.segments  // [软件和网络]：分词结果
 inspection.stages    // stage 1: [軟件和網絡]：转换链各级输出
 inspection.output    // 軟件和網絡
@@ -105,7 +105,7 @@ inspection.output    // 軟件和網絡
 繁转简方向默认排除可能在部分设备上显示为"豆腐块"的极端字映射；如需与上游测试语料完全一致：
 
 ```kotlin
-Sokkuri.create(Config.T2S, Options { includeTofuRiskDictionaries = true })
+Sokkuri.create(SokkuriConfig.T2S, SokkuriOptions { includeTofuRiskDictionaries = true })
 ```
 
 ## 测试
@@ -119,10 +119,10 @@ Sokkuri.create(Config.T2S, Options { includeTofuRiskDictionaries = true })
 ./gradlew :tools:benchmark:run --args="convert --profile all"   # 性能基准
 ```
 
-- golden 套件：OpenCC `testcases.json` 553 条期望 × 16 档配置，三端运行；
+- golden 套件：OpenCC `testcases.json` 568 条期望（16 档，逐档 4–108 条），三端运行；
 - 词典契约测试：`.sok` 解码校验、文本/二进制双后端检索行为等价、编码往返确定性；
-- `ConsumerTryoutTest`：每个 profile 的输入输出示例，可直接运行查看；
-- 性能基线（同机实测）：`.sok` 解码驻留堆增量 ≈ 0，冷启动建档约 45 ms，s2t 转换 9.4 µs/op。
+- `inspect()` 结构校验：分词与转换链各级分段满足平铺不变式，且与 `convert()` 结果一致；
+- 性能基线（同机实测）：`.sok` 解码驻留堆增量 ≈ 0，冷启动建档约 50 ms（基准工具口径，含类加载与 JIT），s2t 转换 9.4 µs/op。
 
 ## License
 

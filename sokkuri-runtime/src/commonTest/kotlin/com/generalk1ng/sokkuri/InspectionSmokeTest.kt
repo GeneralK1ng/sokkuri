@@ -24,7 +24,7 @@ class InspectionSmokeTest {
     @Test
     fun inspectionAlignsWithConvertAcrossPipelineShapes() {
         for (stem in listOf("s2t", "t2s", "s2twp", "tw2sp")) {
-            val config = Config.fromStem(stem)
+            val config = SokkuriConfig.fromStem(stem)
             checkNotNull(config) { "unknown stem: $stem" }
             // Prefer a case whose text actually moves through the pipeline.
             val case = OpenccTestcases.byStem.getValue(stem)
