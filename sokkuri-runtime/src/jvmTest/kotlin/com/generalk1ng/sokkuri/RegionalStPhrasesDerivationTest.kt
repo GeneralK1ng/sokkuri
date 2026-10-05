@@ -29,8 +29,8 @@ class RegionalStPhrasesDerivationTest {
     fun packagedDerivedDictionaryMatchesFreshDerivationByteForByte() {
         val openccDir = System.getenv("OPENCC_DIR") ?: return
         val t2s = Sokkuri.create(
-            Config.T2S,
-            Options { includeTofuRiskDictionaries = true },
+            SokkuriConfig.T2S,
+            SokkuriOptions { includeTofuRiskDictionaries = true },
         )
 
         // convertedKey -> original keys, in first-seen order (HK then TW),

@@ -1,6 +1,6 @@
 package com.generalk1ng.sokkuri.benchmark
 
-import com.generalk1ng.sokkuri.Config
+import com.generalk1ng.sokkuri.SokkuriConfig
 
 /**
  * The embedded sample set of the benchmark runs (m2-benchmark.md §4):
@@ -69,16 +69,16 @@ internal object Samples {
     private val HK: Sample = Sample(id = "hk", text = "恒生銀行和恒大集團發佈財報")
 
     /** Special samples keyed by their tagged profile; `medium` is implicit for all. */
-    private val SPECIALS: Map<Config, List<Sample>> = mapOf(
-        Config.S2T to listOf(SHORT, PHRASES),
-        Config.S2TWP to listOf(TWP),
-        Config.S2HK to listOf(HK),
+    private val SPECIALS: Map<SokkuriConfig, List<Sample>> = mapOf(
+        SokkuriConfig.S2T to listOf(SHORT, PHRASES),
+        SokkuriConfig.S2TWP to listOf(TWP),
+        SokkuriConfig.S2HK to listOf(HK),
     )
 
     /**
      * §3.2 selection rule: `medium` plus the specials tagged for
      * [profile] (none for profiles without a stress sample).
      */
-    internal fun forProfile(profile: Config): List<Sample> =
+    internal fun forProfile(profile: SokkuriConfig): List<Sample> =
         listOf(MEDIUM) + SPECIALS[profile].orEmpty()
 }

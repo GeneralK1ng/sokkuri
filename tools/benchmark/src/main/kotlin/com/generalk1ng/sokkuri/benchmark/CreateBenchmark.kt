@@ -1,6 +1,6 @@
 package com.generalk1ng.sokkuri.benchmark
 
-import com.generalk1ng.sokkuri.Config
+import com.generalk1ng.sokkuri.SokkuriConfig
 import com.generalk1ng.sokkuri.Sokkuri
 
 /**
@@ -66,7 +66,7 @@ internal object CreateBenchmark {
      * @throws BenchmarkException on unknown flags, an empty `--profile`
      *   list, or unknown stems.
      */
-    private fun parseArgs(args: List<String>): List<Config>? {
+    private fun parseArgs(args: List<String>): List<SokkuriConfig>? {
         var rawProfiles: List<String>? = null
         var index = 0
         while (index < args.size) {
@@ -90,7 +90,7 @@ internal object CreateBenchmark {
         }
         val stems = rawProfiles ?: listOf("s2t")
         return stems.map { stem ->
-            Config.fromStem(stem) ?: throw BenchmarkException("unknown profile: '$stem' (see --help)")
+            SokkuriConfig.fromStem(stem) ?: throw BenchmarkException("unknown profile: '$stem' (see --help)")
         }
     }
 }

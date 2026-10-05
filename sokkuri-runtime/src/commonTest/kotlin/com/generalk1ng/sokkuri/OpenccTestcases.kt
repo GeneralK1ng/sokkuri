@@ -13,8 +13,8 @@ import kotlinx.serialization.json.jsonPrimitive
  * Source: `OpenCC/test/testcases/testcases.json` (JSONC — comments and
  * trailing commas), copied verbatim into commonTest resources with the
  * upstream commit recorded in `testcases/UPSTREAM`. Stems outside the
- * ported [Config] profiles (the `*seal*` families, deliberately not ported)
- * are skipped defensively via [Config.fromStem].
+ * ported [SokkuriConfig] profiles (the `*seal*` families, deliberately not ported)
+ * are skipped defensively via [SokkuriConfig.fromStem].
  */
 @OptIn(SokkuriInternalApi::class)
 internal object OpenccTestcases {
@@ -46,12 +46,12 @@ internal object OpenccTestcases {
             val id = obj.getValue("id").jsonPrimitive.content
             val input = obj.getValue("input").jsonPrimitive.content
             for ((stem, value) in obj.getValue("expected").jsonObject) {
-                val profile = Config.fromStem(stem) ?: continue
+                val profile = SokkuriConfig.fromStem(stem) ?: continue
                 byStem.getOrPut(profile.stem) { ArrayList() }
                     .add(Case(id, input, value.jsonPrimitive.content))
             }
         }
-        val missing = Config.entries.map { it.stem } - byStem.keys
+        val missing = SokkuriConfig.entries.map { it.stem } - byStem.keys
         check(missing.isEmpty()) { "no upstream cases for ported profiles: $missing" }
         return byStem
     }

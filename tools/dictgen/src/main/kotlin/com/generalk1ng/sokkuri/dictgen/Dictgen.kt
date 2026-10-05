@@ -2,7 +2,7 @@
 
 package com.generalk1ng.sokkuri.dictgen
 
-import com.generalk1ng.sokkuri.Config
+import com.generalk1ng.sokkuri.SokkuriConfig
 import com.generalk1ng.sokkuri.config.ConfigDocument
 import com.generalk1ng.sokkuri.config.DictDocument
 import com.generalk1ng.sokkuri.config.JsonSupport
@@ -97,14 +97,14 @@ private fun generate(openccDir: File): Map<String, ByteArray> {
     val referenced = LinkedHashSet<String>()
     val generator = DictionaryGenerator(openccDir)
 
-    for (config in Config.entries) {
+    for (config in SokkuriConfig.entries) {
         val source = openccDir.resolve("data/config/${config.stem}.json")
         if (!source.isFile) throw DictgenException("missing config: ${source.path}")
         val rewritten = ConfigRewriter.rewrite(source.readText())
         outputs["config/${config.stem}.json"] = rewritten.encodeToByteArray()
         collectReferenced(rewritten, referenced)
     }
-    ConsistencyCheck.verifyConfigStems(Config.entries.map { it.stem }.toSet())
+    ConsistencyCheck.verifyConfigStems(SokkuriConfig.entries.map { it.stem }.toSet())
 
     for (baseName in referenced.sorted()) {
         val (fileName, bytes) = generator.compile(generator.recipeFor(baseName))

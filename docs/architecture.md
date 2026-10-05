@@ -24,7 +24,7 @@
 |---------------------|---------------------------|---------------------------------------------------------------------|
 | ocd / ocd2 词典读取 | 字节序/字宽不可移植       | 注册表保留类型名,报精确错误                                         |
 | jieba 及插件分词    | 范围控制                  | `SegmentationProvider` 注册表缝                                     |
-| `*_seal` 配置档     | 纯数据                    | `Config` 枚举加法 + dictgen                                         |
+| `*_seal` 配置档     | 纯数据                    | `SokkuriConfig` 枚举加法 + dictgen                                         |
 | 流式 chunked 转换   | 范围控制                  | `Converter` 纯函数接口之上的包装                                    |
 | String view 匹配    | Kotlin 无通用零拷贝视图   | `Dictionary` internal 接口演进,**已实现**(M3,sink 式 `matchAppend`) |
 | 配置 schema 校验    | 上游 warn-only,净效应有限 | 注入式 `ConfigValidator` 缝                                         |
@@ -42,7 +42,7 @@ sokkuri-runtime    聚合门面 + 平台资源加载器 actual + 打包词典数
         │               零 IO,经 Provider 缝隙落地
         └── sokkuri-engine  纯转换核心:Utf/IDS、Dictionary、Conversion、
             │               ConversionChain、Segmentation、Converter
-            └── sokkuri-api   稳定公开面:Config、Options、Inspection、
+            └── sokkuri-api   稳定公开面:SokkuriConfig、SokkuriOptions、Inspection、
                               异常体系、@SokkuriInternalApi
 tools:dictgen(已实现,M1)  词典编译器;同构建的普通模块,非发布产物。
                   上游 data/dictionary → `.sok`、上游 config → 重写后的打包
@@ -193,8 +193,8 @@ interface Dictionary {
 | 1  | 新词典格式(`.sok` 及其他)               | resource:新 `Dictionary` 实现 + `DictionaryFormat`,注册 `DefaultDictionaryFormats`;编码器放同模块 internal                    | engine、config 改动;在 dictgen 另写编码器           |
 | 2  | 新分词器(jieba 类)                      | engine:实现 `Segmentation`;config:`SegmentationProvider` 注册表接入(8.3);用户经 `Sokkuri.create` 高级重载注入                 | `Conversion`、热路径改动                            |
 | 3  | 新配置字段                              | config:`ConfigDocument` 加字段 + `ConfigParser` 消费;上游语义优先;未知键继续忽略                                              | 改变已知键的宽容度(R8)                              |
-| 4  | 新内置 profile(seal 类)                 | api:`Config` 枚举加法(遵守 I8);dictgen:词典 + 重写配置进 runtime 资源;README 与第 7 章登记                                    | 重排/删除枚举值                                     |
-| 5  | 新 Options                              | api:`Options.Builder` 加 `var`;默认值对齐上游或登记偏离                                                                       | 构造函数加法(破坏 ABI)                              |
+| 4  | 新内置 profile(seal 类)                 | api:`SokkuriConfig` 枚举加法(遵守 I8);dictgen:词典 + 重写配置进 runtime 资源;README 与第 7 章登记                                    | 重排/删除枚举值                                     |
+| 5  | 新 SokkuriOptions                              | api:`SokkuriOptions.Builder` 加 `var`;默认值对齐上游或登记偏离                                                                       | 构造函数加法(破坏 ABI)                              |
 | 6  | 新转换能力(candidates / ambiguities 类) | engine:基于 `Dictionary.matchExact` 的纯函数;api:新类型;runtime:`Sokkuri` 委托                                                | `Dictionary` 接口膨胀(4.1)                          |
 | 7  | 新平台 target(macOS/watchOS 等)         | 各模块 `build.gradle.kts` 加 target;resource:`SokkuriLock` actual(可抽 appleMain);runtime:手工接线 source set + loader actual | 新增层;api/engine/config 出现 actual(R5)            |
 | 8  | 流式 chunked 转换                       | runtime 之上加有状态窗口包装(8.5);engine `Converter` 纯函数接口不动                                                           | 在 `Converter` 接口引入流式方法                     |
@@ -217,14 +217,14 @@ interface Dictionary {
 - **I6** 热路径零输入拷贝:引擎以 `CharArray` 窗口处理输入,只在写出时
   拼接(为 8.1 的 view 演进铺路)。
 - **I7** JSONC 宽容度 = 上游 rapidjson flags 的等价集合,不多不少(R8)。
-- **I8** `Config` 枚举只增、不删、不重排;新增值进入第 7 章登记表。
+- **I8** `SokkuriConfig` 枚举只增、不删、不重排;新增值进入第 7 章登记表。
 
 ## 7. 上游对齐与偏离登记表
 
 | #  | 点                                | 上游                       | Sokkuri                                                               | 理由                                  | 状态                  |
 |----|-----------------------------------|----------------------------|-----------------------------------------------------------------------|---------------------------------------|-----------------------|
 | 1  | 词典缓存                          | 进程级 weak + mtime 失效   | 进程级强引用共享                                                      | 资源不可变;KMP 无 common 弱引用       | 已实现                |
-| 2  | tofu 词典默认                     | core 默认包含;CLI 默认排除 | 默认排除,`Options` 开启                                               | 移动端字体 tofu 风险                  | 已实现                |
+| 2  | tofu 词典默认                     | core 默认包含;CLI 默认排除 | 默认排除,`SokkuriOptions` 开启                                               | 移动端字体 tofu 风险                  | 已实现                |
 | 3  | ocd / ocd2                        | 支持                       | `UnsupportedDictionaryFormat` 精确报错                                | 字节序/字宽不可移植                   | 已实现                |
 | 4  | jieba / seal                      | 支持                       | 不移植                                                                | 范围控制                              | 架构预留(8.3/8.4)     |
 | 5  | 流式转换                          | `ConverterStream`          | 不实现                                                                | 范围控制;接口兼容(8.5)                | 架构预留              |
@@ -294,7 +294,7 @@ API 扩展落地)。
 
 ### 8.4 seal 配置档
 
-纯数据路线,无代码改动:① `Config` 枚举加值(遵守 I8);② dictgen
+纯数据路线,无代码改动:① `SokkuriConfig` 枚举加值(遵守 I8);② dictgen
 从上游 `SealCharacters` / `SealVariants` 生成 `.sok`;③ 重写配置进
 runtime 资源;④ README/登记表更新。对 exhaustive `when` 消费者是
 源码级影响,minor 版本可接受。
@@ -316,7 +316,7 @@ runtime 资源;④ README/登记表更新。对 exhaustive `when` 消费者是
 | D1   | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留) | 已实现        |
 | D2   | `Inspection` 平铺 `normalizationStages`                         | 已实现        |
 | D3   | 进程级强引用共享词典缓存(加载器实例 scope)                      | 已实现        |
-| D4   | `Options` 改 Builder 模式                                       | 已实现        |
+| D4   | `SokkuriOptions` 改 Builder 模式                                       | 已实现        |
 | D5   | inline 词典 `may_output_tofu` 严格报错                          | 已实现        |
 | D6   | `.sok` 编解码读写同侧                                           | 已实现        |
 | D7   | 流式转换不进 v1                                                 | 架构预留(8.5) |

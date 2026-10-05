@@ -68,7 +68,7 @@ kotlin.targets.withType<KotlinNativeTarget>().configureEach {
 ## 使用
 
 ```kotlin
-val converter = Sokkuri.create(Config.S2TWP)   // 简体 → 台湾正体（含台湾惯用词）
+val converter = Sokkuri.create(SokkuriConfig.S2TWP)   // 简体 → 台湾正体（含台湾惯用词）
 converter.convert("鼠标里面的硅二极管坏了，导致光标分辨率降低。")
 // → 滑鼠裡面的矽二極體壞了，導致游標解析度降低。
 ```
@@ -96,7 +96,7 @@ s2twp 記憶體裡的一隻烤麵包機正在讀取列印伺服器的硬碟。
 `inspect()` 返回转换过程：
 
 ```kotlin
-val inspection = Sokkuri.create(Config.S2T).inspect("软件和网络")
+val inspection = Sokkuri.create(SokkuriConfig.S2T).inspect("软件和网络")
 inspection.segments  // [软件和网络]：分词结果
 inspection.stages    // stage 1: [軟件和網絡]：转换链各级输出
 inspection.output    // 軟件和網絡
@@ -105,7 +105,7 @@ inspection.output    // 軟件和網絡
 繁转简方向默认排除可能在部分设备上显示为"豆腐块"的极端字映射；如需与上游测试语料完全一致：
 
 ```kotlin
-Sokkuri.create(Config.T2S, Options { includeTofuRiskDictionaries = true })
+Sokkuri.create(SokkuriConfig.T2S, SokkuriOptions { includeTofuRiskDictionaries = true })
 ```
 
 ## 测试
