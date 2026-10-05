@@ -34,15 +34,11 @@ internal object AndroidResourceContext {
 internal class AndroidResourceLoader internal constructor() : ResourceLoader {
 
     override fun load(path: String): ByteArray? {
-        val context =
-            AndroidResourceContext.appContext ?: // Host unit tests run without an Application and resolve from the
-            // classpath. On device, a miss here means Sokkuri.init was never
-            // called — say so instead of surfacing a bare not-found.
-            return ClasspathResourceLoader().load(path)
-                ?: throw SokkuriException.FileNotFound(
-                    path,
-                    "Android assets unavailable; did you call Sokkuri.init(context)?",
-                )
+        // Host unit tests run without an Application and resolve from the
+        // classpath; on device this branch means Sokkuri.init never ran, which
+        // missingResourceHint reports.
+        val context = AndroidResourceContext.appContext
+            ?: return ClasspathResourceLoader().load(path)
         return try {
             context.assets.open(path).use { stream -> stream.readBytes() }
         } catch (e: IOException) {
@@ -52,6 +48,16 @@ internal class AndroidResourceLoader internal constructor() : ResourceLoader {
             ClasspathResourceLoader().load(path)
         }
     }
+
+    override fun missingResourceHint(): String =
+        if (AndroidResourceContext.appContext == null) {
+            "no application context is registered — call Sokkuri.init(context) " +
+                    "during startup before the first Sokkuri.create; only the " +
+                    "classpath was searched, and the resource is not there either"
+        } else {
+            "searched application assets and then the classpath: the configs " +
+                    "and dictionaries ship inside the sokkuri-runtime artifact"
+        }
 }
 
 // Singleton so every Sokkuri.create shares one loader identity and therefore

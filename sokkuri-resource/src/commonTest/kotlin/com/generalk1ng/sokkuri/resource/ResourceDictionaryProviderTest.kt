@@ -18,7 +18,10 @@
 
 package com.generalk1ng.sokkuri.resource
 
+import com.generalk1ng.sokkuri.SokkuriException
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 
@@ -33,6 +36,13 @@ class ResourceDictionaryProviderTest {
         private val files: Map<String, ByteArray>,
     ) : ResourceLoader {
         override fun load(path: String): ByteArray? = files[path]
+
+        override fun missingResourceHint(): String = HINT
+
+        companion object {
+            /** Distinctive marker: proves the hint reaches the thrown failure (I9). */
+            const val HINT = "in-memory fixture loader: the file is not in the fixture map"
+        }
     }
 
     private val formats: Map<String, DictionaryFormat> =
@@ -54,5 +64,24 @@ class ResourceDictionaryProviderTest {
         val second = ResourceDictionaryProvider(FakeLoader(files), formats)
 
         assertNotSame(first.open("text", "d.txt"), second.open("text", "d.txt"))
+    }
+
+    /**
+     * A miss is reported with the loader's own diagnosis: the provider sees
+     * only a path, the loader sees the search scope (architecture.md §6, I9).
+     */
+    @Test
+    fun missingFileCarriesTheLoadersDiagnosis() {
+        val provider = ResourceDictionaryProvider(FakeLoader(emptyMap()), formats)
+
+        val failure = assertFailsWith<SokkuriException.FileNotFound> {
+            provider.open("text", "absent.txt")
+        }
+
+        assertEquals("absent.txt", failure.path)
+        assertEquals(
+            "Resource not found: absent.txt (${FakeLoader.HINT})",
+            failure.message,
+        )
     }
 }

@@ -196,20 +196,20 @@ interface Dictionary {
 > 每行给出改动位置与**明确禁止**触碰的部分。拿不准时回到第 2.3 节
 > 的法则。
 
-| #  | 场景                                    | 改动位置                                                                                                                      | 禁止                                                |
-|----|-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------|
-| 1  | 新词典格式(`.sok` 及其他)               | resource:新 `Dictionary` 实现 + `DictionaryFormat`,注册 `DefaultDictionaryFormats`;编码器放同模块 internal                    | engine、config 改动;在 dictgen 另写编码器           |
-| 2  | 新分词器(jieba 类)                      | engine:实现 `Segmentation`;config:`SegmentationProvider` 注册表接入(8.3);用户经 `Sokkuri.create` 高级重载注入                 | `Conversion`、热路径改动                            |
-| 3  | 新配置字段                              | config:`ConfigDocument` 加字段 + `ConfigParser` 消费;上游语义优先;未知键继续忽略                                              | 改变已知键的宽容度(R8)                              |
-| 4  | 新内置 profile(seal 类)                 | api:`SokkuriConfig` 枚举加法(遵守 I8);dictgen:词典 + 重写配置进 runtime 资源;README 与第 7 章登记                                    | 重排/删除枚举值                                     |
-| 5  | 新 SokkuriOptions                              | api:`SokkuriOptions.Builder` 加 `var`;默认值对齐上游或登记偏离                                                                       | 构造函数加法(破坏 ABI)                              |
-| 6  | 新转换能力(candidates / ambiguities 类) | engine:基于 `Dictionary.matchExact` 的纯函数;api:新类型;runtime:`Sokkuri` 委托                                                | `Dictionary` 接口膨胀(4.1)                          |
-| 7  | 新平台 target(macOS/watchOS 等)         | 各模块 `build.gradle.kts` 加 target;resource:`SokkuriLock` actual(可抽 appleMain);runtime:手工接线 source set + loader actual | 新增层;api/engine/config 出现 actual(R5)            |
-| 8  | 流式 chunked 转换                       | runtime 之上加有状态窗口包装(8.5);engine `Converter` 纯函数接口不动                                                           | 在 `Converter` 接口引入流式方法                     |
-| 9  | `Inspection` 演进                       | 结构调整 = api 破坏性,major 版本管理;优先"加"不"改"                                                                           | minor 版本改公开签名                                |
-| 10 | String view 匹配                        | **已实现(M3)**:`Dictionary` 加 sink 式 `matchAppend`(默认实现=旧行为),检索共享扫描双出口(internal,自由)                       | 破坏 `matchPrefix` 既有语义(默认实现与契约套件守门) |
-| 11 | schema 校验                             | 按 8.2 注入 `ConfigValidator`(warn-only)                                                                                      | 改为硬失败(偏离上游语义)                            |
-| 12 | 自定义资源加载                          | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API;**前置**:按 4.3 给 loader 身份登记表定界或换键 | 把 loader 接口下放engine/config(R3)                 |
+| #  | 场景                                | 改动位置                                                                                                                                                               | 禁止                                  |
+|----|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
+| 1  | 新词典格式(`.sok` 及其他)                 | resource:新 `Dictionary` 实现 + `DictionaryFormat`,注册 `DefaultDictionaryFormats`;编码器放同模块 internal                                                                     | engine、config 改动;在 dictgen 另写编码器    |
+| 2  | 新分词器(jieba 类)                     | engine:实现 `Segmentation`;config:`SegmentationProvider` 注册表接入(8.3);用户经 `Sokkuri.create` 高级重载注入                                                                      | `Conversion`、热路径改动                  |
+| 3  | 新配置字段                             | config:`ConfigDocument` 加字段 + `ConfigParser` 消费;上游语义优先;未知键继续忽略                                                                                                     | 改变已知键的宽容度(R8)                       |
+| 4  | 新内置 profile(seal 类)               | api:`SokkuriConfig` 枚举加法(遵守 I8);dictgen:词典 + 重写配置进 runtime 资源;README 与第 7 章登记                                                                                      | 重排/删除枚举值                            |
+| 5  | 新 SokkuriOptions                  | api:`SokkuriOptions.Builder` 加 `var`;默认值对齐上游或登记偏离                                                                                                                  | 构造函数加法(破坏 ABI)                      |
+| 6  | 新转换能力(candidates / ambiguities 类) | engine:基于 `Dictionary.matchExact` 的纯函数;api:新类型;runtime:`Sokkuri` 委托                                                                                                | `Dictionary` 接口膨胀(4.1)              |
+| 7  | 新平台 target(macOS/watchOS 等)       | 各模块 `build.gradle.kts` 加 target;resource:`SokkuriLock` actual(可抽 appleMain);runtime:手工接线 source set + loader actual                                                | 新增层;api/engine/config 出现 actual(R5) |
+| 8  | 流式 chunked 转换                     | runtime 之上加有状态窗口包装(8.5);engine `Converter` 纯函数接口不动                                                                                                                 | 在 `Converter` 接口引入流式方法              |
+| 9  | `Inspection` 演进                   | 结构调整 = api 破坏性,major 版本管理;优先"加"不"改"                                                                                                                                | minor 版本改公开签名                       |
+| 10 | String view 匹配                    | **已实现(M3)**:`Dictionary` 加 sink 式 `matchAppend`(默认实现=旧行为),检索共享扫描双出口(internal,自由)                                                                                   | 破坏 `matchPrefix` 既有语义(默认实现与契约套件守门)  |
+| 11 | schema 校验                         | 按 8.2 注入 `ConfigValidator`(warn-only)                                                                                                                              | 改为硬失败(偏离上游语义)                       |
+| 12 | 自定义资源加载                           | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API;自定义 loader 须实现 `missingResourceHint()`,写实搜索范围而非敷衍占位(I9);**前置**:按 4.3 给 loader 身份登记表定界或换键 | 把 loader 接口下放engine/config(R3)      |
 
 ## 6. 不变量清单
 
@@ -230,6 +230,13 @@ interface Dictionary {
   拼接(为 8.1 的 view 演进铺路)。
 - **I7** JSONC 宽容度 = 上游 rapidjson flags 的等价集合,不多不少(R8)。
 - **I8** `SokkuriConfig` 枚举只增、不删、不重排;新增值进入第 7 章登记表。
+- **I9** 资源缺失一律以 `ResourceLoader.load` 返回 `null` 上报,loader 自身不抛
+  异常(Android actual 曾违反);诊断由 `missingResourceHint()` 提供,抛点组合为
+  `FileNotFound(path, loader.missingResourceHint())`,禁止裸 `FileNotFound(path)`
+  (见 D10)。理由:抛点只见路径,loader 是唯一知道搜索范围的组件;缺了它,用户
+  只拿到一句无指引的 not found,被送去查打包而非配置。hint 不得为空。
+  `MissingResourceDiagnosisTest`(runtime commonTest,在三端跑真实 loader)与
+  `ResourceDictionaryProviderTest`(resource)守门。
 
 ## 7. 上游对齐与偏离登记表
 
@@ -323,17 +330,18 @@ runtime 资源;④ README/登记表更新。对 exhaustive `when` 消费者是
 
 ## 9. 决策实现状态总表
 
-| 决策 | 内容                                                       | 代码状态      |
-|----|----------------------------------------------------------|-----------|
-| D1 | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留) | 已实现       |
-| D2 | `Inspection` 平铺 `normalizationStages`                    | 已实现       |
-| D3 | 进程级强引用共享词典缓存(加载器实例 scope)                                | 已实现       |
-| D4 | `SokkuriOptions` 改 Builder 模式                            | 已实现       |
-| D5 | inline 词典 `may_output_tofu` 严格报错                         | 已实现       |
-| D6 | `.sok` 编解码读写同侧                                           | 已实现       |
-| D7 | 流式转换不进 v1                                                | 架构预留(8.5) |
-| D8 | 自定义 loader 公开化路径(扩展手册 #12)                               | 架构预留      |
-| D9 | 错误上报双通道:`create` 抛异常 + `CreateResult` 非抛路径(Apple 边界)     | 已实现       |
+| 决策  | 内容                                                                 | 代码状态      |
+|-----|--------------------------------------------------------------------|-----------|
+| D1  | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留)           | 已实现       |
+| D2  | `Inspection` 平铺 `normalizationStages`                              | 已实现       |
+| D3  | 进程级强引用共享词典缓存(加载器实例 scope)                                          | 已实现       |
+| D4  | `SokkuriOptions` 改 Builder 模式                                      | 已实现       |
+| D5  | inline 词典 `may_output_tofu` 严格报错                                   | 已实现       |
+| D6  | `.sok` 编解码读写同侧                                                     | 已实现       |
+| D7  | 流式转换不进 v1                                                          | 架构预留(8.5) |
+| D8  | 自定义 loader 公开化路径(扩展手册 #12)                                         | 架构预留      |
+| D9  | 错误上报双通道:`create` 抛异常 + `CreateResult` 非抛路径(Apple 边界)               | 已实现       |
+| D10 | 资源缺失诊断下沉到 loader:`missingResourceHint()` 组合进 `FileNotFound.detail` | 已实现       |
 
 ## 10. 测试与对齐策略
 

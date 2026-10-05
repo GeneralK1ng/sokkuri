@@ -18,7 +18,12 @@ package com.generalk1ng.sokkuri.dictgen
 
 import com.generalk1ng.sokkuri.SokkuriException
 import com.generalk1ng.sokkuri.SokkuriInternalApi
-import com.generalk1ng.sokkuri.config.*
+import com.generalk1ng.sokkuri.config.ConfigDocument
+import com.generalk1ng.sokkuri.config.ConfigParser
+import com.generalk1ng.sokkuri.config.ConversionDocument
+import com.generalk1ng.sokkuri.config.DictDocument
+import com.generalk1ng.sokkuri.config.DictionaryProvider
+import com.generalk1ng.sokkuri.config.JsonSupport
 import com.generalk1ng.sokkuri.resource.SokDictionaryEncoder
 import com.generalk1ng.sokkuri.resource.TextDictionaryFormat
 import java.io.File
@@ -205,7 +210,12 @@ internal class DictionaryGenerator internal constructor(
                 )
                 return dumpLexicon(extracted).encodeToByteArray()
             }
-            throw SokkuriException.FileNotFound(file)
+            throw SokkuriException.FileNotFound(
+                file,
+                "not in the OpenCC clone's dictionary directory " +
+                        "(${dictionaryDir.path}) — the clone must be present and at " +
+                        "the revision the packaged configs expect",
+            )
         }
     }
 }
