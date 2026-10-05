@@ -159,7 +159,8 @@ public class SokDictionary internal constructor(
          * Decodes [bytes] into a [SokDictionary], applying the strict
          * decoder validation of m1-dictgen-sok §3.2: magic/version/flags,
          * entryCount consistency with the file size, monotone offset tables
-         * terminating at their blob sizes, and `valueCounts ≥ 1`. Every
+         * terminating at their blob sizes, `valueCounts ≥ 1`, and each
+         * entry's candidates tiling its valueOffsets region exactly. Every
          * failure is an [SokkuriException.InvalidFormat] naming the field.
          */
         internal fun decode(bytes: ByteArray): SokDictionary {
@@ -248,6 +249,38 @@ public class SokDictionary internal constructor(
             for (i in 0 until n) {
                 if (bytes[valueCountsBase + i] == 0.toByte()) {
                     throw SokkuriException.InvalidFormat("sok: valueCounts[$i] is 0")
+                }
+            }
+
+            // Value-blob structure: an entry's candidates must tile its own
+            // [valueOffsets[i], valueOffsets[i + 1]) region exactly, since
+            // the encoder writes nothing else there. The offset table alone
+            // cannot express this, so without the walk below a
+            // size-consistent but corrupt file passes every check above and
+            // then reads past the buffer on first access (appendDefaultValueAt
+            // reads the u16 header, entryAt decodes the payload). Every read
+            // stays in bounds: the cursor never passes `end`, and `end` is at
+            // most valueBlobBytes, whose tail is the last byte of the file.
+            for (i in 0 until n) {
+                val start = SokFormatLayout.readU32(bytes, valueOffsetsBase + i * 4).toInt()
+                val end = SokFormatLayout.readU32(bytes, valueOffsetsBase + (i + 1) * 4).toInt()
+                val count = bytes[valueCountsBase + i].toInt() and 0xFF
+                var cursor = start
+                repeat(count) {
+                    if (cursor + SokFormatLayout.CANDIDATE_HEADER_BYTES > end) {
+                        throw SokkuriException.InvalidFormat(
+                            "sok: valueCounts[$i] is $count, too many for its " +
+                                "${end - start}-byte valueOffsets region",
+                        )
+                    }
+                    cursor += SokFormatLayout.CANDIDATE_HEADER_BYTES +
+                        SokFormatLayout.readU16(bytes, valueBlobBase + cursor)
+                }
+                if (cursor != end) {
+                    throw SokkuriException.InvalidFormat(
+                        "sok: valueBlob of entry $i ends at $cursor, " +
+                            "but valueOffsets[${i + 1}] is $end",
+                    )
                 }
             }
 

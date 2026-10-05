@@ -25,7 +25,9 @@ package com.generalk1ng.sokkuri.resource
  * …       4×(n+1)   valueOffsets, strictly increasing, last = valueBlobBytes
  * …       n         valueCounts (u8), candidates per entry, ≥ 1
  * …       *         keyBlob: UTF-8 keys in code-point order (invariant I2)
- * …       *         valueBlob: per candidate u16 byteLen + UTF-8 bytes
+ * …       *         valueBlob: per candidate u16 byteLen + UTF-8 bytes; the
+ *                   candidates of entry i tile [valueOffsets[i],
+ *                   valueOffsets[i+1]) exactly (decoder-enforced)
  * ```
  */
 internal object SokFormatLayout {

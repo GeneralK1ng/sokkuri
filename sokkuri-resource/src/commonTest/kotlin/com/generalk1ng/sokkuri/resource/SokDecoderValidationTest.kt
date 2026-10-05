@@ -25,6 +25,21 @@ class SokDecoderValidationTest {
 
     private fun corrupt(patch: ByteArray.() -> Unit): ByteArray = valid.copyOf().also(patch)
 
+    private val entryCount: Int =
+        SokFormatLayout.readU32(valid, SokFormatLayout.OFFSET_ENTRY_COUNT).toInt()
+
+    private val valueOffsetsBase: Int =
+        SokFormatLayout.HEADER_BYTES + 4 * (entryCount + 1)
+
+    /**
+     * Start of the value blob: past the header, both offset tables, the
+     * valueCounts column, and the key blob. `valid` encodes keys a/ab/abc
+     * with candidates A/AB/ABC, so its value blob is
+     * `[u16 1]"A" [u16 2]"AB" [u16 3]"ABC"` and valueOffsets is [0, 3, 6, 9].
+     */
+    private val valueBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount +
+        SokFormatLayout.readU32(valid, SokFormatLayout.OFFSET_KEY_BLOB_BYTES).toInt()
+
     private fun assertRejected(bytes: ByteArray, field: String) {
         val error = assertFailsWith<SokkuriException.InvalidFormat> {
             SokDictionaryFormat.decode(bytes)
@@ -121,5 +136,50 @@ class SokDecoderValidationTest {
         val n = SokFormatLayout.readU32(valid, SokFormatLayout.OFFSET_ENTRY_COUNT).toInt()
         val valueCountsBase = SokFormatLayout.HEADER_BYTES + 8 * (n + 1)
         assertRejected(corrupt { this[valueCountsBase] = 0 }, "valueCounts")
+    }
+
+    @Test
+    fun candidateCountExceedingItsRegionIsRejected() {
+        // Entry 0's region shrinks to a single byte, too small to hold even
+        // the u16 header its valueCount of 1 candidate requires.
+        assertRejected(
+            corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 4, 1) },
+            "valueCounts",
+        )
+    }
+
+    @Test
+    fun candidateLengthOvershootingItsRegionIsRejected() {
+        // Entry 0 declares a 100-byte payload inside its 3-byte region.
+        assertRejected(
+            corrupt { SokFormatLayout.writeU16(this, valueBlobBase, 100) },
+            "valueBlob",
+        )
+    }
+
+    @Test
+    fun candidateLengthUndershootingItsRegionIsRejected() {
+        // Entry 0 declares a 0-byte payload, leaving its region one byte
+        // short of the next offset (the encoder rejects empty values).
+        assertRejected(
+            corrupt { SokFormatLayout.writeU16(this, valueBlobBase, 0) },
+            "valueBlob",
+        )
+    }
+
+    @Test
+    fun candidateHeaderInTheLastByteIsRejected() {
+        // Regression: valueOffsets [0,3,8,9] is strictly increasing and
+        // terminates at the blob size, so it satisfied every pre-existing
+        // check and decode() returned a usable dictionary — yet entry 2's
+        // cursor sits at bytes.size - 1, so its first access read the u16
+        // header past the end of the buffer (ArrayIndexOutOfBoundsException
+        // from the production matchAppend path). The structural walk now
+        // rejects the file at decode time; the same edit over-stretches
+        // entry 1's region, so that is the entry reported.
+        assertRejected(
+            corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 2 * 4, 8) },
+            "valueBlob",
+        )
     }
 }
