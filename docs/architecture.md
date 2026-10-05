@@ -220,7 +220,11 @@ interface Dictionary {
   `String.compareTo` 混入。
 - **I3** 词典与转换器构造后不可变、线程安全;converter 跨线程共享。
 - **I4** 异常分类对齐上游(FileNotFound / InvalidFormat / InvalidConfig /
-  Unsupported);新增错误类型须为 `SokkuriException` 子类。
+  Unsupported);新增错误类型须为 `SokkuriException` 子类,并同步登记进
+  `Sokkuri.create` 的 `@Throws`(见 D9)。Kotlin/Native 会剪除未出现在任何
+  导出签名里的类型,漏登记的子类对 Swift 不可见;但不致命——`@Throws`
+  标记本身仍把异常桥接为 `NSError`,只是 `CreateResult.Failure.error` 的
+  精确 cast 退化为基类。`SokkuriCreateThrowsContractTest`(jvmTest)守门。
 - **I5** 全模块 `explicitApi()`;跨层 API 标注 `@SokkuriInternalApi`。
 - **I6** 热路径零输入拷贝:引擎以 `CharArray` 窗口处理输入,只在写出时
   拼接(为 8.1 的 view 演进铺路)。
@@ -319,16 +323,17 @@ runtime 资源;④ README/登记表更新。对 exhaustive `when` 消费者是
 
 ## 9. 决策实现状态总表
 
-| 决策 | 内容                                                            | 代码状态      |
-|------|-----------------------------------------------------------------|---------------|
-| D1   | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留) | 已实现        |
-| D2   | `Inspection` 平铺 `normalizationStages`                         | 已实现        |
-| D3   | 进程级强引用共享词典缓存(加载器实例 scope)                      | 已实现        |
-| D4   | `SokkuriOptions` 改 Builder 模式                                       | 已实现        |
-| D5   | inline 词典 `may_output_tofu` 严格报错                          | 已实现        |
-| D6   | `.sok` 编解码读写同侧                                           | 已实现        |
-| D7   | 流式转换不进 v1                                                 | 架构预留(8.5) |
-| D8   | 自定义 loader 公开化路径(扩展手册 #12)                          | 架构预留      |
+| 决策 | 内容                                                       | 代码状态      |
+|----|----------------------------------------------------------|-----------|
+| D1 | `Converter` 封闭接口化(SingleStage / Normalizing,Pipeline 预留) | 已实现       |
+| D2 | `Inspection` 平铺 `normalizationStages`                    | 已实现       |
+| D3 | 进程级强引用共享词典缓存(加载器实例 scope)                                | 已实现       |
+| D4 | `SokkuriOptions` 改 Builder 模式                            | 已实现       |
+| D5 | inline 词典 `may_output_tofu` 严格报错                         | 已实现       |
+| D6 | `.sok` 编解码读写同侧                                           | 已实现       |
+| D7 | 流式转换不进 v1                                                | 架构预留(8.5) |
+| D8 | 自定义 loader 公开化路径(扩展手册 #12)                               | 架构预留      |
+| D9 | 错误上报双通道:`create` 抛异常 + `CreateResult` 非抛路径(Apple 边界)     | 已实现       |
 
 ## 10. 测试与对齐策略
 

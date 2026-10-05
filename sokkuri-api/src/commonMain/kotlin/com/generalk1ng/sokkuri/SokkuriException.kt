@@ -22,11 +22,18 @@ package com.generalk1ng.sokkuri
  * Mirrors the exception taxonomy of OpenCC's C++ core
  * (`FileNotFound` / `InvalidFormat` / `InvalidConfig` for configs),
  * so behavior stays diagnosable for users coming from other OpenCC ports.
+ *
+ * Unchecked by deliberate choice. Kotlin has no checked exceptions, so the
+ * checked/unchecked distinction only reaches JVM consumers — and there the
+ * explicit failure channel is `Sokkuri.CreateResult`; this exception is what
+ * escapes when a caller does not use it. On Apple targets the type is
+ * bridged to `NSError` only because `Sokkuri.create` names it in `@Throws`
+ * (docs/architecture.md §6, I4).
  */
 public sealed class SokkuriException(
     message: String,
     cause: Throwable? = null,
-) : Exception(message, cause) {
+) : RuntimeException(message, cause) {
 
     /** A resource (config or dictionary) could not be located. */
     public class FileNotFound public constructor(

@@ -108,6 +108,50 @@ inspection.output    // 軟件和網絡
 Sokkuri.create(SokkuriConfig.T2S, SokkuriOptions { includeTofuRiskDictionaries = true })
 ```
 
+### iOS（Swift）
+
+推荐用 `createResult`：它不抛异常，返回一个可精确分支的 `Sokkuri.CreateResult`。
+
+```swift
+import Sokkuri
+
+let config = Sokkuri_apiSokkuriConfig.companion.fromStem(stem: "s2twp")!
+let result = Sokkuri.Companion.shared.createResult(
+    config: config,
+    options: Sokkuri_apiSokkuriOptions.companion.DEFAULT,
+)
+
+if let ok = result as? Sokkuri.CreateResultSuccess {
+    print(ok.sokkuri.convert(input: "鼠标里面的硅二极管坏了"))
+} else if let failure = result as? Sokkuri.CreateResultFailure {
+    // failure.error 声明为基类，但可精确 cast 到具体子类
+    if let missing = failure.error as? Sokkuri_apiSokkuriException.FileNotFound {
+        print("缺少资源：\(missing.path)")
+    }
+}
+```
+
+`create` 同样可用，只是会抛异常，Swift 调用点需加 `try`。它存在的意义是保证异常不会终止进程：*
+*未标注 `@Throws` 的 Kotlin 函数一旦抛异常，Kotlin/Native 会直接终止程序**（
+`Program will be terminated`），而不是交给调用方。
+
+```swift
+do {
+    let sokkuri = try Sokkuri.Companion.shared.create(config: config, options: options)
+} catch let error as NSError {
+    // Kotlin 异常一律以 NSError 形态到达（domain "KotlinException"），
+    // `catch let e as SokkuriException` 能编译但永不匹配，只能这样取回：
+    print(error.kotlinException ?? error)
+}
+```
+
+需要注意的是：
+
+- **类型名带模块前缀。** `sokkuri-api` 模块里的公开类型在 Swift 侧是 `Sokkuri_apiSokkuriConfig` /
+  `Sokkuri_apiSokkuriOptions` / `Sokkuri_apiSokkuriException`；主模块的 `Sokkuri` 和
+  `Sokkuri.CreateResult` 不带前缀。
+- **sealed 类不能穷尽 `switch`。** `CreateResult` 过桥后是普通 ObjC 类，只能用 `as?` 分支，编译器不检查穷尽性。
+
 ## 测试
 
 ```bash
