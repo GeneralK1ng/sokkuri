@@ -5,7 +5,7 @@ package com.generalk1ng.sokkuri
  * `sokkuri-resource`) that are technically public for cross-module wiring
  * but are **not** part of the stable public surface.
  *
- * The `sokkuri` aggregate artifact is the only supported entry point.
+ * The `sokkuri-runtime` artifact is the only supported entry point.
  * Layer APIs may change in any release without notice; depending on them
  * directly (outside this project's own modules) opts you into breakage.
  */
