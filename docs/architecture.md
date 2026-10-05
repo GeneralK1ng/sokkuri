@@ -210,6 +210,7 @@ interface Dictionary {
 | 10 | String view 匹配                    | **已实现(M3)**:`Dictionary` 加 sink 式 `matchAppend`(默认实现=旧行为),检索共享扫描双出口(internal,自由)                                                                                   | 破坏 `matchPrefix` 既有语义(默认实现与契约套件守门)  |
 | 11 | schema 校验                         | 按 8.2 注入 `ConfigValidator`(warn-only)                                                                                                                              | 改为硬失败(偏离上游语义)                       |
 | 12 | 自定义资源加载                           | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API;自定义 loader 须实现 `missingResourceHint()`,写实搜索范围而非敷衍占位(I9);**前置**:按 4.3 给 loader 身份登记表定界或换键 | 把 loader 接口下放engine/config(R3)      |
+| 13 | 用户自带配置(`fromConfig`)             | runtime:`Sokkuri.fromConfig(json, options)` 接受用户配置;装配复用 `create` 的 loader/provider 组合、`CreateResult` 双通道,JSONC 走 `JsonSupport.stripComments`(**前置**:#12 的 loader 缝——配置里引用的词典仍须经 `ResourceLoader` 定位;D11 的消息归属;`ocd/ocd2→sok` 的改写目前只存在于 tools/dictgen 的 `ConfigRewriter`,用户配置里的这两种类型会落到格式注册表的 `Unsupported` 分支) | 在 config 层另开一条解析路径;绕过 `DefaultDictionaryFormats`;把改写逻辑从 dictgen 搬进运行时 |
 
 ## 6. 不变量清单
 
@@ -237,6 +238,13 @@ interface Dictionary {
   只拿到一句无指引的 not found,被送去查打包而非配置。hint 不得为空。
   `MissingResourceDiagnosisTest`(runtime commonTest,在三端跑真实 loader)与
   `ResourceDictionaryProviderTest`(resource)守门。
+- **I10** `dict.type` 的受理集合只有一处来源:`DictDocument` 密封层次。`type` 被
+  `@JsonClassDiscriminator` 降级为序列化器级判别符,config 层拿不到它的值,
+  于是未知/缺失类型的拒绝只能落在 `JsonSupport` 的模块级默认反序列化器上,
+  报 `InvalidConfig` 并用本库措辞(见 D11)。该供应器仅在密封查找落空时被查询,
+  所以禁止在别处复制类型清单,也禁止把这条拒绝换回 kotlinx 的通用措辞
+  (`DictDocument`、"polymorphic scope"、建议读者给自家类加 `@Serializable`)。
+  `ConfigParserTest` 守门(未知类型 / 缺 `type` / 组内嵌套三例)。
 
 ## 7. 上游对齐与偏离登记表
 
@@ -342,6 +350,8 @@ runtime 资源;④ README/登记表更新。对 exhaustive `when` 消费者是
 | D8  | 自定义 loader 公开化路径(扩展手册 #12)                                         | 架构预留      |
 | D9  | 错误上报双通道:`create` 抛异常 + `CreateResult` 非抛路径(Apple 边界)               | 已实现       |
 | D10 | 资源缺失诊断下沉到 loader:`missingResourceHint()` 组合进 `FileNotFound.detail` | 已实现       |
+| D11 | 未知/缺失 `dict.type` 统一由 `JsonSupport` 的模块级默认反序列化器拒绝(I10)           | 已实现       |
+| D12 | `Sokkuri.fromConfig` 接受用户自带 OpenCC 配置                              | 架构预留(扩展手册 #13) |
 
 ## 10. 测试与对齐策略
 

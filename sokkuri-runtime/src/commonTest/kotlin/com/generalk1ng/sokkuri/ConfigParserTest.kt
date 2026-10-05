@@ -236,6 +236,52 @@ class ConfigParserTest {
         }
     }
 
+    /**
+     * `type` is a serializer-level discriminator, so the config layer never
+     * sees its value; the wording comes from the module-level default
+     * deserializer in `JsonSupport` (architecture.md §9, D11).
+     */
+    @Test
+    fun unknownDictionaryTypeIsInvalid() {
+        val failure = assertFailsWith<SokkuriException.InvalidConfig> {
+            parse(
+                """
+                { "conversion_chain": [ { "dict": { "type": "text2", "file": "a.txt" } } ] }
+                """.trimIndent(),
+            )
+        }
+        assertEquals("Invalid configuration: unknown dictionary type 'text2'", failure.message)
+    }
+
+    /** The same seam catches a missing discriminator, which fails the same lookup. */
+    @Test
+    fun dictionaryEntryWithoutTypeIsInvalid() {
+        val failure = assertFailsWith<SokkuriException.InvalidConfig> {
+            parse(
+                """
+                { "conversion_chain": [ { "dict": { "file": "a.txt" } } ] }
+                """.trimIndent(),
+            )
+        }
+        assertEquals("Invalid configuration: dictionary entry has no 'type' field", failure.message)
+    }
+
+    /** The rejection is not top-level-only: group children decode through the same module. */
+    @Test
+    fun unknownDictionaryTypeInsideAGroupIsInvalid() {
+        val failure = assertFailsWith<SokkuriException.InvalidConfig> {
+            parse(
+                """
+                { "conversion_chain": [ { "dict": {
+                    "type": "group", "match_policy": "union",
+                    "dicts": [ { "type": "bogus", "file": "a.txt" } ]
+                } } ] }
+                """.trimIndent(),
+            )
+        }
+        assertEquals("Invalid configuration: unknown dictionary type 'bogus'", failure.message)
+    }
+
     @Test
     fun missingDictionaryFileThrowsFileNotFound() {
         val failure = assertFailsWith<SokkuriException.FileNotFound> {

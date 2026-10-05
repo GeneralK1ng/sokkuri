@@ -42,11 +42,17 @@ public class ResourceDictionaryProvider public constructor(
         val key = "$scope:$type:$file"
         DictionaryCache.get(key)?.let { return it }
 
+        // Config-driven callers cannot land on this fallback: ConfigParser
+        // resolves `dict.type` against the sealed DictDocument hierarchy and
+        // reports an unknown one as InvalidConfig before `open` runs (I10,
+        // D11), while `ocd`/`ocd2` are registered as UnsupportedDictionaryFormat
+        // and fail inside `decode`. Only a direct call naming a type outside
+        // the supplied registry reaches here.
         val format = formats[type]
             ?: throw SokkuriException.Unsupported("unknown dictionary type '$type'")
-        val bytes = loader.load(file)
         // The loader is the only component that knows where it looked, so
         // the diagnosis travels with the miss (architecture.md §6, I9).
+        val bytes = loader.load(file)
             ?: throw SokkuriException.FileNotFound(file, loader.missingResourceHint())
         val decoded = try {
             format.decode(bytes)
