@@ -182,6 +182,14 @@ interface Dictionary {
 - 加载器标识 = 加载器**实例身份**(首次登记分配 scope;平台默认
   加载器为单例,故同平台全部 `Sokkuri.create` 共享同一 scope;
   不同实例永不共享——为未来有状态的自定义 loader 保证隔离)。
+- 身份登记表(loader → scope)**只增不减且持强引用**:scope 的稳定性
+  依赖该表仍持有 loader(KMP 无弱引用,表才是持有者)。故真实上界是
+  **曾传入过的** loader 实例数,不是存活数;当前成立只因平台默认
+  loader 是单例(恒 1 条)。
+- 违反前提的后果(扩展手册 #12 落地时必须先解决):调用方每次 create
+  新建 loader,则登记表与 `cache` 双双无界增长——每个 loader 各自解出
+  一整套词典(MB 级)并永久驻留——身份扫描亦退化为线性。处理方式二选
+  一:给登记表定界,或改用以加载器自报稳定标识的键。
 
 ## 5. 扩展手册:后续新功能怎么改
 
@@ -201,7 +209,7 @@ interface Dictionary {
 | 9  | `Inspection` 演进                       | 结构调整 = api 破坏性,major 版本管理;优先"加"不"改"                                                                           | minor 版本改公开签名                                |
 | 10 | String view 匹配                        | **已实现(M3)**:`Dictionary` 加 sink 式 `matchAppend`(默认实现=旧行为),检索共享扫描双出口(internal,自由)                       | 破坏 `matchPrefix` 既有语义(默认实现与契约套件守门) |
 | 11 | schema 校验                             | 按 8.2 注入 `ConfigValidator`(warn-only)                                                                                      | 改为硬失败(偏离上游语义)                            |
-| 12 | 自定义资源加载                          | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API                                            | 把 loader 接口下放engine/config(R3)                 |
+| 12 | 自定义资源加载                          | runtime:`create(config, options, loader)` 落地,`ResourceLoader` 提升为稳定公开 API;**前置**:按 4.3 给 loader 身份登记表定界或换键 | 把 loader 接口下放engine/config(R3)                 |
 
 ## 6. 不变量清单
 

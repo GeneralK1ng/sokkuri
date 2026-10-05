@@ -57,7 +57,9 @@ public class Sokkuri private constructor(
         }
 
         // Future extension points (source-compatible additions):
-        //   create(config, options, loader)  — custom resource loading
+        //   create(config, options, loader)  — custom resource loading;
+        //     bound DictionaryCache's loader registry first (architecture.md
+        //     §5 #12, §4.3)
         //   fromConfig(json, ...)            — user-supplied OpenCC configs
     }
 }

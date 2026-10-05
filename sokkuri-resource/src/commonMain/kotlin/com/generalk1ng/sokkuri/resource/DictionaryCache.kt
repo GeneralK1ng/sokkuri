@@ -29,8 +29,10 @@ internal object DictionaryCache {
     private val lock = SokkuriLock()
     private val cache = HashMap<String, Dictionary>()
 
-    // Loader identity registry: reference-equality scan, bounded by the
-    // number of distinct loaders alive (typically one per platform).
+    // Loader identity registry: reference-equality scan, entries never
+    // removed. This list is what keeps a scope stable, so it owns the
+    // loader — the bound is "loaders ever seen", not alive ones
+    // (docs/architecture.md §4.3).
     private val loaderScopes = ArrayList<Pair<ResourceLoader, Int>>()
     private var nextScope: Int = 0
 
