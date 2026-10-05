@@ -22,7 +22,14 @@ import com.generalk1ng.sokkuri.resource.ResourceLoader
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
 import platform.Foundation.NSBundle
-import platform.posix.*
+import platform.posix.SEEK_END
+import platform.posix.SEEK_SET
+import platform.posix.fclose
+import platform.posix.fopen
+import platform.posix.fread
+import platform.posix.fseek
+import platform.posix.ftell
+import platform.posix.rewind
 
 /**
  * Reads resources from Apple bundles. Tries the embedding framework first
@@ -63,6 +70,18 @@ internal class BundleResourceLoader internal constructor() : ResourceLoader {
             readFile("$base/$composeResourcesDirectory/$path")?.let { return it }
         }
         return null
+    }
+
+    override fun missingResourceHint(): String {
+        val roots = bundles.mapNotNull { it.resourcePath }
+        val probed =
+            if (roots.isEmpty()) "no bundle with a readable resource path"
+            else roots.joinToString(", ")
+        return "probed $probed, each directly and under $composeResourcesDirectory/: " +
+                "Kotlin/Native does not copy a dependency's resources into the app, " +
+                "so a plain-KMP host must copy them into the framework or app bundle " +
+                "itself, while a Compose Multiplatform host gets them by default " +
+                "(README, iOS section)"
     }
 
     private fun readFile(fullPath: String): ByteArray? {

@@ -41,6 +41,13 @@ class ConfigParserTest {
         private val files: Map<String, ByteArray>,
     ) : ResourceLoader {
         override fun load(path: String): ByteArray? = files[path]
+
+        override fun missingResourceHint(): String = HINT
+
+        companion object {
+            /** Distinctive marker: proves the hint reaches the thrown failure (I9). */
+            const val HINT = "in-memory fixture loader: the file is not in the fixture map"
+        }
     }
 
     private fun providerOf(files: Map<String, String>): DictionaryProvider {
@@ -239,6 +246,11 @@ class ConfigParserTest {
             )
         }
         assertTrue(failure.message!!.contains("absent.txt"))
+        // The loader's diagnosis travels with the miss (architecture.md §6, I9).
+        assertTrue(
+            failure.message!!.contains(FakeResourceLoader.HINT),
+            "expected the loader's missing-resource hint in: ${failure.message}",
+        )
     }
 
     @Test

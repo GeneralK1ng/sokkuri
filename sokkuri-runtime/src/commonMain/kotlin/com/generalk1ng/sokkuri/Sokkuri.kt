@@ -134,7 +134,7 @@ public class Sokkuri private constructor(
             val configPath = "config/${config.stem}.json"
             return try {
                 val configJson = loader.load(configPath)?.decodeToString()
-                    ?: throw SokkuriException.FileNotFound(configPath)
+                    ?: throw SokkuriException.FileNotFound(configPath, loader.missingResourceHint())
                 val dictionaries = ResourceDictionaryProvider(loader, DefaultDictionaryFormats)
                 val converter = ConfigParser(dictionaries, options.includeTofuRiskDictionaries)
                     .parse(configJson)

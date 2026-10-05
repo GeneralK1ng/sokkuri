@@ -32,9 +32,28 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  */
 @SokkuriInternalApi
 public interface ResourceLoader {
+
     /**
      * Returns the resource at [path] (forward-slash separated, relative to
      * the package root), or `null` when absent.
+     *
+     * Absence is reported by returning `null`, never by throwing. The loader
+     * knows where it looked, not whether the miss is fatal — a caller may
+     * still resolve the path elsewhere — so the decision to fail belongs to
+     * the caller, which composes the failure from [missingResourceHint].
      */
     public fun load(path: String): ByteArray?
+
+    /**
+     * Where [load] looks, plus the platform-specific remedy when it misses,
+     * phrased for the developer reading the failure.
+     *
+     * Used verbatim as the `detail` of
+     * [com.generalk1ng.sokkuri.SokkuriException.FileNotFound], so it must
+     * never be blank. It lives on the loader because the loader is the only
+     * component that knows the search scope; a throw site observes just a
+     * path and could not describe what was probed
+     * (docs/architecture.md §6, I9).
+     */
+    public fun missingResourceHint(): String
 }

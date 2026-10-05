@@ -32,4 +32,9 @@ internal class ClasspathResourceLoader internal constructor() : ResourceLoader {
             ?: return null
         return loader.getResourceAsStream(normalized)?.use { stream -> stream.readBytes() }
     }
+
+    override fun missingResourceHint(): String =
+        "not on the classpath: the configs and dictionaries ship inside the " +
+                "sokkuri-runtime artifact, so check that it is a runtime dependency " +
+                "and that packaging did not filter its resources out"
 }
