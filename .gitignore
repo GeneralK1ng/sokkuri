@@ -5,7 +5,12 @@
 xcuserdata
 !src/**/build/
 local.properties
-.idea
+# IntelliJ project files, except the shared copyright profile: the header
+# every source file carries is defined there, so contributors need it.
+# (Negating a path under an excluded directory does not work — git never
+# descends into it — hence "exclude the contents, re-include the subdir".)
+.idea/*
+!.idea/copyright/
 .DS_Store
 captures
 .externalNativeBuild
