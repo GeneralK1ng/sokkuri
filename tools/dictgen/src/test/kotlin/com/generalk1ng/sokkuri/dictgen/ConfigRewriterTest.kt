@@ -22,6 +22,9 @@ import com.generalk1ng.sokkuri.config.DictDocument
 import com.generalk1ng.sokkuri.config.JsonSupport
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -137,6 +140,26 @@ class ConfigRewriterTest {
         assertTrue(group.mayOutputTofu)
         val inline = group.dicts.single() as DictDocument.Inline
         assertEquals(mapOf("乾坤" to "天地"), inline.entries)
+        // The key was absent on the way in and must stay absent on the way
+        // out. Upstream rejects an inline node on presence alone, so emitting
+        // `may_output_tofu: false` here would make a rewritten config that
+        // Sokkuri accepts unacceptable to upstream.
+        assertTrue(
+            inline.mayOutputTofu == null,
+            "rewritten inline node must not carry may_output_tofu: $rewritten",
+        )
+        // Scoped to the inline node by position. File-backed nodes legitimately
+        // carry an explicit `false` there: upstream reads those with
+        // `GetOptionalBoolProperty`, so the value is what matters and the
+        // rewriter's `encodeDefaults` is harmless for them.
+        val inlineNode = Json.parseToJsonElement(rewritten).jsonObject["conversion_chain"]!!
+            .jsonArray[1].jsonObject["dict"]!!
+            .jsonObject["dicts"]!!.jsonArray[0].jsonObject
+        assertEquals("inline", inlineNode["type"]!!.jsonPrimitive.content)
+        assertTrue(
+            "may_output_tofu" !in inlineNode,
+            "rewriter must not materialize the key's default on an inline node: $inlineNode",
+        )
     }
 
     @OptIn(SokkuriInternalApi::class)

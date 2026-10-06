@@ -67,3 +67,8 @@ include(":tools:dictgen")
 // build's :sokkuri-runtime/:sokkuri-resource). Not published; JVM-only
 // application, deliberately not wired into check.
 include(":tools:benchmark")
+// Upstream differential: converts one corpus with a build of the OpenCC
+// reference clone and with Sokkuri, then reports divergences. Not published;
+// JVM-only application, deliberately not wired into check, because it needs a
+// C++ toolchain and a cmake build of the clone.
+include(":tools:upstream-diff")

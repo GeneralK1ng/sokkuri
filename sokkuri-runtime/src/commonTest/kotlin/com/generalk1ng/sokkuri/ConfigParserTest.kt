@@ -366,4 +366,35 @@ class ConfigParserTest {
         }
         assertTrue(failure.message!!.contains("may_output_tofu"))
     }
+
+    @Test
+    fun inlineDictionaryRejectsMayOutputTofuOnPresenceAlone() {
+        // Upstream `LoadInlineDict` tests `doc.HasMember("may_output_tofu")`
+        // before it reads the value, so an explicit `false` is rejected just
+        // like `true`. Verified against a build of the reference clone: the
+        // `false` form throws opencc::InvalidFormat there.
+        val failure = assertFailsWith<SokkuriException.InvalidFormat> {
+            parse(
+                """
+                { "conversion_chain": [ { "dict": {
+                    "type": "inline", "may_output_tofu": false,
+                    "entries": { "a": "A" }
+                } } ] }
+                """.trimIndent(),
+            )
+        }
+        assertTrue(failure.message!!.contains("may_output_tofu"))
+    }
+
+    @Test
+    fun inlineDictionaryWithoutTheKeyIsAccepted() {
+        val converter = parse(
+            """
+            { "conversion_chain": [ { "dict": {
+                "type": "inline", "entries": { "a": "A" }
+            } } ] }
+            """.trimIndent(),
+        )
+        assertEquals("A", converter.convert("a"))
+    }
 }

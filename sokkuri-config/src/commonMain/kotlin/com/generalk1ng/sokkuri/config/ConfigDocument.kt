@@ -113,9 +113,18 @@ public sealed class DictDocument {
     @SerialName("inline")
     public data class Inline public constructor(
         val entries: Map<String, String>,
-        // Present only to reject it: OpenCC's LoadInlineDict errors when an
-        // inline dictionary carries may_output_tofu.
-        @SerialName("may_output_tofu") val mayOutputTofu: Boolean = false,
+        /**
+         * Whether the `may_output_tofu` key is present, not what it says.
+         *
+         * Upstream `LoadInlineDict` rejects on `doc.HasMember("may_output_tofu")`
+         * before it ever reads the value, so an inline dictionary carrying an
+         * explicit `false` is rejected exactly like one carrying `true`.
+         * Modelled as nullable with no default so presence survives decoding,
+         * which a `Boolean` defaulting to false cannot express; the default
+         * stays null so the config rewriter omits the key when it writes an
+         * inline node back out.
+         */
+        @SerialName("may_output_tofu") val mayOutputTofu: Boolean? = null,
     ) : DictDocument()
 
     @Serializable

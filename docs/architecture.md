@@ -202,9 +202,10 @@ interface Dictionary {
 | 5  | 流式转换                          | `ConverterStream`          | 不实现                                                                | 范围控制；接口兼容（8.5）                | 架构预留              |
 | 6  | `matchPrefix` 携带 key 与 value view | 携带 `string_view`         | sink 式 `matchAppend`，返回 length，值直写输出缓冲，无中间字符串（见 8.1） | Kotlin 无零拷贝 view；以 sink 替代视图 | 已实现                |
 | 7  | schema 校验                       | 仅警告                     | 不实现                                                                | 结构解码已覆盖净效应；见 8.2           | 架构预留              |
-| 8  | inline 词典 `may_output_tofu`     | 字段存在即报错             | 仅当值为 `true` 时报错，显式 `false` 被接受                            | **移植差距，非设计选择**；修正时须同步调整 `ConfigRewriter` 的默认值输出 | **未对齐**            |
-| 9  | `PipelineConverter`               | 支持                       | 接口预留                                                              | 无多 stage 配置需求                   | 架构预留              |
-| 10 | 插件动态库加载                    | `dlopen`                   | 永不                                                                  | KMP 无统一 ABI；改走注册表注入         | 已决                  |
+| 8  | `PipelineConverter`               | 支持                       | 接口预留                                                              | 无多 stage 配置需求                   | 架构预留              |
+| 9  | 插件动态库加载                    | `dlopen`                   | 永不                                                                  | KMP 无统一 ABI；改走注册表注入         | 已决                  |
+
+inline 词典的 `may_output_tofu` 曾按值判定而非按字段存在判定，与上游不一致；2026-10-06 经上游构建实测确认后已修正，不再作为偏离登记。
 
 ## 8. 设计预留：架构保证可添加
 
@@ -234,7 +235,7 @@ interface Dictionary {
 
 ### 8.3 jieba 与插件分词
 
-**目标形态**：注册表注入，不做动态库加载，因为 KMP 无统一 ABI，见登记表第 10 项。config 层不硬编码分词器清单：除内建 `mmseg` 外，类型名查 `SegmentationProvider`，该接口为函数接口，把类型名与字符串配置对映射为 `Segmentation?`，查不到报 `Unsupported`；这与上游 `PluginSegmentation` 的配置对同构。
+**目标形态**：注册表注入，不做动态库加载，因为 KMP 无统一 ABI，见登记表第 9 项。config 层不硬编码分词器清单：除内建 `mmseg` 外，类型名查 `SegmentationProvider`，该接口为函数接口，把类型名与字符串配置对映射为 `Segmentation?`，查不到报 `Unsupported`；这与上游 `PluginSegmentation` 的配置对同构。
 
 **届时改动清单**：`SegmentationDocument` 捕获额外字符串键并传给 provider，需自定义解析，上游行为是所有额外字符串属性都成为配置对；`ConfigParser` 构造加 provider 参数；engine 实现 `Segmentation`；`Sokkuri.create` 高级重载接受注册表，与 #12 的自定义 loader 在同一次 API 扩展中落地。
 
@@ -256,7 +257,7 @@ interface Dictionary {
 | D2  | `Inspection` 平铺 `normalizationStages`                              | 已实现       |
 | D3  | 进程级强引用共享词典缓存，按加载器实例划分 scope                                       | 已实现       |
 | D4  | `SokkuriOptions` 改 Builder 模式                                      | 已实现       |
-| D5  | inline 词典 `may_output_tofu` 严格报错                                   | 已实现，与上游仍有一处差异，见第 7 章第 8 项 |
+| D5  | inline 词典 `may_output_tofu` 严格报错，按字段存在判定                              | 已实现       |
 | D6  | `.sok` 编解码读写同侧                                                     | 已实现       |
 | D7  | 流式转换不进 v1                                                          | 架构预留（8.5） |
 | D8  | 自定义 loader 公开化路径，即扩展手册 #12                                          | 架构预留      |
@@ -274,10 +275,16 @@ interface Dictionary {
 
 ### 10.1 上游对齐的验证边界
 
-第 7 章登记的偏离与本节的对齐结论，依据有三层，可信度依次递减。
+第 7 章登记的偏离与本节的对齐结论，依据分四层，可信度依次递减。
 
-第一层是外部数据：568 条 golden 期望移植自上游 `testcases.json`，在三端运行；这是唯一来自本仓库之外的预言机，也是"与上游逐条对齐"这一说法的主要支撑。其覆盖范围有一个明确缺口，该语料不含任何 IDS 用例，因此 IDS 相关的行为无法由它证明。
+第一层是执行比对：`tools:upstream-diff` 以 OpenCC 参考克隆的 cmake 构建为预言机，对同一语料逐条比对两侧输出。语料含上游 golden 的全部输入、固定的边界用例与按种子生成的随机样本，覆盖全部 16 个 profile，并在排除与包含 tofu 风险词典两种口径下各跑一遍。2026-10-06 的结果为 16 档 × 18678 条输入 × 两种口径，零处不一致。这是唯一能证明行为一致的依据，也是确认 IDS 跳过缺陷、发现 inline `may_output_tofu` 分歧的手段。
 
-第二层是自洽性：差分模糊测试把优化后的转换循环与一个从不批量跳过的逐字符参考循环对拍。它证明的是优化相对于参考循环透明，而不是参考循环本身忠实于上游；若参考循环移植有误，两者会一同出错。
+第二层是外部语料：568 条 golden 期望移植自上游 `testcases.json`，在三端运行。它认证的是上游自己写下的用例，覆盖面由上游决定，IDS 缺陷能穿过它正是因为该语料不含任何 IDS 用例。
 
-第三层是源码推断：其余关于上游行为的结论均来自阅读 `OpenCC/src/` 下的对应实现，未经执行比对。仓库不含可执行的上游构建，故凡标注为"对齐上游"的行为，除非有第一层数据覆盖，其确证程度止于源码推断。
+第三层是自洽性：差分模糊测试把优化后的转换循环与一个从不批量跳过的逐字符参考循环对拍。它证明优化相对于参考循环透明，而不证明参考循环本身忠实于上游；若参考循环移植有误，两者会一同出错。第二层与第三层都不能替代第一层。
+
+第四层是源码推断：未被上述任一层覆盖的上游行为结论，均来自阅读 `OpenCC/src/` 下的实现，未经执行比对。
+
+执行比对有一个本质边界：上游的转换入口收 UTF-8，而 Sokkuri 收 `CharArray`。持有孤立代理项的 Kotlin 字符串没有对应的 UTF-8 形式，上游会在那里抛 `InvalidUTF8`，因此这类输入两侧不可比，由 Sokkuri 自身的模糊测试覆盖。尚未纳入比对的还有 `inspect()` 的结构，以及缺资源、畸形配置、未知 `dict.type` 等错误路径。
+
+该工具不挂入 `check`，因为它需要 C++ 工具链与克隆的 cmake 构建，日常构建不应有此前提。

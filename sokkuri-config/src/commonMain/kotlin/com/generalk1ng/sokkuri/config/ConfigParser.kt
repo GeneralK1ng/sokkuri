@@ -129,7 +129,9 @@ public class ConfigParser public constructor(
     }
 
     private fun buildInline(document: DictDocument.Inline): Dictionary {
-        if (document.mayOutputTofu) {
+        // Presence, not value: upstream rejects on HasMember alone, so an
+        // explicit `may_output_tofu: false` is an error there too.
+        if (document.mayOutputTofu != null) {
             throw SokkuriException.InvalidFormat(
                 "inline dictionary does not support may_output_tofu",
             )

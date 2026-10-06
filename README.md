@@ -9,7 +9,7 @@ Sokkuri 是 [OpenCC](https://github.com/BYVoid/OpenCC) 的 Kotlin Multiplatform 
 - **纯 Kotlin 实现，无原生依赖。** OpenCC 官方提供 C++ 核心、C 接口、命令行工具，以及 Python 与 Node.js 绑定，社区另有 Java、Go、WebAssembly、Swift 等移植。Sokkuri 让 JVM、Android 与 iOS 共享同一套 Kotlin 实现与词典数据，不经过 JNI，行为跨端一致。
 - **`.sok` 零拷贝词典格式。** 16 档词典合计约 1.7 MiB，驻留内存约等于文件原始大小；检索直接以字节区段比对输入，命中值写入输出缓冲，全程不产生中间字符串。s2t 实测 9.4 µs/op，较物化实现快 2.3 倍，重档可达 2.3 至 2.6 倍。
 - **`inspect()` 分级检查。** 除最终字符串外，同时返回分词结果与转换链各级的分段输出，可用于高亮、diff 与转换过程分析；上游仅提供最终结果。
-- **与上游逐条对齐。** 测试套件移植自 OpenCC `testcases.json` 全部 568 条期望，在 JVM、Android 宿主与 iOS 模拟器三端全绿。其中仅 3 条期望在默认选项下与上游不同，均由 tofu 风险词典引起，已逐条登记；开启 `includeTofuRiskDictionaries` 即可完全对齐。
+- **与上游逐条对齐。** 除移植 OpenCC `testcases.json` 全部 568 条期望并在 JVM、Android 宿主与 iOS 模拟器三端运行外，另以 OpenCC 参考实现的构建为预言机做逐条执行比对，16 档各 18678 条输入在两种 tofu 口径下均无差异。默认选项下仅 3 条期望与上游不同，均由 tofu 风险词典引起，已逐条登记；开启 `includeTofuRiskDictionaries` 即可完全对齐。
 - **16 种转换配置**，含上游较新的香港词汇档 `s2hkp` 与 `hk2sp`。
 
 ## 安装
@@ -150,6 +150,7 @@ do {
 ./gradlew :sokkuri-runtime:testAndroidHostTest    # Android 宿主单元测试
 ./gradlew :tools:dictgen:checkDictionaries        # 打包词典对上游的漂移检查
 ./gradlew :tools:benchmark:run --args="convert --profile all"   # 性能基准
+./gradlew :tools:upstream-diff:run                # 与 OpenCC 参考实现的逐条执行比对
 ```
 
 - golden 套件：OpenCC `testcases.json` 的 568 条期望，覆盖 16 档，逐档 4 至 108 条，三端运行；
@@ -157,7 +158,7 @@ do {
 - `inspect()` 结构校验：分词与转换链各级分段满足平铺不变式，且与 `convert()` 结果一致；
 - 性能基线，同机实测：`.sok` 解码驻留堆增量约为 0，冷启动建档约 50 ms，s2t 转换 9.4 µs/op。
 
-漂移检查不在 `build` 任务图中，也依赖仓库根目录下的 OpenCC 参考克隆，因此需在本地准备了该克隆后手动运行；发布门禁 `./gradlew build` 不包含它。
+漂移检查与上游比对都不在 `build` 任务图中，也都依赖仓库根目录下的 OpenCC 参考克隆，需在本地准备好该克隆后手动运行；前者还要求克隆已完成 cmake 构建，后者会自行编译一个按条调用的采集器。发布门禁 `./gradlew build` 不包含这两项。
 
 ## License
 
