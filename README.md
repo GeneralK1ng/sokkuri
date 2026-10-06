@@ -20,7 +20,7 @@ Maven Central 坐标：
 repositories { mavenCentral() }
 
 dependencies {
-  implementation("com.generalk1ng.sokkuri:sokkuri-runtime:0.1.1")
+  implementation("com.generalk1ng.sokkuri:sokkuri-runtime:0.2.0")
 }
 ```
 
