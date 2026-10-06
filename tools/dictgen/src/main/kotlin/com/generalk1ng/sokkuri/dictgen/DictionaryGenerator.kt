@@ -31,8 +31,7 @@ import java.io.File
 /**
  * How one packaged `.sok` dictionary is obtained from the OpenCC clone —
  * either a direct copy of a checked-in `.txt`, or one of the script-derived
- * lexicons (m1-dictgen-sok §3.4; recipes verified against
- * `OpenCC/data/CMakeLists.txt`).
+ * lexicons (recipes verified against `OpenCC/data/CMakeLists.txt`).
  */
 internal sealed interface DictionaryRecipe {
 
@@ -124,7 +123,7 @@ internal class DictionaryGenerator internal constructor(
             } else {
                 throw DictgenException(
                     "no source recipe for dictionary '$baseName': not a checked-in .txt " +
-                        "and not a known derivation (m1-dictgen-sok §3.4)",
+                        "and not a known derivation",
                 )
             }
         }

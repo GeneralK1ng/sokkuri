@@ -24,7 +24,7 @@ plugins {
 }
 
 dependencies {
-    // Dependency whitelist per m2-benchmark.md §2.1: benchmarks measure the
+    // Dependency whitelist: benchmarks measure the
     // consumer path through the runtime facade and decode packaged
     // dictionaries through the resource formats. sokkuri-engine and
     // sokkuri-config stay untouched — measuring from the consumer's side is

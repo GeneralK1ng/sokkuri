@@ -94,7 +94,7 @@ kotlin {
 // Kotlin/Native processes src/commonMain/resources into
 // build/processedResources/<target>/main, but neither embeds them into the
 // produced frameworks nor places them beside test executables. Copy them
-// explicitly (docs/milestones/m1-dictgen-sok.md, step 0.1): into framework
+// explicitly: into framework
 // bundles for consumers (read via NSBundle), and beside test binaries for
 // the simulator test runner (a bare binary's NSBundle.mainBundle resolves
 // to its containing directory).
@@ -155,7 +155,7 @@ kotlin.targets.withType<KotlinNativeTarget>().configureEach {
 // build tooling; see the design documentation.
 
 // ---------------------------------------------------------------------------
-// Klib resource variants (docs/milestones/m4-distribution.md §3.5).
+// Klib resource variants.
 //
 // Kotlin 2.4 removed the old "auto-embed commonMain resources into klibs"
 // behavior: the packaged dictionaries no longer travel inside the published

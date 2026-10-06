@@ -21,7 +21,7 @@ import com.generalk1ng.sokkuri.Sokkuri
 import java.util.*
 
 /**
- * The `convert` subcommand (m2-benchmark.md §3.2): conversion throughput
+ * The `convert` subcommand: conversion throughput
  * per profile over the embedded sample set. One converter per profile,
  * created outside the timed region; dictionaries flow through the shared
  * process cache (constitution D3), so `--profile all` is dominated by the
@@ -60,7 +60,7 @@ internal object ConvertBenchmark {
     }
 
     /**
-     * The grep-stable `[bench]` line of §3.2. Numbers are formatted with
+     * The grep-stable `[bench]` line. Numbers are formatted with
      * [Locale.ROOT]: a locale-sensitive decimal separator would break the
      * key=value contract in non-ROOT locales.
      */

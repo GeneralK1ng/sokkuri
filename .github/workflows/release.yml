@@ -1,9 +1,9 @@
 # Release workflow: a pushed v* tag is the only trigger. The tagged commit is
 # built and tested on all platforms first (./gradlew build is the gate), then
-# uploaded to Maven Central as a USER_MANAGED deployment (manual mode, see
-# docs/milestones/m4-distribution.md sections 3.2/3.3). Releasing the deployment
-# stays a deliberate one-click step in the Central Portal UI; flip to
-# publishAndReleaseToMavenCentral only after the manual flow has proven itself.
+# uploaded to Maven Central as a USER_MANAGED deployment (manual mode).
+# Releasing the deployment stays a deliberate one-click step in the Central
+# Portal UI; flip to publishAndReleaseToMavenCentral only after the manual
+# flow has proven itself.
 name: Release
 
 on:

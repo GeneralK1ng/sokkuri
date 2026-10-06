@@ -74,7 +74,7 @@ class RegionalStPhrasesDerivationTest {
             .sortedWith { a, b -> Utf.compareByCodePoint(a.key, b.key) }
             .map { (converted, originals) -> converted to listOf(originals[0]) }
 
-        // The encoder is deterministic (m1-dictgen-sok DoD 4), so identical
+        // The encoder is deterministic, so identical
         // lexicons imply identical bytes; any drift in the derivation chain
         // or the packaged artifact shows up as a byte mismatch.
         val fresh = SokDictionaryEncoder.encode(entries)

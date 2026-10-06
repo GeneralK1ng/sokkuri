@@ -24,7 +24,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * The convert subcommand (m2-benchmark.md §3.2): argument handling, and —
+ * The convert subcommand: argument handling, and —
  * the step-1 acceptance — the grep-stable `[bench]` line format, asserted
  * with a tiny iteration count against a real conversion. Only the line
  * *shape* is pinned here; the numbers themselves are machine-dependent.

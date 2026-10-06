@@ -24,7 +24,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Strict-decoder validation tests (m1-dictgen-sok §2.5 / §3.2): every
+ * Strict-decoder validation tests: every
  * corruption class must be rejected with [SokkuriException.InvalidFormat]
  * whose message names the offending field. Files are produced by taking a
  * known-valid encoding and mutating one field at a time.

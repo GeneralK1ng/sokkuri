@@ -21,7 +21,7 @@ package com.generalk1ng.sokkuri.dictgen
  * (`data/scripts/common.py::reverse_items`, `extract_tofu_risk.py`,
  * `generate_st_phrases_from_regional_phrases.py`). Semantics follow the
  * Python sources line by line; the byte-diff tests against the actual
- * script outputs pin the alignment (m1-dictgen-sok §3.4.3).
+ * script outputs pin the alignment.
  */
 internal object DictionaryDerivations {
 

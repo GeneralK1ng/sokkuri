@@ -44,7 +44,7 @@ public class Conversion public constructor(
     ) {
         var i = start
         while (i < end) {
-            // Sink form of the prefix match (m3 §3.4): the winning value
+            // Sink form of the prefix match: the winning value
             // goes straight into `out`, no intermediate string on backends
             // that override Dictionary.matchAppend (the .sok blob path).
             val matchedLength = dict.matchAppend(chars, i, end, out)
@@ -59,7 +59,7 @@ public class Conversion public constructor(
             var j = i + width
             while (j < end) {
                 val codePoint = Utf.codePointAt(chars, j, end)
-                if (dict.mayStartKey(codePoint)) break
+                if (dict.stopsBulkSkip(codePoint)) break
                 j += Utf.charCount(codePoint)
             }
             out.append(chars.concatToString(i, j))

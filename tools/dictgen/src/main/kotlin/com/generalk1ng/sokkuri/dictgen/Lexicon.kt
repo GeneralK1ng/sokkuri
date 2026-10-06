@@ -40,7 +40,7 @@ internal data class ParsedLexicon internal constructor(
  * lines and blank lines are skipped; values are separated by single spaces
  * (empty fragments from runs of spaces are dropped, matching the runtime
  * `TextDictionaryFormat`). Errors name [fileName] and the 1-based line
- * number (m1-dictgen-sok §3.5).
+ * number.
  */
 internal fun parseLexicon(text: String, fileName: String): ParsedLexicon {
     val entries = ArrayList<LexiconEntry>()

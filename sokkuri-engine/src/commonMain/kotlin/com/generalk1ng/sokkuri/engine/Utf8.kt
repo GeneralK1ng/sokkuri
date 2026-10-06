@@ -21,13 +21,13 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
 /**
  * UTF-8 blob primitives: code-point-ordered access to dictionary text that
  * lives in a raw byte buffer (the `.sok` format's key/value blobs), without
- * materializing decoded strings — the m3-string-view.md §3.2 optimization
- * layer. Every function here has a defined equivalence against the UTF-16
+ * materializing decoded strings. Every function here has a defined
+ * equivalence against the UTF-16
  * reference implementation in [Utf] (stated per function; pinned by
  * `Utf8Test`), so retrieval over byte storage cannot drift from retrieval
  * over string storage (invariant I2 by construction, not by review).
  *
- * Trust boundary (m1-dictgen-sok §3.2, same as the `.sok` decoder):
+ * Trust boundary (same as the `.sok` decoder):
  * dictionary blobs are encoder-produced and always valid UTF-8; validity is
  * deliberately not re-validated per access. Malformed input nonetheless
  * stays total — the sequence decodes as U+FFFD advancing exactly one byte —

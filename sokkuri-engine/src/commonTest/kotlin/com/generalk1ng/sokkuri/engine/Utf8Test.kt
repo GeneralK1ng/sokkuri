@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The §3.2 equivalence contract of m3-string-view.md: every Utf8 primitive
+ * The Utf8 equivalence contract: every Utf8 primitive
  * must agree with its UTF-16 reference in [Utf] / `decodeToString` on all
  * valid input — exhaustively over a small mixed-width alphabet (including
  * astral pairs and truncation-mid-pair windows), randomly over a wide
@@ -133,7 +133,7 @@ class Utf8Test {
      * Malformed bytes stay total: U+FFFD per malformed unit, advancing one
      * byte, so a corrupt blob degrades to replacement characters instead of
      * throwing past the engine. Exact replacement semantics beyond that are
-     * undefined per the §3.2 trust boundary — only this total behavior is
+     * undefined per the trust boundary — only this total behavior is
      * pinned, matching the guarantee today's `decodeToString` path gives.
      */
     @Test
@@ -194,7 +194,7 @@ class Utf8Test {
         return builder.toString()
     }
 
-    /** Random string of 0–12 code points over the m3 risk-table distribution. */
+    /** Random string of 0–12 code points over the risk-table distribution. */
     private fun randomString(random: Random): String {
         val count = random.nextInt(13)
         val codePoints = IntArray(count) { randomCodePoint(random) }

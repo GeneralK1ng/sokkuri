@@ -58,14 +58,13 @@ public interface Dictionary {
     public fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch?
 
     /**
-     * Hot-path form of [matchPrefix] with direct write-out
-     * (m3-string-view.md §3.4): on a match, appends the key's default
-     * candidate to [out] and returns the matched length in UTF-16 code
-     * units; on a miss returns `-1` and writes nothing. Semantically
-     * identical to `matchPrefix` + `out.append(value)` — the default
-     * implementation is exactly that — so storage-aware backends can
-     * override to skip the intermediate string. [Conversion] calls this;
-     * inspection and grouping stay on [matchPrefix].
+     * Hot-path form of [matchPrefix] with direct write-out: on a match,
+     * appends the key's default candidate to [out] and returns the matched
+     * length in UTF-16 code units; on a miss returns `-1` and writes
+     * nothing. Semantically identical to `matchPrefix` + `out.append(value)`
+     * — the default implementation is exactly that — so storage-aware
+     * backends can override to skip the intermediate string. [Conversion]
+     * calls this; inspection and grouping stay on [matchPrefix].
      */
     public fun matchAppend(text: CharArray, start: Int, end: Int, out: StringBuilder): Int {
         val match = matchPrefix(text, start, end) ?: return -1
@@ -77,10 +76,29 @@ public interface Dictionary {
      * Whether [codePoint] can begin any key of this dictionary. Powers the
      * conversion loop's bulk-skip optimization (OpenCC's `Utf8SkipTable`):
      * text runs made of characters that cannot start a key are copied out
-     * without per-character prefix queries.
+     * without per-character prefix queries. Never consult this directly in a
+     * skip loop — use [stopsBulkSkip], which adds the IDS-operator rule.
      */
     public fun mayStartKey(codePoint: Int): Boolean
 }
+
+/**
+ * Whether a bulk skip must stop at [codePoint].
+ *
+ * OpenCC's single skip implementation (`PrefixMatch::SkipUnmatchable`, whose
+ * candidate table `Utf8SkipScan::Finalize` fills) stops at a key-starting
+ * character *and* at every ideographic description operator with non-zero
+ * arity. The operator rule is not an optimization: the conversion loop groups
+ * IDS sequences without consulting the dictionary, so skipping over an
+ * operator would emit its operands as ordinary text and convert them.
+ *
+ * The port splits upstream's one skip into two loops ([Conversion] and
+ * [MaxMatchSegmentation]); both consult this predicate so they cannot drift
+ * apart — the drift that let operators be skipped in the first place.
+ */
+@OptIn(SokkuriInternalApi::class)
+internal fun Dictionary.stopsBulkSkip(codePoint: Int): Boolean =
+    mayStartKey(codePoint) || Utf.ideographicDescriptionOperatorArity(codePoint) != 0
 
 /** Result of a successful longest-prefix match. */
 @SokkuriInternalApi

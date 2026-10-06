@@ -26,9 +26,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 /**
- * Round-trip and determinism tests for the `.sok` encoder/decoder pair
- * (m1-dictgen-sok §2.4). Retrieval equivalence with the sorted-array
- * reference is pinned entry-by-entry here and behaviorally by
+ * Round-trip and determinism tests for the `.sok` encoder/decoder pair.
+ * Retrieval equivalence with the sorted-array reference is pinned
+ * entry-by-entry here and behaviorally by
  * [SokDictionaryContractTest].
  */
 class SokRoundTripTest {

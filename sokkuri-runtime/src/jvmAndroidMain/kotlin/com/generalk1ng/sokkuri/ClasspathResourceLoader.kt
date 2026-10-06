@@ -18,6 +18,7 @@
 package com.generalk1ng.sokkuri
 
 import com.generalk1ng.sokkuri.resource.ResourceLoader
+import java.io.IOException
 
 /**
  * Reads resources from the class loader (JAR entries on the JVM; also the
@@ -30,7 +31,20 @@ internal class ClasspathResourceLoader internal constructor() : ResourceLoader {
         val loader = javaClass.classLoader
             ?: Thread.currentThread().contextClassLoader
             ?: return null
-        return loader.getResourceAsStream(normalized)?.use { stream -> stream.readBytes() }
+        return try {
+            loader.getResourceAsStream(normalized)?.use { stream -> stream.readBytes() }
+        } catch (_: IOException) {
+            // A truncated or corrupt archive entry fails here rather than
+            // being absent. Report it as missing: the loader contract (I9)
+            // is that resource failures reach the caller as `null`, never as
+            // a throw. A raw IOException would escape Sokkuri.createResult,
+            // which converts only SokkuriException, and reach the developer
+            // as an untyped JVM error with no diagnostic at all.
+            null
+        } catch (_: SecurityException) {
+            // Denied by a SecurityManager; same reasoning.
+            null
+        }
     }
 
     override fun missingResourceHint(): String =

@@ -59,7 +59,7 @@ public class ResourceDictionaryProvider public constructor(
         } catch (e: SokkuriException.InvalidFormat) {
             // Decode errors are field-level (".sok: flags must be 0"); the
             // file path only exists at this layer, so compose both here
-            // (m1-dictgen-sok §3.2 requires the message to carry both).
+            // (the message must carry both).
             throw SokkuriException.InvalidFormat("$file: ${e.detail}")
         } catch (e: SokkuriException) {
             throw e

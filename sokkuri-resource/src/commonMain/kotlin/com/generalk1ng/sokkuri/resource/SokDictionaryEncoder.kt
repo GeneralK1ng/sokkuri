@@ -21,10 +21,10 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
 import com.generalk1ng.sokkuri.engine.Utf
 
 /**
- * Encodes lexicon entries into the `.sok` container (layout in
- * [SokFormatLayout], normative spec in docs/milestones/m1-dictgen-sok.md §3).
+ * Encodes lexicon entries into the `.sok` container ([SokFormatLayout] is
+ * the normative definition of the byte layout).
  *
- * Encoder-side validation (§3.2): keys and values must be non-empty, keys
+ * Encoder-side validation: keys and values must be non-empty, keys
  * unique (the error message carries the offending key), at most
  * [SokFormatLayout.MAX_CANDIDATES_PER_ENTRY] candidates per entry, and each
  * candidate at most [SokFormatLayout.MAX_CANDIDATE_BYTES] UTF-8 bytes. Input
@@ -33,7 +33,7 @@ import com.generalk1ng.sokkuri.engine.Utf
  *
  * Deterministic by construction: same input entries always produce
  * byte-identical output (no timestamps, no hash-order dependence), which the
- * dictgen `--check` mode relies on (m1-dictgen-sok, DoD 4).
+ * dictgen `--check` mode relies on.
  *
  * Cross-module internal API: `tools:dictgen` calls this to compile the
  * packaged dictionaries, so it lives behind [SokkuriInternalApi] rather

@@ -26,7 +26,7 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  *
  * Retrieval is delegated to [SortedTableRetrieval], the shared sorted-table
  * algorithm also used by the `.sok` binary dictionary, so the two backends
- * cannot drift (docs/milestones/m1-dictgen-sok.md §3.3).
+ * cannot drift.
  *
  * Entries must have unique keys; they are sorted by code-point order
  * ([Utf.compareByCodePoint]) when unsorted input is given.

@@ -21,7 +21,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The §3.1 timing methodology: warmup sizing, and the pure summarization
+ * The timing methodology: warmup sizing, and the pure summarization
  * math with exact expected percentiles — no wall-clock numbers are
  * asserted anywhere (machine-dependent by definition).
  */

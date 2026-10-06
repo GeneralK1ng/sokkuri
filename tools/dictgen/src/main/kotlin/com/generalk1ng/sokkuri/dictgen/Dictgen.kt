@@ -28,8 +28,8 @@ import kotlin.system.exitProcess
 /**
  * `tools:dictgen` — compiles the OpenCC clone's dictionaries and configs
  * into Sokkuri's packaged resources (`.sok` dictionaries + rewritten
- * configs), see docs/milestones/m1-dictgen-sok.md. This file is the CLI
- * boundary; all work happens in [run], which returns a process exit code.
+ * configs). This file is the CLI boundary; all work happens in [run],
+ * which returns a process exit code.
  */
 @ConsistentCopyVisibility
 internal data class DictgenOptions internal constructor(

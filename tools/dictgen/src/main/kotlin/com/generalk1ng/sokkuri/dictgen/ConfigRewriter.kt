@@ -23,8 +23,8 @@ import com.generalk1ng.sokkuri.config.JsonSupport
 import kotlinx.serialization.json.Json
 
 /**
- * Rewrites one upstream OpenCC configuration into Sokkuri's packaged form
- * (m1-dictgen-sok §3.3): parses the JSONC source with the config layer's own
+ * Rewrites one upstream OpenCC configuration into Sokkuri's packaged form:
+ * parses the JSONC source with the config layer's own
  * model ([ConfigDocument]) — so anything Sokkuri cannot parse fails here,
  * at generation time — then rewrites every file-backed dictionary node
  * (`ocd`/`ocd2` → `sok` with a `.sok` file name) while preserving group

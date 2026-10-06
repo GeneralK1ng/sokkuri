@@ -22,7 +22,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The §4 sample set: `medium` leads every profile's list (it is the
+ * The sample set: `medium` leads every profile's list (it is the
  * cross-profile comparable probe), specials attach only to their tagged
  * profile, and the phrase-stress sample carries its downshifted default
  * iteration count.

@@ -101,8 +101,12 @@ class UtfTest {
 
     @Test
     fun compareByCodePoint_ordersSupplementaryCorrectly() {
-        // U+10000 < U+E000 in code-point order, though not in UTF-16 order.
-        assertTrue(Utf.compareByCodePoint("\\uE000", "𐈀") < 0)
+        // U+E000 < U+10200 by code point, but U+E000 > the 0xD800 lead
+        // surrogate in UTF-16 order — the one case where the two schemes
+        // disagree. Written with a double-escaped `"\\uE000"` this compared
+        // U+005C against U+10200 and held under either order, leaving the
+        // code-point comparator (invariant I2) unpinned.
+        assertTrue(Utf.compareByCodePoint("\uE000", "𐈀") < 0)
         assertEquals(0, Utf.compareByCodePoint("⿰x", "⿰x"))
         assertTrue(Utf.compareByCodePoint("ab", "abc") < 0)
     }

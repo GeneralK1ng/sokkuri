@@ -25,7 +25,7 @@ import com.generalk1ng.sokkuri.engine.DictionaryContractSuite
  * Runs the engine's [DictionaryContractSuite] against `.sok`: entries are
  * encoded with [SokDictionaryEncoder] and decoded through the registered
  * [SokDictionaryFormat], so the binary backend is judged by exactly the
- * contract the sorted-array reference satisfies (m1-dictgen-sok §2.4).
+ * contract the sorted-array reference satisfies.
  */
 class SokDictionaryContractTest : DictionaryContractSuite() {
 

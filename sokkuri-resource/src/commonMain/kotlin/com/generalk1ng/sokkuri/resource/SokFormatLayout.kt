@@ -17,11 +17,10 @@
 package com.generalk1ng.sokkuri.resource
 
 /**
- * Byte-level layout of the `.sok` dictionary container — the single source
- * of truth for both the encoder ([SokDictionaryEncoder]) and the decoder
- * ([SokDictionary]), so the two sides can never disagree on the format
- * (docs/milestones/m1-dictgen-sok.md §3.1; that document remains the
- * normative spec, this object is its compiled mirror).
+ * Byte-level layout of the `.sok` dictionary container — the normative
+ * definition of the format, and the single source of truth for both the
+ * encoder ([SokDictionaryEncoder]) and the decoder ([SokDictionary]), so
+ * the two sides can never disagree on it.
  *
  * All multi-byte fields are unsigned and little-endian, making the file
  * byte-identical across platforms (the portability lesson of OpenCC's

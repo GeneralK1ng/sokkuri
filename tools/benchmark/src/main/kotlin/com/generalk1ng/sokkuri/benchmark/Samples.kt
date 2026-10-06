@@ -19,7 +19,7 @@ package com.generalk1ng.sokkuri.benchmark
 import com.generalk1ng.sokkuri.SokkuriConfig
 
 /**
- * The embedded sample set of the benchmark runs (m2-benchmark.md §4):
+ * The embedded sample set of the benchmark runs:
  * fixed and in-repo on purpose — a benchmark must measure a stable
  * workload, not whatever the current upstream corpus says. `medium` runs
  * against every profile so cross-profile numbers stay comparable; the
@@ -32,27 +32,27 @@ internal data class Sample internal constructor(
     val id: String,
     /** The exact probe text; never locale- or environment-dependent. */
     val text: String,
-    /** Default measured iterations (§3.1); `--iterations` overrides. */
+    /** Default measured iterations; `--iterations` overrides. */
     val defaultIterations: Int = DEFAULT_ITERATIONS,
 ) {
     internal companion object {
-        /** §3.1 default measured iterations for a regular sample. */
+        /** Default measured iterations for a regular sample. */
         internal const val DEFAULT_ITERATIONS: Int = 20_000
 
         /**
          * The phrase-stress sample is ~10× costlier per op (219 chars over
-         * the 49k-entry STPhrases table), so §4 downshifts its default.
+         * the 49k-entry STPhrases table), so its default is downshifted.
          */
         internal const val PHRASE_ITERATIONS: Int = 5_000
     }
 }
 
-/** Sample definitions plus the profile→samples selection rule (§3.2/§4). */
+/** Sample definitions plus the profile→samples selection rule. */
 internal object Samples {
 
     /**
-     * The pilot probe text, carried verbatim from the M1 baseline so the
-     * convert numbers stay directly comparable with m1-dictgen-sok.md §7.
+     * The pilot probe text, carried verbatim from the original baseline so
+     * the convert numbers stay directly comparable across runs.
      */
     internal val MEDIUM: Sample = Sample(
         id = "medium",
@@ -92,7 +92,7 @@ internal object Samples {
     )
 
     /**
-     * §3.2 selection rule: `medium` plus the specials tagged for
+     * The selection rule: `medium` plus the specials tagged for
      * [profile] (none for profiles without a stress sample).
      */
     internal fun forProfile(profile: SokkuriConfig): List<Sample> =

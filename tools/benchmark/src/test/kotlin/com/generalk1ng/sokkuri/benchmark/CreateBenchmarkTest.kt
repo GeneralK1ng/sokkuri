@@ -24,7 +24,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * The create subcommand (m2-benchmark.md §3.3): argument handling and the
+ * The create subcommand: argument handling and the
  * `[bench]` line shape. A real S2T converter is assembled; numbers are not
  * asserted, only the stable key=value format.
  */

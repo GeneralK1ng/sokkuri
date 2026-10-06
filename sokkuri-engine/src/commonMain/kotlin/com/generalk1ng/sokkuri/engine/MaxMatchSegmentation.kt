@@ -57,7 +57,7 @@ public class MaxMatchSegmentation public constructor(
             var j = i + width
             while (j < end) {
                 val codePoint = Utf.codePointAt(chars, j, end)
-                if (dict.mayStartKey(codePoint)) break
+                if (dict.stopsBulkSkip(codePoint)) break
                 j += Utf.charCount(codePoint)
             }
             i = j

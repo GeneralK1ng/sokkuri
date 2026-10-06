@@ -19,7 +19,7 @@ package com.generalk1ng.sokkuri.dictgen
 /**
  * Code-point ordering (architecture invariant I2) and code-point counting,
  * reimplemented here because `tools:dictgen` must not depend on
- * `:sokkuri-engine` (m1-dictgen-sok §3). The comparison is
+ * `:sokkuri-engine`. The comparison is
  * character-for-character aligned with `Utf.compareByCodePoint`; the
  * derivation byte-diff tests (DictionaryDerivationsTest) pin the alignment
  * against upstream script outputs.

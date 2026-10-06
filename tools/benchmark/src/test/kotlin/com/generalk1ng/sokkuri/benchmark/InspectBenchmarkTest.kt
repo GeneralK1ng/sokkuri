@@ -24,10 +24,10 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * The inspect subcommand (m2-benchmark.md §3.5): argument handling, the
+ * The inspect subcommand: argument handling, the
  * `[bench]` line shape, and the internal consistency of the reported ratio
  * (it must equal inspectUs / convertUs of the same line) — the format
- * contract is what keeps §8 numbers transcribable by hand.
+ * contract is what keeps the recorded numbers transcribable by hand.
  */
 class InspectBenchmarkTest {
 
@@ -77,7 +77,7 @@ class InspectBenchmarkTest {
         // measured ratio=0.98 — measurement order and JIT state dominate).
         // The band catches unit mix-ups (nanos printed as micros, swapped
         // fields) without asserting noise. The honest overhead answer is a
-        // number in the acceptance record (m2-benchmark.md §8), not a
+        // number in the acceptance record, not a
         // unit-test inequality.
         val (_, out) = captureStdout { InspectBenchmark.run(emptyList()) }
         val fields = parseLine(out.lines().single { it.startsWith("[bench]") })

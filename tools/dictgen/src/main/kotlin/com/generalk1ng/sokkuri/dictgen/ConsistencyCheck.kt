@@ -19,7 +19,7 @@ package com.generalk1ng.sokkuri.dictgen
 import com.generalk1ng.sokkuri.SokkuriConfig
 
 /**
- * The closure checks of m1-dictgen-sok §3.6: the packaged config set must
+ * The closure checks: the packaged config set must
  * be exactly the 16 profiles of [SokkuriConfig] (invariant I8 — a mismatch means a
  * profile was added or removed upstream and needs a human decision), and
  * the compiled dictionary set must be exactly what those configs reference

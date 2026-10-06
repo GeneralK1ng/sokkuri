@@ -21,13 +21,14 @@ import com.generalk1ng.sokkuri.Sokkuri
 import java.util.*
 
 /**
- * The `inspect` subcommand (m2-benchmark.md §3.5): the cost of the
+ * The `inspect` subcommand: the cost of the
  * Inspection structure that [Sokkuri.inspect] collects on top of a plain
  * [Sokkuri.convert] of the same input. The two are measured back to back on
- * one converter with the shared §3.1 methodology; the reported ratio is the
- * price of the differentiating feature, in multiples of a plain conversion.
+ * one converter with the shared timing methodology; the reported ratio is
+ * the price of the differentiating feature, in multiples of a plain
+ * conversion.
  *
- * The input is fixed to the `medium` pilot probe (m2-benchmark.md §4): it is
+ * The input is fixed to the `medium` pilot probe: it is
  * the sample every profile converts, so ratios stay comparable across
  * profiles, and its convert number is directly comparable with the convert
  * subcommand's.
@@ -53,7 +54,7 @@ internal object InspectBenchmark {
         val iterations = Samples.MEDIUM.defaultIterations
 
         // Both ops share the JIT state of this process, but the second
-        // measurement still gets its own §3.1 warmup so the comparison is
+        // measurement still gets its own warmup so the comparison is
         // methodology-identical, not "convert measured cold-er than inspect".
         val convert = Timing.measure(iterations) { converter.convert(text) }
         val inspect = Timing.measure(iterations) { converter.inspect(text) }
@@ -63,7 +64,7 @@ internal object InspectBenchmark {
     }
 
     /**
-     * The grep-stable `[bench]` line of §3.5: both latencies as µs/op and
+     * The grep-stable `[bench]` line: both latencies as µs/op and
      * their ratio (1.00 = inspection is free, 2.00 = it doubles the cost).
      * Numbers are formatted with [Locale.ROOT]; see ConvertBenchmark.
      */

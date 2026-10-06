@@ -22,16 +22,16 @@ import com.generalk1ng.sokkuri.engine.*
 
 /**
  * Decoder for the `.sok` binary dictionary format, the production
- * replacement for OpenCC's non-portable `.ocd`/`.ocd2` marisa binaries
- * (docs/milestones/m1-dictgen-sok.md §3 defines the byte layout; §3.2 the
- * strict validation). Deliberate divergences from the `text` format:
+ * replacement for OpenCC's non-portable `.ocd`/`.ocd2` marisa binaries.
+ * [SokFormatLayout] defines the byte layout and [decode] applies the strict
+ * validation. Deliberate divergences from the `text` format:
  *
  * - zero-copy: the file's bytes are retained and keys/candidates are decoded
  *   on demand, so dictionary memory stays at raw-file size plus the shared
  *   retrieval index;
  * - retrieval is delegated to [SortedTableRetrieval], the same sorted-table
  *   algorithm [com.generalk1ng.sokkuri.engine.SortedListDictionary] uses, so
- *   the two backends cannot drift (m1-dictgen-sok §3.3).
+ *   the two backends cannot drift.
  */
 @SokkuriInternalApi
 public object SokDictionaryFormat : DictionaryFormat {
@@ -43,7 +43,7 @@ public object SokDictionaryFormat : DictionaryFormat {
 
 /**
  * An immutable, thread-safe [Dictionary] view over an `.sok` byte buffer.
- * Constructed only through [decode], which enforces the §3.2 validation.
+ * Constructed only through [decode], which enforces the strict validation.
  */
 @SokkuriInternalApi
 public class SokDictionary internal constructor(
@@ -63,7 +63,7 @@ public class SokDictionary internal constructor(
      * [SortedKeyTable] over this dictionary's byte blobs: probes read the
      * offset table and compare raw UTF-8 regions against input windows
      * ([Utf8]), so the binary-search and group-scan hot paths decode
-     * nothing — m3-string-view.md §3.1's probe elimination. No decoded-key
+     * nothing — probe elimination. No decoded-key
      * caching anywhere (zero-copy invariant): every access recomputes from
      * the immutable `bytes`, keeping the dictionary thread-safe (I3) at
      * raw-file memory.
@@ -135,7 +135,7 @@ public class SokDictionary internal constructor(
             SokFormatLayout.readU32(bytes, keyOffsetsBase + index * 4).toInt()
         val end = keyBlobBase +
             SokFormatLayout.readU32(bytes, keyOffsetsBase + (index + 1) * 4).toInt()
-        // §3.2 known tradeoff: UTF-8 validity is the encoder's invariant and
+        // Known tradeoff: UTF-8 validity is the encoder's invariant and
         // deliberately not re-validated per access.
         return bytes.decodeToString(start, end)
     }
@@ -173,7 +173,7 @@ public class SokDictionary internal constructor(
 
         /**
          * Decodes [bytes] into a [SokDictionary], applying the strict
-         * decoder validation of m1-dictgen-sok §3.2: magic/version/flags,
+         * decoder validation: magic/version/flags,
          * entryCount consistency with the file size, monotone offset tables
          * terminating at their blob sizes, `valueCounts ≥ 1`, and each
          * entry's candidates tiling its valueOffsets region exactly. Every

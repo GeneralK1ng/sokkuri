@@ -19,11 +19,11 @@ package com.generalk1ng.sokkuri.benchmark
 import kotlin.system.exitProcess
 
 /**
- * `tools:benchmark` — the measuring instrument of the Sokkuri stack
- * (m2-benchmark.md): conversion throughput, assembly latency, dictionary
- * decode cost, and the inspect() overhead ratio, all through the consumer
- * path. The milestone's §3 is the normative spec for the subcommands and
- * the `[bench]` output format; §4 fixes the embedded sample set.
+ * `tools:benchmark` — the measuring instrument of the Sokkuri stack:
+ * conversion throughput, assembly latency, dictionary decode cost, and the
+ * inspect() overhead ratio, all through the consumer path. The subcommands
+ * and the `[bench]` output format are specified below; [Samples] fixes the
+ * embedded sample set.
  *
  * This file is the CLI boundary and nothing else: argument parsing,
  * dispatch, and help text. Each subcommand implementation lives in its own
@@ -85,7 +85,6 @@ internal fun printUsage() {
           inspect [--profile <stem>]                        inspect() vs convert() overhead ratio
 
         Every subcommand prints grep-stable `[bench] key=value` lines.
-        Spec: docs/milestones/m2-benchmark.md (§3 subcommands, §4 samples).
         """.trimIndent(),
     )
 }

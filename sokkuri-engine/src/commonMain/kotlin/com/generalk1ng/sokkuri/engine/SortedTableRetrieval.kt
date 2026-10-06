@@ -24,7 +24,7 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  * blobs), consumed by [SortedTableRetrieval] so the lookup algorithm has a
  * single source of truth while each backend reads its native representation
  * — the String backend returns existing references, the byte backend decodes
- * nothing during probing (m3-string-view.md §3.3).
+ * nothing during probing.
  *
  * All operations take an entry [index] into the table, whose keys must be
  * sorted by [Utf.compareByCodePoint], unique, and non-empty (invariant I2).
@@ -62,9 +62,9 @@ public interface SortedKeyTable {
 
     /**
      * Appends the default candidate of the entry at [index] to [out] — the
-     * zero-materialization form of [defaultValueAt] (m3-string-view.md
-     * §3.4): byte-backed tables decode straight into the output buffer
-     * instead of producing an intermediate string.
+     * zero-materialization form of [defaultValueAt]: byte-backed tables
+     * decode straight into the output buffer instead of producing an
+     * intermediate string.
      */
     public fun appendDefaultValueAt(index: Int, out: StringBuilder)
 }
@@ -76,17 +76,17 @@ public interface SortedKeyTable {
  * first-code-point set).
  *
  * Extracted as a shared component so every lexicon backend delegates to the
- * same algorithm and retrieval semantics cannot drift between them
- * (docs/milestones/m1-dictgen-sok.md §3.3): [SortedListDictionary] and the
- * `.sok` binary dictionary both supply a [SortedKeyTable].
+ * same algorithm and retrieval semantics cannot drift between them:
+ * [SortedListDictionary] and the `.sok` binary dictionary both supply a
+ * [SortedKeyTable].
  *
  * Ordering invariants (I2): the table must be sorted by
  * [Utf.compareByCodePoint] with unique, non-empty keys; both the binary
  * search in [indexOf] and the group scan in [matchPrefix] rely on it.
  *
- * Step 2 of m3-string-view.md generalized this class from `keyAt`/
- * `defaultValueAt` string callbacks to [SortedKeyTable]: the algorithm is
- * unchanged, but a byte-backed table now probes without decoding.
+ * Generalized from `keyAt`/`defaultValueAt` string callbacks to
+ * [SortedKeyTable]: the algorithm is unchanged, but a byte-backed table now
+ * probes without decoding.
  */
 @SokkuriInternalApi
 public class SortedTableRetrieval private constructor(
@@ -159,7 +159,7 @@ public class SortedTableRetrieval private constructor(
     }
 
     /**
-     * The sink form of [matchPrefix] (m3-string-view.md §3.4): appends the
+     * The sink form of [matchPrefix]: appends the
      * winning entry's default candidate straight to [out] and returns the
      * matched length in UTF-16 code units, or `-1` when nothing matches.
      * The scan and winner selection are byte-identical to [matchPrefix] —

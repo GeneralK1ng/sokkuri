@@ -55,7 +55,7 @@ kotlin {
 
     // Compiles the engine's Dictionary contract suite (src/contractTest in
     // :sokkuri-engine) into this module's tests, so SokDictionary is judged by
-    // the same contract as SortedListDictionary (m1-dictgen-sok §2.4).
+    // the same contract as SortedListDictionary.
     sourceSets.commonTest.get().kotlin.srcDir(
         rootDir.resolve("sokkuri-engine/src/contractTest/kotlin"),
     )

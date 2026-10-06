@@ -20,7 +20,7 @@ import com.generalk1ng.sokkuri.SokkuriConfig
 import com.generalk1ng.sokkuri.Sokkuri
 
 /**
- * The `create` subcommand (m2-benchmark.md §3.3): assembly latency and
+ * The `create` subcommand: assembly latency and
  * retained heap per profile.
  *
  * Cold/warm honesty note: all profiles of one run share a process, and the
@@ -76,7 +76,7 @@ internal object CreateBenchmark {
     /**
      * `--profile` consumes every following non-flag token, so multiple
      * stems sit on one flag: `--profile s2t t2s`. Absent entirely, the
-     * default is `s2t` (§3.3).
+     * default is `s2t`.
      *
      * @return the requested profiles, or null on `--help`.
      * @throws BenchmarkException on unknown flags, an empty `--profile`

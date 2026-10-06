@@ -23,8 +23,8 @@ import com.generalk1ng.sokkuri.resource.TextDictionaryFormat
 import java.io.File
 
 /**
- * The `decode` subcommand (m2-benchmark.md §3.4): dictionary decode cost
- * for the packaged `.sok` files — the M1 §5.1 design gate, re-measurable
+ * The `decode` subcommand: dictionary decode cost
+ * for the packaged `.sok` files — the original design gate, re-measurable
  * on demand.
  *
  * The `.sok` side is unconditional (bytes come from the packaged
@@ -40,7 +40,7 @@ internal object DecodeBenchmark {
 
     private const val REPETITIONS: Int = 7
 
-    /** Dictionaries representative of small/mid/large tables (M1 §5.1 set). */
+    /** Dictionaries representative of small/mid/large tables. */
     private val DICTIONARIES: List<String> = listOf("STCharacters", "TSCharacters", "STPhrases")
 
     /**

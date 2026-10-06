@@ -23,8 +23,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Full-corpus golden alignment with OpenCC's `test/testcases/testcases.json`
- * (m1-dictgen-sok §4.2): every ported profile, every upstream expectation,
+ * Full-corpus golden alignment with OpenCC's `test/testcases/testcases.json`:
+ * every ported profile, every upstream expectation,
  * under default [SokkuriOptions]. One test method per profile so platform test
  * reports isolate failures by stem; each failure message carries the case
  * id, the expected output, and the actual output.
@@ -36,8 +36,8 @@ import kotlin.test.assertTrue
  *
  * Expectations that diverge under default SokkuriOptions (tofu-risk dictionaries
  * excluded) are not silently skipped: each is registered in
- * [REGISTERED_DIVERGENCES] with its analysis in the milestone acceptance
- * records (m1-dictgen-sok §7), and the registry itself is validated against
+ * [REGISTERED_DIVERGENCES] with its analysis recorded there, and the
+ * registry itself is validated against
  * the corpus so a stale registration fails loudly.
  */
 // Lazy assertion messages (kotlin.test's lambda-form assertTrue) are
@@ -157,7 +157,7 @@ class OpenccTestcasesGoldenTest {
          * (`TSCharactersExt`, flagged `may_output_tofu` in upstream
          * `t2s.json`; excluded unless `includeTofuRiskDictionaries`).
          *
-         * Individually analyzed (m1-dictgen-sok §7):
+         * Individually analyzed:
          * - `BYVoid_OpenCC_PR_1228`: 殢→𣨼 — TSCharactersExt:1298
          * - `BYVoid_OpenCC_PR_1229`: 圞→𪢮 — TSCharactersExt:636
          * - `BYVoid_OpenCC_PR_464`: 樠→𣗊 — TSCharactersExt:1212

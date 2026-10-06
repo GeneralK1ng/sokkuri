@@ -188,7 +188,7 @@ public object Utf {
     /**
      * Compares [text] against the `chars[start, end)` window by code-point
      * order — the mixed String/CharArray form of [compareByCodePoint], added
-     * for storage-agnostic key tables (m3-string-view.md §3.3) so the String
+     * for storage-agnostic key tables so the String
      * backend of [SortedTableRetrieval] compares without materializing the
      * window. Semantics: identical to
      * `compareByCodePoint(text, window-as-String)`, sign included.

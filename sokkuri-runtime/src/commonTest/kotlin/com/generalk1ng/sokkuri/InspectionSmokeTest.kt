@@ -20,7 +20,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 /**
- * Structural smoke test for `inspect()` (m1-dictgen-sok §4.3): on corpus
+ * Structural smoke test for `inspect()`: on corpus
  * cases whose conversion is golden-verified, the [Inspection] must agree
  * with [Sokkuri.convert] and hold the documented tiling invariants:
  *

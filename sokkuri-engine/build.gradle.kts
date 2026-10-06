@@ -51,6 +51,6 @@ kotlin {
     // The Dictionary contract suite lives in src/contractTest (outside
     // commonTest) so sokkuri-resource's tests can compile the very same file
     // via srcDir — one suite, zero copies, retrieval cannot drift between
-    // backends (docs/milestones/m1-dictgen-sok.md, steps 1.2 / 2.4).
+    // backends.
     sourceSets.commonTest.get().kotlin.srcDir("src/contractTest/kotlin")
 }

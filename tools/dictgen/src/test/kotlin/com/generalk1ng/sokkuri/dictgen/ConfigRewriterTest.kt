@@ -28,7 +28,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Tests for the packaged-config rewriter (m1-dictgen-sok §3.3): JSONC
+ * Tests for the packaged-config rewriter: JSONC
  * tolerance, rewriting of `ocd` and `ocd2` references to `.sok` files under
  * the `dictionary/` resource directory, structural preservation (group,
  * match_policy, may_output_tofu, segmentation, inline), and strict,

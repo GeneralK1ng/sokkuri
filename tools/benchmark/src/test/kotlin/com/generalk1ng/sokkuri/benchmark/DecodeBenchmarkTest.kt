@@ -24,7 +24,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * The decode subcommand (m2-benchmark.md §3.4): the unconditional `.sok`
+ * The decode subcommand: the unconditional `.sok`
  * side runs without an OpenCC clone and emits stable lines; the text
  * comparison degrades to a stderr note (exit stays 0) when the clone is
  * absent or a file is missing — never a failure.

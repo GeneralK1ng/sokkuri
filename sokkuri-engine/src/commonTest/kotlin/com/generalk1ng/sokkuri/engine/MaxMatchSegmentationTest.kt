@@ -77,4 +77,21 @@ class MaxMatchSegmentationTest {
         // into the pending run, which is flushed when "燕" matches.
         assertEquals(listOf("⿰ab", "燕"), segment("燕", text = "⿰ab燕"))
     }
+
+    @Test
+    fun ideographicDescriptionSequenceMidRunIsNotSplitAtItsOperand() {
+        // The bulk skip stops at IDS operators as well as at key-starts
+        // (OpenCC `Utf8SkipScan::Finalize`). Without that, the run ends
+        // inside the sequence, the operand is seen as a standalone match,
+        // and the IDS is torn in two. The leading-IDS test above cannot
+        // catch it: the operator there sits at the run cursor.
+        assertEquals(
+            listOf("a⿾证"),
+            segment("证", text = "a⿾证"),
+        )
+        assertEquals(
+            listOf("x⿰钅只"),
+            segment("只", text = "x⿰钅只"),
+        )
+    }
 }

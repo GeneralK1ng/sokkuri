@@ -24,7 +24,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Acceptance for the benchmark CLI boundary (m2-benchmark.md §3): argument
+ * Acceptance for the benchmark CLI boundary: argument
  * parsing is pure, dispatch is explicit, every known subcommand is wired,
  * and an unknown subcommand is an argument error — an invocation can never
  * silently measure nothing.

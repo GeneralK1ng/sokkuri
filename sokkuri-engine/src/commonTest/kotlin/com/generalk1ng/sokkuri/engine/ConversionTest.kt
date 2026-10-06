@@ -66,6 +66,22 @@ class ConversionTest {
     }
 
     @Test
+    fun ideographicDescriptionSequenceMidRunStaysAtomic() {
+        // The bulk skip must also stop at an IDS operator, not just at
+        // key-starting characters (OpenCC `Utf8SkipScan::Finalize`). Reached
+        // from the middle of an unmatched run, the sequence is still grouped,
+        // so its operands are left alone. Covering only the leading case —
+        // as the two tests above do — hides this: the operator is skipped,
+        // the run ends mid-sequence, and the operand converts.
+        val conversion = Conversion(dict("证" to listOf("證")))
+        assertEquals("a⿾证", conversion.convert("a⿾证"))
+
+        // The realistic shape: an IDS in parentheses inside ordinary text.
+        val twoOperand = Conversion(dict("只" to listOf("隻")))
+        assertEquals("x⿰钅只", twoOperand.convert("x⿰钅只"))
+    }
+
+    @Test
     fun prefixMatchTakesPriorityOverIdsParsing() {
         // OpenCC tries the dictionary first: a key that literally starts with
         // an IDS operator matches like any other prefix.

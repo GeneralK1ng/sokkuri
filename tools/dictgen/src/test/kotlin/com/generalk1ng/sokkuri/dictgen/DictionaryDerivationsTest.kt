@@ -24,9 +24,9 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Tests for the derivation ports (m1-dictgen-sok §3.4): synthetic cases pin
+ * Tests for the derivation ports: synthetic cases pin
  * the semantics line by line, and — when `OPENCC_DIR` points at a clone and
- * `python3` is available — the byte-diff acceptance (§3.4.3) compares the
+ * `python3` is available — the byte-diff acceptance test compares the
  * Kotlin ports against the actual upstream script outputs.
  */
 class DictionaryDerivationsTest {
@@ -171,7 +171,7 @@ class DictionaryDerivationsTest {
         assertTrue("Conflicting regional phrase simplified projections" in error.message!!)
     }
 
-    // --- §3.4.3 byte-diff against the actual upstream script outputs ---
+    // --- byte-diff against the actual upstream script outputs ---
 
     @Test
     fun portsMatchUpstreamScriptOutputsByteForByte() {
@@ -181,7 +181,7 @@ class DictionaryDerivationsTest {
         val scripts = openccDir.resolve("data/scripts")
         val tmp = kotlin.io.path.createTempDirectory("sokkuri-dictgen").toFile()
 
-        // reverse.py × 3 (the recipes of m1 §3.4)
+        // reverse.py × 3 (the derivation recipes)
         for (name in listOf("TWVariants", "HKVariants", "JPShinjitaiCharacters")) {
             val upstreamOut = tmp.resolve("$name.upstream.txt")
             runScript(

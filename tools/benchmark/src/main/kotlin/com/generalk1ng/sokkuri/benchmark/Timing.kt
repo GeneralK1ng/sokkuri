@@ -17,11 +17,11 @@
 package com.generalk1ng.sokkuri.benchmark
 
 /**
- * The §3.1 timing methodology, shared by every subcommand that measures
- * ops: warmup, per-op sampling, and percentile summarization. Keeping the
- * math pure ([summarize]) apart from the measurement loop ([measure]) makes
- * the percentiles exactly testable and the sampling swappable (the JMH
- * upgrade path, m2-benchmark.md §7, replaces only [measure]).
+ * The shared timing methodology for every subcommand that measures ops:
+ * warmup, per-op sampling, and percentile summarization. Keeping the math
+ * pure ([summarize]) apart from the measurement loop ([measure]) makes the
+ * percentiles exactly testable and the sampling swappable (a JMH-based
+ * upgrade path would replace only [measure]).
  */
 internal object Timing {
 
@@ -35,7 +35,7 @@ internal object Timing {
     )
 
     /**
-     * Warmup size per §3.1: `max(200, iterations / 10)` — enough for JIT
+     * Warmup size: `max(200, iterations / 10)` — enough for JIT
      * stability at small iteration counts without dominating the run.
      */
     internal fun warmupIterations(iterations: Int): Int = maxOf(200, iterations / 10)
