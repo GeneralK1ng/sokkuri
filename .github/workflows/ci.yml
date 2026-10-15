@@ -1,0 +1,52 @@
+# Build gate (docs/architecture.md §10.2, layer 1): the very `./gradlew build`
+# the release workflow runs, on every push to main and every pull request, so
+# a green main is releasable by construction. It covers the JVM, Android host
+# and iOS simulator test suites, the tools' unit tests and the ABI check;
+# the checks that need the OpenCC clone run in upstream.yml instead.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# No paths filter on purpose: this is the required check, and a pull request
+# the filter skipped would never report it and could not merge.
+
+concurrency:
+  # A newer push supersedes an unfinished pull-request run; every commit on
+  # main keeps its own result.
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build gate
+    # macOS: the iOS simulator test suites run nowhere else.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-build-env
+
+      - name: Build and test all platforms
+        # --continue reports every failing task of the run, not just the first.
+        run: ./gradlew build --continue
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-gate-test-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
