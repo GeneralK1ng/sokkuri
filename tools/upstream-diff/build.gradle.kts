@@ -20,6 +20,8 @@ plugins {
     // re-declaring a version here fails plugin resolution (same as the other
     // tools modules).
     id("org.jetbrains.kotlin.jvm")
+    // Decodes the harness's JSON lines (inspect results) into data classes.
+    alias(libs.plugins.kotlinPluginSerialization)
     application
 }
 
@@ -30,10 +32,15 @@ dependencies {
     // inputs out of the upstream golden file.
     implementation(project(":sokkuri-runtime"))
     implementation(libs.kotlinx.serialization.json)
+    testImplementation(libs.kotlin.test)
 }
 
 application {
     mainClass.set("com.generalk1ng.sokkuri.upstreamdiff.UpstreamDiffKt")
+}
+
+tasks.test {
+    useJUnitPlatform()
 }
 
 // Resolves the default --opencc-dir (and the default build dir under it)

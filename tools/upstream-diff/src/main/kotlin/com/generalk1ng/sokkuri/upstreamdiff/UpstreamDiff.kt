@@ -52,8 +52,8 @@ internal fun main(args: Array<String>) {
     val tofu = if (options.includeTofu) "included" else "excluded"
     println("[diff] corpus: ${corpus.size} inputs, tofu-risk dictionaries $tofu")
 
-    var comparisons = 0
-    var mismatches = 0
+    var conversions = Tally()
+    var inspections = Tally()
     // Every ported profile, in the enum's stable order: a profile added to
     // SokkuriConfig is diffed without anyone having to list it here.
     for (config in SokkuriConfig.entries) {
@@ -64,35 +64,61 @@ internal fun main(args: Array<String>) {
         )
 
         val expected = upstream.convert(stem, corpus, options.includeTofu)
-
-        var profileMismatches = 0
-        val samples = mutableListOf<String>()
-        for (index in corpus.indices) {
-            comparisons++
+        conversions += compare(stem, corpus.size, options.maxSamples) { index ->
             val actual = converter.convert(corpus[index])
-            if (actual == expected[index]) continue
-            profileMismatches++
-            mismatches++
-            if (samples.size < options.maxSamples) {
-                samples += renderMismatch(stem, corpus[index], expected[index], actual)
-            }
+            if (actual == expected[index]) null else renderMismatch(stem, corpus[index], expected[index], actual)
         }
-        println(
-            "[diff] $stem: ${corpus.size} inputs, " +
-                if (profileMismatches == 0) "aligned" else "$profileMismatches MISMATCHED",
-        )
-        samples.forEach(::println)
+
+        // The structure behind the output: segmentation and every stage,
+        // against upstream's own Converter::Inspect.
+        val expectedInspections = upstream.inspect(stem, corpus, options.includeTofu)
+        inspections += compare("$stem inspect", corpus.size, options.maxSamples) { index ->
+            FlatInspection.of(expectedInspections[index])
+                .firstDifference(FlatInspection.of(converter.inspect(corpus[index])))
+                ?.let { renderInspectionMismatch(stem, corpus[index], it) }
+        }
     }
 
     println()
-    println("[diff] comparisons=$comparisons mismatches=$mismatches")
-    if (mismatches > 0) {
-        println("[diff] DIVERGED: Sokkuri and the reference build disagree on the inputs above")
+    println("[diff] comparisons=${conversions.comparisons} mismatches=${conversions.mismatches}")
+    println("[diff] inspections=${inspections.comparisons} inspectionMismatches=${inspections.mismatches}")
+    val aligned = conversions.mismatches == 0 && inspections.mismatches == 0
+    if (aligned) {
+        println("[diff] ALIGNED: every input converted and inspected identically on both sides")
     } else {
-        println("[diff] ALIGNED: every input converted identically on both sides")
+        println("[diff] DIVERGED: Sokkuri and the reference build disagree on the inputs above")
     }
-    exitProcess(if (mismatches == 0) 0 else 1)
+    exitProcess(if (aligned) 0 else 1)
 }
+
+/** Running totals of one kind of comparison across profiles. */
+private data class Tally(val comparisons: Int = 0, val mismatches: Int = 0) {
+    operator fun plus(other: Tally): Tally = Tally(comparisons + other.comparisons, mismatches + other.mismatches)
+}
+
+/**
+ * Compares [count] inputs with [mismatchAt], which renders the mismatch at
+ * an index or returns `null` when both sides agree, prints the profile's
+ * verdict line and up to [maxSamples] mismatches, and returns the tally.
+ */
+private fun compare(label: String, count: Int, maxSamples: Int, mismatchAt: (Int) -> String?): Tally {
+    var mismatches = 0
+    val samples = mutableListOf<String>()
+    for (index in 0 until count) {
+        val mismatch = mismatchAt(index) ?: continue
+        mismatches++
+        if (samples.size < maxSamples) samples += mismatch
+    }
+    println("[diff] $label: $count inputs, " + if (mismatches == 0) "aligned" else "$mismatches MISMATCHED")
+    samples.forEach(::println)
+    return Tally(count, mismatches)
+}
+
+private fun renderInspectionMismatch(stem: String, input: String, difference: String): String =
+    buildString {
+        appendLine("[diff]   [$stem] input=${input.forDisplay()}")
+        append("[diff]     ${difference.forDisplay().removeSurrounding("\"")}")
+    }
 
 private fun renderMismatch(stem: String, input: String, upstream: String, sokkuri: String): String =
     buildString {

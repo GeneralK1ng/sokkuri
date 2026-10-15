@@ -16,6 +16,7 @@
 
 package com.generalk1ng.sokkuri.upstreamdiff
 
+import kotlinx.serialization.json.Json
 import java.io.File
 
 /**
@@ -33,6 +34,11 @@ internal class UpstreamHarness(
     /** Converts each of [inputs] independently under profile [stem], one call per input. */
     fun convert(stem: String, inputs: List<String>, includeTofu: Boolean): List<String> =
         runPerLine(listOf("convert") + profileArguments(stem, includeTofu), inputs)
+
+    /** Upstream's `Converter::Inspect` for each of [inputs] under profile [stem]. */
+    fun inspect(stem: String, inputs: List<String>, includeTofu: Boolean): List<UpstreamInspection> =
+        runPerLine(listOf("inspect") + profileArguments(stem, includeTofu), inputs)
+            .map { json.decodeFromString(UpstreamInspection.serializer(), it) }
 
     private fun profileArguments(stem: String, includeTofu: Boolean): List<String> =
         listOf(stem, configDir.absolutePath, dataDir.absolutePath, flag(includeTofu))
@@ -77,4 +83,9 @@ internal class UpstreamHarness(
     }
 
     private fun flag(value: Boolean): String = if (value) "1" else "0"
+
+    private companion object {
+        /** Strict on purpose: an unknown field means the protocol drifted. */
+        val json = Json
+    }
 }

@@ -20,6 +20,15 @@
 //   convert <stem> <configDir> <dataDir> <tofu:0|1>
 //       stdin: one input per line; stdout: one converted line per input.
 //
+//   inspect <stem> <configDir> <dataDir> <tofu:0|1>
+//       stdin: one input per line; stdout: one JSON object per input, the
+//       converter's ConversionInspectionResult as upstream builds it:
+//         {"segments": [string], "stages": [{"index": n, "segments": [string]}],
+//          "pipelineStages": [<same object, recursively>], "output": string}
+//       Strings are UTF-8 with JSON escapes for '"', '\\' and control
+//       characters; mapping this tree onto Sokkuri's flatter Inspection is the
+//       Kotlin side's job, so this side only serializes.
+//
 // Why a driver rather than the `opencc` CLI: the CLI feeds its input through
 // ConverterStream, which keeps a tail of 16 code points so a phrase or IDS
 // sequence can span chunk boundaries. A trailing IDS operator therefore
@@ -32,6 +41,7 @@
 // Exit status: 0 on success, 2 on a usage error, 1 when OpenCC throws while
 // loading or converting; the message goes to stderr.
 
+#include <cstdio>
 #include <exception>
 #include <iostream>
 #include <string>
@@ -39,6 +49,7 @@
 #include <vector>
 
 #include "Config.hpp"
+#include "ConversionInspection.hpp"
 #include "Converter.hpp"
 #include "Exception.hpp"
 
@@ -94,15 +105,89 @@ int RunConvert(const std::vector<std::string>& args) {
   return 0;
 }
 
+// Writes [value] as a JSON string. JSON text is UTF-8, so bytes at or above
+// 0x80 pass through unchanged; only the quote, the backslash and the C0
+// controls need escapes.
+void WriteJsonString(std::ostream& out, const std::string& value) {
+  out << '"';
+  for (const char ch : value) {
+    const unsigned char byte = static_cast<unsigned char>(ch);
+    switch (byte) {
+      case '"': out << "\\\""; break;
+      case '\\': out << "\\\\"; break;
+      case '\b': out << "\\b"; break;
+      case '\f': out << "\\f"; break;
+      case '\n': out << "\\n"; break;
+      case '\r': out << "\\r"; break;
+      case '\t': out << "\\t"; break;
+      default:
+        if (byte < 0x20) {
+          char escape[7];
+          std::snprintf(escape, sizeof escape, "\\u%04x", byte);
+          out << escape;
+        } else {
+          out << ch;
+        }
+    }
+  }
+  out << '"';
+}
+
+void WriteJsonStrings(std::ostream& out, const std::vector<std::string>& values) {
+  out << '[';
+  for (size_t i = 0; i < values.size(); i++) {
+    if (i > 0) out << ',';
+    WriteJsonString(out, values[i]);
+  }
+  out << ']';
+}
+
+void WriteInspection(std::ostream& out,
+                     const opencc::ConversionInspectionResult& result) {
+  out << "{\"segments\":";
+  WriteJsonStrings(out, result.segments);
+  out << ",\"stages\":[";
+  for (size_t i = 0; i < result.stages.size(); i++) {
+    if (i > 0) out << ',';
+    out << "{\"index\":" << result.stages[i].index << ",\"segments\":";
+    WriteJsonStrings(out, result.stages[i].segments);
+    out << '}';
+  }
+  out << "],\"pipelineStages\":[";
+  for (size_t i = 0; i < result.pipelineStages.size(); i++) {
+    if (i > 0) out << ',';
+    WriteInspection(out, result.pipelineStages[i]);
+  }
+  out << "],\"output\":";
+  WriteJsonString(out, result.output);
+  out << '}';
+}
+
+// inspect <stem> <configDir> <dataDir> <tofu>
+int RunInspect(const std::vector<std::string>& args) {
+  if (args.size() != 4) {
+    throw UsageError("inspect <stem> <configDir> <dataDir> <tofu:0|1>");
+  }
+  const ProfileSource source{args[1], args[2], ParseFlag(args[3], "tofu")};
+  const opencc::ConverterPtr converter = LoadProfile(args[0], source);
+  std::string line;
+  while (std::getline(std::cin, line)) {
+    WriteInspection(std::cout, converter->Inspect(line));
+    std::cout << '\n';
+  }
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   const std::vector<std::string> args(argv + 1, argv + argc);
   try {
-    if (args.empty()) throw UsageError("<convert> ...");
+    if (args.empty()) throw UsageError("<convert|inspect> ...");
     const std::string& command = args[0];
     const std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "convert") return RunConvert(rest);
+    if (command == "inspect") return RunInspect(rest);
     throw UsageError("unknown subcommand '" + command + "'");
   } catch (const UsageError& e) {
     std::cerr << "usage: opencc_harness " << e.what() << '\n';
