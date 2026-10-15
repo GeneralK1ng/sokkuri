@@ -46,6 +46,30 @@ class InvocationTest {
     }
 
     @Test
+    fun benchTakesProfileSamplesAndIterations() {
+        val bench = parseInvocation(
+            listOf("bench", "--profile", "s2tw", "--samples", "medium, phrases", "--iterations", "9"),
+            cwd,
+        )
+        assertEquals(Command.BENCH, bench.command)
+        assertEquals("s2tw", bench.options.profile)
+        assertEquals(listOf("medium", "phrases"), bench.options.samples)
+        assertEquals(9, bench.options.iterations)
+        val defaults = parseInvocation(listOf("bench"), cwd).options
+        assertEquals("all", defaults.profile)
+        assertEquals(listOf("medium", "long"), defaults.samples)
+        assertEquals(null, defaults.iterations)
+    }
+
+    @Test
+    fun benchRejectsUnknownProfilesAndBadCounts() {
+        assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("bench", "--profile", "s2x"), cwd) }
+        assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("bench", "--iterations", "0"), cwd) }
+        assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("bench", "--samples", ","), cwd) }
+        assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("diff", "--profile", "s2t"), cwd) }
+    }
+
+    @Test
     fun flagsOfAnotherSubcommandAreRejected() {
         assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("configs", "--tofu"), cwd) }
         assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("--inputs"), cwd) }

@@ -16,6 +16,7 @@
 
 package com.generalk1ng.sokkuri.upstreamdiff
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.io.File
 
@@ -51,6 +52,24 @@ internal class UpstreamHarness(
             listOf("config", dictDir.absolutePath, flag(includeTofu), probesFile.absolutePath),
             configFiles.map { it.absolutePath },
         ).map { json.decodeFromString(HarnessConfigAnswer.serializer(), it).toOutcome() }
+
+    /**
+     * Upstream's timing of profile [stem] converting the whole of [text],
+     * measured the way tools:benchmark measures Sokkuri (see the harness).
+     */
+    fun bench(stem: String, text: String, iterations: Int, includeTofu: Boolean): UpstreamTiming {
+        val textFile = File.createTempFile("upstream-bench-", ".txt")
+        try {
+            textFile.writeText(text)
+            val arguments = listOf("bench") + profileArguments(stem, includeTofu) +
+                listOf(textFile.absolutePath, iterations.toString())
+            val answer = run(arguments, lines = emptyList())
+            check(answer.size == 1) { "harness answered ${answer.size} lines to ${arguments.joinToString(" ")}" }
+            return json.decodeFromString(UpstreamTiming.serializer(), answer.single())
+        } finally {
+            textFile.delete()
+        }
+    }
 
     private fun profileArguments(stem: String, includeTofu: Boolean): List<String> =
         listOf(stem, configDir.absolutePath, dataDir.absolutePath, flag(includeTofu))
@@ -108,3 +127,7 @@ internal class UpstreamHarness(
         val json = Json
     }
 }
+
+/** One timing from the harness's `bench` subcommand, in microseconds per conversion. */
+@Serializable
+internal data class UpstreamTiming(val iterations: Int, val medianUs: Double, val p90Us: Double, val minUs: Double)

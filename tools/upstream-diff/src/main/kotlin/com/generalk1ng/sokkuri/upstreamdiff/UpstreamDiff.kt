@@ -31,7 +31,9 @@ import kotlin.system.exitProcess
  *   every profile;
  * - `configs`: loads a catalog of config documents with both, comparing
  *   which they accept, how they fail, and what the accepted ones convert to
- *   ([ConfigCases]).
+ *   ([ConfigCases]);
+ * - `bench`: times upstream on tools:benchmark's sample texts, the
+ *   reference point for Sokkuri's own numbers.
  *
  * This is the only check in the project that compares against upstream
  * *execution* rather than against upstream source. The golden suite is ported
@@ -54,6 +56,7 @@ internal fun main(args: Array<String>) {
         when (invocation.command) {
             Command.DIFF -> runDiff(invocation.options)
             Command.CONFIGS -> runConfigs(invocation.options)
+            Command.BENCH -> runBench(invocation.options)
         },
     )
 }
@@ -170,6 +173,10 @@ internal enum class Command(val word: String, val flags: Set<String>) {
         ),
     ),
     CONFIGS("configs", setOf("--opencc-dir", "--opencc-build-dir", "--rebuild")),
+    BENCH(
+        "bench",
+        setOf("--opencc-dir", "--opencc-build-dir", "--rebuild", "--tofu", "--profile", "--samples", "--iterations"),
+    ),
 }
 
 /** Options shared by the subcommands; each accepts only the flags it lists in [Command.flags]. */
@@ -182,15 +189,22 @@ internal data class Options(
     val corpus: File?,
     val rebuild: Boolean,
     val maxSamples: Int,
+    /** `bench`: a profile stem, or `all`. */
+    val profile: String = "all",
+    /** `bench`: sample ids, from tools/shared-resources/samples. */
+    val samples: List<String> = listOf("medium", "long"),
+    /** `bench`: measured iterations for every sample, overriding the per-sample defaults. */
+    val iterations: Int? = null,
 )
 
 internal data class Invocation(val command: Command, val options: Options)
 
 private const val USAGE = """
-Usage: upstream-diff [diff|configs] [options]
+Usage: upstream-diff [diff|configs|bench] [options]
 
   diff (default)            convert and inspect one corpus with both implementations
   configs                   load the config catalog with both implementations
+  bench                     time upstream on the benchmark sample texts
 
   --opencc-dir <dir>        OpenCC clone root (default: <cwd>/OpenCC)
   --opencc-build-dir <dir>  cmake build of the clone (default: <cwd>/build/upstream-opencc);
@@ -203,6 +217,11 @@ diff only:
   --corpus <file>           extra inputs, one per line
   --tofu                    include tofu-risk dictionaries on BOTH sides
   --max-samples <n>         mismatching inputs to print per profile (default: 5)
+bench only:
+  --profile <stem|all>      profiles to time (default: all)
+  --samples <id,id,...>     sample texts to time (default: medium,long)
+  --iterations <n>          measured iterations per sample (default: tools:benchmark's)
+  --tofu                    include tofu-risk dictionaries
 """
 
 internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFile): Invocation {
@@ -218,6 +237,9 @@ internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFi
     var corpus: File? = null
     var rebuild = false
     var maxSamples = 5
+    var profile = "all"
+    var samples = listOf("medium", "long")
+    var iterations: Int? = null
 
     var index = 0
     fun value(flag: String): String {
@@ -242,6 +264,13 @@ internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFi
                 ?: throw IllegalArgumentException("--max-samples needs an integer")
             "--tofu" -> includeTofu = true
             "--rebuild" -> rebuild = true
+            "--profile" -> profile = value(arg).also {
+                require(it == "all" || SokkuriConfig.fromStem(it) != null) { "unknown profile: $it" }
+            }
+            "--samples" -> samples = value(arg).split(',').map(String::trim).filter(String::isNotEmpty)
+                .ifEmpty { throw IllegalArgumentException("--samples needs at least one id") }
+            "--iterations" -> iterations = value(arg).toIntOrNull()?.takeIf { it > 0 }
+                ?: throw IllegalArgumentException("--iterations needs a positive integer")
         }
         index++
     }
@@ -256,6 +285,9 @@ internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFi
             corpus = corpus,
             rebuild = rebuild,
             maxSamples = maxSamples,
+            profile = profile,
+            samples = samples,
+            iterations = iterations,
         ),
     )
 }

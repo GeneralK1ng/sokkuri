@@ -39,6 +39,13 @@
 //       "exception" is the most derived opencc exception class, or
 //       "std::exception" for anything else that escaped.
 //
+//   bench <stem> <configDir> <dataDir> <tofu:0|1> <textFile> <iterations>
+//       times Convert on the whole of <textFile> the way tools:benchmark's
+//       Timing.measure times Sokkuri: max(200, iterations / 10) untimed
+//       calls, then <iterations> calls timed one by one with a monotonic
+//       clock; nearest-rank percentiles over the sorted samples. stdout:
+//         {"iterations": n, "medianUs": x, "p90Us": x, "minUs": x}
+//
 // Why a driver rather than the `opencc` CLI: the CLI feeds its input through
 // ConverterStream, which keeps a tail of 16 code points so a phrase or IDS
 // sequence can span chunk boundaries. A trailing IDS operator therefore
@@ -51,6 +58,8 @@
 // Exit status: 0 on success, 2 on a usage error, 1 when OpenCC throws while
 // loading or converting; the message goes to stderr.
 
+#include <algorithm>
+#include <chrono>
 #include <cstdio>
 #include <exception>
 #include <fstream>
@@ -272,17 +281,66 @@ int RunConfig(const std::vector<std::string>& args) {
   return 0;
 }
 
+long ParseCount(const std::string& value, const char* name) {
+  size_t used = 0;
+  long count = 0;
+  try {
+    count = std::stol(value, &used);
+  } catch (const std::exception&) {
+    used = 0;
+  }
+  if (used != value.size() || count <= 0) {
+    throw UsageError(std::string(name) + " must be a positive integer, was '" + value + "'");
+  }
+  return count;
+}
+
+// bench <stem> <configDir> <dataDir> <tofu> <textFile> <iterations>
+int RunBench(const std::vector<std::string>& args) {
+  if (args.size() != 6) {
+    throw UsageError("bench <stem> <configDir> <dataDir> <tofu:0|1> <textFile> <iterations>");
+  }
+  const ProfileSource source{args[1], args[2], ParseFlag(args[3], "tofu")};
+  const opencc::ConverterPtr converter = LoadProfile(args[0], source);
+  const std::string text = ReadFile(args[4]);
+  const long iterations = ParseCount(args[5], "iterations");
+  const long warmup = std::max(200L, iterations / 10);
+
+  // Accumulating the output sizes keeps every call observable, so none can
+  // be optimized away.
+  volatile size_t sink = 0;
+  for (long i = 0; i < warmup; i++) sink = sink + converter->Convert(text).size();
+  std::vector<long long> samples(static_cast<size_t>(iterations));
+  for (long i = 0; i < iterations; i++) {
+    const auto start = std::chrono::steady_clock::now();
+    sink = sink + converter->Convert(text).size();
+    const auto elapsed = std::chrono::steady_clock::now() - start;
+    samples[static_cast<size_t>(i)] =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(elapsed).count();
+  }
+  std::sort(samples.begin(), samples.end());
+  // Nearest rank, the formula Timing.summarize uses.
+  const auto rank = [&samples](double p) {
+    const size_t last = samples.size() - 1;
+    return static_cast<double>(samples[std::min(last, static_cast<size_t>(last * p))]) / 1000.0;
+  };
+  std::printf("{\"iterations\":%ld,\"medianUs\":%.3f,\"p90Us\":%.3f,\"minUs\":%.3f}\n",
+              iterations, rank(0.5), rank(0.9), static_cast<double>(samples.front()) / 1000.0);
+  return 0;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
   const std::vector<std::string> args(argv + 1, argv + argc);
   try {
-    if (args.empty()) throw UsageError("<convert|inspect|config> ...");
+    if (args.empty()) throw UsageError("<convert|inspect|config|bench> ...");
     const std::string& command = args[0];
     const std::vector<std::string> rest(args.begin() + 1, args.end());
     if (command == "convert") return RunConvert(rest);
     if (command == "inspect") return RunInspect(rest);
     if (command == "config") return RunConfig(rest);
+    if (command == "bench") return RunBench(rest);
     throw UsageError("unknown subcommand '" + command + "'");
   } catch (const UsageError& e) {
     std::cerr << "usage: opencc_harness " << e.what() << '\n';
