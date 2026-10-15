@@ -425,6 +425,16 @@ class ConfigParserTest {
     }
 
     @Test
+    fun anEmptyTextDictionaryKeyNeverMatchesButStillCountsForDuplicates() {
+        val config = """{"conversion_chain": [{"dict": {"type": "text", "file": "d.txt"}}]}"""
+        val converter = parse(config, files = mapOf("d.txt" to "\t乾\n干\t幹\n"))
+        assertEquals("幹燥", converter.convert("干燥"))
+        assertFailsWith<SokkuriException.InvalidFormat> {
+            parse(config, files = mapOf("d.txt" to "\t乾\n干\t幹\n\t乾\n"))
+        }
+    }
+
+    @Test
     fun textDictionaryMultiCandidatesUseFirst() {
         val dictionary: Dictionary = TextDictionaryFormat.decode("干\t幹 干 乾\n".encodeToByteArray())
         assertEquals(listOf("幹", "干", "乾"), dictionary.matchExact("干")!!.candidates)

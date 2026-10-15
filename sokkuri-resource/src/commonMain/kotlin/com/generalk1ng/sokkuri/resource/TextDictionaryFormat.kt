@@ -31,7 +31,9 @@ import com.generalk1ng.sokkuri.engine.SortedListDictionary
  * - each entry is `key<TAB>candidate[ candidate...]` — the first candidate
  *   is the default output; every space separates two candidates, so runs of
  *   spaces yield empty candidates, as upstream's `ParseKeyValues` does;
- * - keys must be unique; unsorted input is sorted by code-point order.
+ * - keys must be unique; unsorted input is sorted by code-point order;
+ * - an entry with an empty key is dropped: upstream keeps it, but it can
+ *   never match.
  *
  * Retained as the `text` config type (useful for user-supplied dictionaries)
  * and as the reference decoder for validating the production binary format.
@@ -46,6 +48,7 @@ public object TextDictionaryFormat : DictionaryFormat {
         if (text.startsWith('﻿')) text = text.substring(1)
 
         val pairs = ArrayList<Pair<String, List<String>>>()
+        var emptyKeyLine = 0
         var lineNumber = 0
         for (rawLine in text.split('\n')) {
             lineNumber += 1
@@ -58,7 +61,17 @@ public object TextDictionaryFormat : DictionaryFormat {
             }
             val key = line.substring(0, tab)
             if (key.isEmpty()) {
-                throw SokkuriException.InvalidFormat("line $lineNumber: empty key")
+                // Upstream keeps the entry, but a prefix search never asks
+                // for the empty key, so it can never match; it is dropped
+                // here. A second one is still a duplicate key, as upstream's
+                // uniqueness check after sorting finds.
+                if (emptyKeyLine != 0) {
+                    throw SokkuriException.InvalidFormat(
+                        "line $lineNumber: duplicated dictionary key: the empty key, also on line $emptyKeyLine",
+                    )
+                }
+                emptyKeyLine = lineNumber
+                continue
             }
             // Every space separates two candidates, as in upstream's
             // ParseKeyValues: a space right after the tab makes the empty

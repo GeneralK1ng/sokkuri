@@ -47,6 +47,7 @@ internal object ConfigCases {
         "missing-tab.txt" to "干 乾\n",
         "missing-value.txt" to "干\t\n",
         "empty-key.txt" to "\t乾\n",
+        "empty-key-twice.txt" to "\t乾\n干\t幹\n\t乾\n",
     )
 
     /**
@@ -153,6 +154,7 @@ internal object ConfigCases {
         case("text-missing-tab", "a line without a tab", chain(text("missing-tab.txt")))
         case("text-missing-value", "a key without candidates", chain(text("missing-value.txt")))
         case("text-empty-key", "an empty key", chain(text("empty-key.txt")))
+        case("text-empty-key-twice", "two empty keys are a repeated key", chain(text("empty-key-twice.txt")))
         case("text-missing-file", "a dictionary file that does not exist", chain(text("absent.txt")))
 
         // Documents both sides should reject.
@@ -227,8 +229,5 @@ internal object ConfigCases {
      * should behave like upstream here. Listed so the run stays usable;
      * fixing one makes its entry stale, which fails the run until removed.
      */
-    val knownGaps: Map<String, String> = mapOf(
-        "text-empty-key" to "upstream keeps an entry with an empty key, which never matches; " +
-            "Sokkuri rejects the dictionary",
-    )
+    val knownGaps: Map<String, String> = emptyMap()
 }
