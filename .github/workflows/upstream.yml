@@ -3,9 +3,11 @@
 #
 # The pinned job checks this commit against the OpenCC commit recorded in
 # testcases/UPSTREAM: the vendored golden corpus, the packaged configs and
-# dictionaries, the clone-gated acceptance tests, and the execution
-# differential under both tofu settings. Releases call it as a precondition;
-# the schedule catches whatever slipped past a merge.
+# dictionaries, the clone-gated acceptance tests, the execution differential
+# (conversion and inspect structure, the committed fuzz corpus included)
+# under both tofu settings, and the config acceptance differential. Releases
+# call it as a precondition; the schedule catches whatever slipped past a
+# merge.
 #
 # The head job rehearses moving the pin to upstream's default branch: it
 # moves the pin, regenerates the packaged resources and swaps in the corpus
@@ -98,6 +100,9 @@ jobs:
         # setting cannot share a step with this one.
         run: ./gradlew :tools:upstream-diff:run --args="--tofu" | tee upstream-diff-included.log
 
+      - name: Config acceptance differential
+        run: ./gradlew :tools:upstream-diff:run --args="configs" | tee upstream-configs.log
+
       - name: Summary
         if: always()
         env:
@@ -106,8 +111,12 @@ jobs:
           {
             echo "### Alignment with BYVoid/OpenCC@${OPENCC_SHA:0:12} (pinned)"
             echo '```'
-            grep -h -E '^\[diff\] ([a-z0-9]+: .*MISMATCHED|corpus|comparisons|ALIGNED|DIVERGED)' upstream-diff-*.log 2> /dev/null \
-              || echo "(the differential did not run)"
+            grep -h -E '^\[diff\] ([a-z0-9]+( inspect)?: .*MISMATCHED|corpus|comparisons|inspections|ALIGNED|DIVERGED)' \
+              upstream-diff-*.log 2> /dev/null || echo "(the differential did not run)"
+            echo '```'
+            echo '```'
+            grep -h -E '^\[configs\] (MISMATCH|STALE|cases|ALIGNED|DIVERGED)' upstream-configs.log 2> /dev/null \
+              || echo "(the config differential did not run)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -120,6 +129,7 @@ jobs:
             **/build/reports/tests/
             **/build/test-results/
             upstream-diff-*.log
+            upstream-configs.log
           if-no-files-found: ignore
           retention-days: 14
 
@@ -178,6 +188,10 @@ jobs:
         if: steps.moved.outputs.moved == 'true'
         run: ./gradlew :tools:upstream-diff:run --args="--tofu" | tee upstream-diff-included.log
 
+      - name: Config acceptance differential
+        if: steps.moved.outputs.moved == 'true'
+        run: ./gradlew :tools:upstream-diff:run --args="configs" | tee upstream-configs.log
+
       - name: Summary
         if: always() && steps.moved.outputs.moved == 'true'
         env:
@@ -194,8 +208,12 @@ jobs:
             git status --short -- sokkuri-runtime/src | grep . || echo "(none)"
             echo '```'
             echo '```'
-            grep -h -E '^\[diff\] ([a-z0-9]+: .*MISMATCHED|corpus|comparisons|ALIGNED|DIVERGED)' upstream-diff-*.log 2> /dev/null \
-              || echo "(the differential did not run)"
+            grep -h -E '^\[diff\] ([a-z0-9]+( inspect)?: .*MISMATCHED|corpus|comparisons|inspections|ALIGNED|DIVERGED)' \
+              upstream-diff-*.log 2> /dev/null || echo "(the differential did not run)"
+            echo '```'
+            echo '```'
+            grep -h -E '^\[configs\] (MISMATCH|STALE|cases|ALIGNED|DIVERGED)' upstream-configs.log 2> /dev/null \
+              || echo "(the config differential did not run)"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -208,5 +226,6 @@ jobs:
             **/build/reports/tests/
             **/build/test-results/
             upstream-diff-*.log
+            upstream-configs.log
           if-no-files-found: ignore
           retention-days: 14
