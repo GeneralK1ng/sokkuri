@@ -58,6 +58,16 @@ public interface Dictionary {
     public fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch?
 
     /**
+     * Length-only form of [matchPrefix]: the matched length in UTF-16 code
+     * units, or `-1` on a miss. The default implementation is exactly
+     * `matchPrefix(...)?.length`; storage-aware backends override it to
+     * skip materializing the default candidate, which a caller that only
+     * needs the boundary, such as [MaxMatchSegmentation], never reads.
+     */
+    public fun matchLength(text: CharArray, start: Int, end: Int): Int =
+        matchPrefix(text, start, end)?.length ?: -1
+
+    /**
      * Hot-path form of [matchPrefix] with direct write-out: on a match,
      * appends the key's default candidate to [out] and returns the matched
      * length in UTF-16 code units; on a miss returns `-1` and writes

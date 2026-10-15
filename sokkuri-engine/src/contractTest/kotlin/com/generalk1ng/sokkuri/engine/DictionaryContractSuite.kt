@@ -217,6 +217,7 @@ abstract class DictionaryContractSuite {
                         val hit = d.matchPrefix(chars, start, end)
                         assertEquals(expected?.length, hit?.length, "matchPrefix length, $where")
                         assertEquals(expected?.let { "<$it>" }, hit?.value, "matchPrefix value, $where")
+                        assertEquals(expected?.length ?: -1, d.matchLength(chars, start, end), "matchLength, $where")
                         val out = StringBuilder("|")
                         val appended = d.matchAppend(chars, start, end, out)
                         assertEquals(expected?.length ?: -1, appended, "matchAppend length, $where")

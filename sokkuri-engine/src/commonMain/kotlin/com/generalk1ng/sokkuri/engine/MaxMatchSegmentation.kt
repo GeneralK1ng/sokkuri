@@ -42,11 +42,12 @@ public class MaxMatchSegmentation public constructor(
         var runStart = 0
         var i = 0
         while (i < end) {
-            val match = dict.matchPrefix(chars, i, end)
-            if (match != null) {
+            // Only the boundary matters here, never the value.
+            val matched = dict.matchLength(chars, i, end)
+            if (matched >= 0) {
                 if (runStart < i) segments.add(runStart..<i)
-                segments.add(i..<i + match.length)
-                i += match.length
+                segments.add(i..<i + matched)
+                i += matched
                 runStart = i
                 continue
             }

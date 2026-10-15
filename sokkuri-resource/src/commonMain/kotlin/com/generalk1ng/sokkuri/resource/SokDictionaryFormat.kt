@@ -131,6 +131,9 @@ public class SokDictionary internal constructor(
     override fun matchAppend(text: CharArray, start: Int, end: Int, out: StringBuilder): Int =
         retrieval.matchAppend(text, start, end, out)
 
+    override fun matchLength(text: CharArray, start: Int, end: Int): Int =
+        retrieval.matchLength(text, start, end)
+
     override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
     private fun keyAt(index: Int): String {

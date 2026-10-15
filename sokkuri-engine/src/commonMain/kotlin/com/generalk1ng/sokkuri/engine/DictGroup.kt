@@ -84,5 +84,20 @@ public class DictGroup public constructor(
         }
     }
 
+    /**
+     * [matchPrefix]'s length without materializing any child's value:
+     * the first child that matches under SHORT_CIRCUIT, the longest match
+     * under UNION (ties have one length, so child order cannot change it).
+     */
+    override fun matchLength(text: CharArray, start: Int, end: Int): Int {
+        var best = -1
+        for (child in children) {
+            val length = child.matchLength(text, start, end)
+            if (policy == GroupMatchPolicy.SHORT_CIRCUIT && length >= 0) return length
+            if (length > best) best = length
+        }
+        return best
+    }
+
     override fun mayStartKey(codePoint: Int): Boolean = children.any { it.mayStartKey(codePoint) }
 }

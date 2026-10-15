@@ -169,6 +169,15 @@ public class SortedTableRetrieval private constructor(
     }
 
     /**
+     * The length-only form of [matchPrefix]: the matched length in UTF-16
+     * code units, or `-1`, without touching the entry's value.
+     */
+    public fun matchLength(text: CharArray, start: Int, end: Int): Int {
+        val found = findLongestPrefixIndex(text, start, end)
+        return if (found < 0L) -1 else found.toInt()
+    }
+
+    /**
      * The sink form of [matchPrefix]: appends the
      * winning entry's default candidate straight to [out] and returns the
      * matched length in UTF-16 code units, or `-1` when nothing matches.

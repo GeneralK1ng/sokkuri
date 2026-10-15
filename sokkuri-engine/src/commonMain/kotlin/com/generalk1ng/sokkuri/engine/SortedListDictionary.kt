@@ -84,6 +84,8 @@ public class SortedListDictionary private constructor(
     override fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch? =
         retrieval.matchPrefix(text, start, end)
 
+    override fun matchLength(text: CharArray, start: Int, end: Int): Int = retrieval.matchLength(text, start, end)
+
     override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
     public companion object {

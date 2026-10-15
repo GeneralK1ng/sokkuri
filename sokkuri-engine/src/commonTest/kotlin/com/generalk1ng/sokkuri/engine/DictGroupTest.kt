@@ -17,6 +17,7 @@
 @file:OptIn(com.generalk1ng.sokkuri.SokkuriInternalApi::class)
 package com.generalk1ng.sokkuri.engine
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -30,6 +31,30 @@ class DictGroupTest {
 
     private fun dict(vararg entries: Pair<String, List<String>>) =
         SortedListDictionary(entries.toList())
+
+    private val alphabet = listOf("a", "b", "发", "髮", "𠀀")
+
+    /** A random lexicon over [alphabet]: shared prefixes, a supplementary-plane character. */
+    private fun randomDictionary(random: Random): SortedListDictionary {
+        val keys = HashSet<String>()
+        repeat(random.nextInt(1, 12)) {
+            keys += buildString { repeat(random.nextInt(1, 4)) { append(alphabet.random(random)) } }
+        }
+        return SortedListDictionary(
+            keys.sortedWith { a, b -> Utf.compareByCodePoint(a, b) }.map { it to listOf("<$it>") },
+        )
+    }
+
+    /** A random group of up to three children under a random policy, nesting groups to [depth]. */
+    private fun randomGroup(random: Random, depth: Int): DictGroup {
+        val children = List(random.nextInt(1, 4)) {
+            if (depth > 0 && random.nextInt(3) == 0) randomGroup(random, depth - 1) else randomDictionary(random)
+        }
+        return DictGroup(children, GroupMatchPolicy.entries.random(random))
+    }
+
+    private fun randomText(random: Random): String =
+        buildString { repeat(random.nextInt(0, 7)) { append((alphabet + "z").random(random)) } }
 
     @Test
     fun shortCircuit_firstChildWithAnyMatchWins() {
@@ -83,6 +108,27 @@ class DictGroupTest {
         assertEquals(true, group.mayStartKey('猫'.code))
         assertEquals(true, group.mayStartKey('狗'.code))
         assertEquals(false, group.mayStartKey('x'.code))
+    }
+
+    @Test
+    fun matchLength_agreesWithMatchPrefixUnderBothPolicies() {
+        val random = Random(20261015)
+        repeat(150) { round ->
+            val group = randomGroup(random, depth = 2)
+            repeat(15) {
+                val text = randomText(random)
+                val chars = text.toCharArray()
+                for (start in 0..chars.size) {
+                    for (end in start..chars.size) {
+                        assertEquals(
+                            group.matchPrefix(chars, start, end)?.length ?: -1,
+                            group.matchLength(chars, start, end),
+                            "round $round, window [$start, $end) of ${text.toList()}",
+                        )
+                    }
+                }
+            }
+        }
     }
 
     @Test
