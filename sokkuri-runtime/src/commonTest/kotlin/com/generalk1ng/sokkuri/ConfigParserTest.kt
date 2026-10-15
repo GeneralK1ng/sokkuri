@@ -247,7 +247,7 @@ class ConfigParserTest {
         val a = """{"dict": {"type": "inline", "entries": {"a": "A"}}}"""
         assertEquals("A", parse("""{"conversion_chain": [$a], "conversion_chain": []}""").convert("a"))
         // Keys are compared decoded: an escaped spelling is the same member.
-        assertEquals("A", parse("""{"conversion_chain": [$a], "conversion\\u005fchain": []}""").convert("a"))
+        assertEquals("A", parse("""{"conversion_chain": [$a], "conversion\u005fchain": []}""").convert("a"))
         // At any depth: the first type, the first entries, the first policy.
         val nested = """{"conversion_chain": [{"dict": {"type": "group", "match_policy": "union",
             "match_policy": "longest", "dicts": [{"type": "inline", "type": "text", "entries": {"a": "A"},
