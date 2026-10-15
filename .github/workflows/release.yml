@@ -24,10 +24,31 @@ permissions:
   contents: read
 
 jobs:
+  version:
+    # The tag names the release, but VERSION_NAME decides what is uploaded;
+    # refuse to start when they disagree, before any long-running job.
+    name: Tag matches VERSION_NAME
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Compare the tag with VERSION_NAME
+        run: |
+          version=$(sed -n 's/^VERSION_NAME=//p' gradle.properties)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error file=gradle.properties::tag $GITHUB_REF_NAME does not match VERSION_NAME=$version"
+            exit 1
+          fi
+          echo "Releasing $version"
+
   upstream:
     # The same pinned checks the weekly run performs, on the tagged commit;
     # nothing is uploaded unless they pass.
     name: Upstream alignment
+    needs: version
     uses: ./.github/workflows/upstream.yml
 
   publish:
