@@ -50,7 +50,7 @@ internal object ConfigRewriter {
     @OptIn(SokkuriInternalApi::class)
     internal fun rewrite(jsonc: String): String {
         val document = JsonSupport.opencc
-            .decodeFromString(ConfigDocument.serializer(), JsonSupport.stripComments(jsonc))
+            .decodeFromString(ConfigDocument.serializer(), JsonSupport.prepare(jsonc))
         val rewritten = document.copy(
             normalization = document.normalization.map { it.copy(dict = rewriteDict(it.dict)) },
             segmentation = document.segmentation?.let { segmentation ->

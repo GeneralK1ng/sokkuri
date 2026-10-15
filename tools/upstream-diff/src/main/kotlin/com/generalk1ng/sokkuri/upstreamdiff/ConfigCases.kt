@@ -228,15 +228,13 @@ internal object ConfigCases {
      * fixing one makes its entry stale, which fails the run until removed.
      */
     val knownGaps: Map<String, String> = mapOf(
-        "duplicate-member" to "rapidjson resolves a repeated member to its first occurrence, " +
-            "kotlinx-serialization to its last",
         "text-leading-space" to "upstream splits candidates on every space, so a space after the tab makes the " +
             "empty string the default candidate; Sokkuri drops empty candidates",
         "text-missing-value" to "upstream maps a key with nothing after the tab to the empty string; " +
             "Sokkuri rejects the dictionary",
         "text-empty-key" to "upstream keeps an entry with an empty key, which never matches; " +
             "Sokkuri rejects the dictionary",
-        "inline-duplicate-key" to "upstream rejects an inline key listed twice; Sokkuri's JSON decoding keeps " +
-            "the last occurrence",
+        "inline-duplicate-key" to "upstream rejects an inline key listed twice; Sokkuri keeps the first " +
+            "occurrence, as it does for every repeated member",
     )
 }

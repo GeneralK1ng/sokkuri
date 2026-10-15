@@ -76,7 +76,7 @@ public class ConfigParser public constructor(
     }
 
     private fun decode(configJson: String): ConfigDocument {
-        val cleaned = JsonSupport.stripComments(configJson)
+        val cleaned = JsonSupport.prepare(configJson)
         return try {
             JsonSupport.opencc.decodeFromString<ConfigDocument>(cleaned)
         } catch (e: SerializationException) {

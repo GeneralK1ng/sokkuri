@@ -46,6 +46,16 @@ public object JsonSupport {
     }
 
     /**
+     * Prepares a JSONC config text for decoding the way upstream reads it:
+     * comments removed ([stripComments]), and every repeated object member
+     * dropped but the first, since rapidjson's `FindMember` returns the first
+     * occurrence where kotlinx-serialization would keep the last. Syntax is
+     * left alone: text that cannot be followed passes through unchanged for
+     * the decoder to reject.
+     */
+    public fun prepare(jsonc: String): String = JsonStructure.firstOccurrencesOnly(stripComments(jsonc))
+
+    /**
      * Removes `//` and block comments outside string literals. String
      * contents, escapes, and line structure are preserved.
      */

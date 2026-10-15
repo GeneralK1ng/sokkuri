@@ -20,6 +20,7 @@ package com.generalk1ng.sokkuri
 
 import com.generalk1ng.sokkuri.config.ConfigParser
 import com.generalk1ng.sokkuri.config.DictionaryProvider
+import com.generalk1ng.sokkuri.config.JsonSupport
 import com.generalk1ng.sokkuri.engine.Dictionary
 import com.generalk1ng.sokkuri.resource.ResourceDictionaryProvider
 import com.generalk1ng.sokkuri.resource.ResourceLoader
@@ -236,6 +237,32 @@ class ConfigParserTest {
     fun aConversionListThatIsNotAnArrayIsInvalid() {
         for (json in listOf("""{"conversion_chain": {}}""", """{"normalization": 1, "conversion_chain": []}""")) {
             assertFailsWith<SokkuriException.InvalidConfig>(json) { parse(json) }
+        }
+    }
+
+    @Test
+    fun aRepeatedMemberResolvesToItsFirstOccurrenceLikeUpstream() {
+        // rapidjson's FindMember returns the first of repeated members; the
+        // decoder alone would keep the last.
+        val a = """{"dict": {"type": "inline", "entries": {"a": "A"}}}"""
+        assertEquals("A", parse("""{"conversion_chain": [$a], "conversion_chain": []}""").convert("a"))
+        // Keys are compared decoded: an escaped spelling is the same member.
+        assertEquals("A", parse("""{"conversion_chain": [$a], "conversion\\u005fchain": []}""").convert("a"))
+        // At any depth: the first type, the first entries, the first policy.
+        val nested = """{"conversion_chain": [{"dict": {"type": "group", "match_policy": "union",
+            "match_policy": "longest", "dicts": [{"type": "inline", "type": "text", "entries": {"a": "A"},
+            "entries": {"a": "B"}}]}}]}"""
+        assertEquals("A", parse(nested).convert("a"))
+    }
+
+    @Test
+    fun preparationDropsLaterRepeatsAndLeavesUnreadableTextAlone() {
+        assertEquals("""{"a": 1, "b": 3}""", JsonSupport.prepare("""{"a": 1, "a": 2, "b": 3}"""))
+        assertEquals("""{"a": 1,}""", JsonSupport.prepare("""{"a": 1, "a": {"x": 1, "x": 2},}"""))
+        assertEquals("""[{"k": [1, {"k": 2}]}]""", JsonSupport.prepare("""[{"k": [1, {"k": 2, "k": 3}], "k": 4}]"""))
+        assertEquals("{\n  \"a\": 1\n}", JsonSupport.prepare("{\n  \"a\": 1, // c\n  \"a\": 2\n}"))
+        for (unreadable in listOf("""{"a": 1, "a": """, """{"a" 1, "a": 2}""", """{'a': 1, 'a': 2}""")) {
+            assertEquals(unreadable, JsonSupport.prepare(unreadable), "unreadable text passes through: $unreadable")
         }
     }
 
