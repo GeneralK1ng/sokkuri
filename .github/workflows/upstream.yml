@@ -1,0 +1,211 @@
+# Upstream alignment (docs/architecture.md §10.2, layer 2) and the weekly
+# rehearsal of a pin bump.
+#
+# The pinned job checks this commit against the OpenCC commit recorded in
+# testcases/UPSTREAM: the vendored golden corpus, the packaged configs and
+# dictionaries, the clone-gated acceptance tests, and the execution
+# differential under both tofu settings. Releases call it as a precondition;
+# the schedule catches whatever slipped past a merge.
+#
+# The head job rehearses moving the pin to upstream's default branch: it
+# regenerates the packaged resources and swaps in the corpus inside its own
+# workspace (nothing is committed), then reruns the same checks. Its failure
+# blocks nothing; it means upstream moved in a way that needs a human.
+name: Upstream alignment
+
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays, 03:17 UTC
+  workflow_dispatch:
+    inputs:
+      rehearse-head:
+        description: Also rehearse a pin bump to upstream HEAD
+        type: boolean
+        default: true
+  workflow_call:
+    inputs:
+      rehearse-head:
+        description: Also rehearse a pin bump to upstream HEAD
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    # Explicit bash runs with pipefail, so `gradlew ... | tee` keeps Gradle's status.
+    shell: bash
+
+jobs:
+  pinned:
+    name: Pinned upstream
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      # JVM-only work: the Kotlin/Native toolchain is never touched here.
+      - uses: ./.github/actions/setup-build-env
+        with:
+          kotlin-native: "false"
+
+      - id: opencc
+        uses: ./.github/actions/checkout-opencc
+        with:
+          revision: pinned
+
+      - name: Vendored golden corpus is the pinned upstream file
+        env:
+          OPENCC_SHA: ${{ steps.opencc.outputs.sha }}
+        run: |
+          corpus=sokkuri-runtime/src/commonTest/resources/testcases/testcases.json
+          if ! cmp OpenCC/test/testcases/testcases.json "$corpus"; then
+            echo "::error file=$corpus::differs from upstream at $OPENCC_SHA; refresh it with the command in testcases/UPSTREAM"
+            exit 1
+          fi
+
+      - name: Packaged configs and dictionaries match the pinned upstream
+        run: ./gradlew :tools:dictgen:checkDictionaries
+
+      - name: Clone-gated acceptance tests
+        env:
+          OPENCC_DIR: ${{ github.workspace }}/OpenCC
+        # --rerun: OPENCC_DIR is not a task input, so the build cache could
+        # replay a result recorded without the clone, where these tests skip.
+        run: ./gradlew :sokkuri-runtime:jvmTest --rerun :tools:dictgen:test --rerun
+
+      - name: Clone-gated acceptance tests actually ran
+        run: |
+          for report in \
+            sokkuri-runtime/build/test-results/jvmTest/TEST-com.generalk1ng.sokkuri.RegionalStPhrasesDerivationTest.xml \
+            tools/dictgen/build/test-results/test/TEST-com.generalk1ng.sokkuri.dictgen.DictionaryDerivationsTest.xml
+          do
+            if ! grep -q 'skipped="0"' "$report"; then
+              echo "::error file=$report::recorded a skip: OPENCC_DIR must reach the test JVM, and the dictgen check also needs python3"
+              exit 1
+            fi
+          done
+
+      - name: Execution differential, tofu-risk dictionaries excluded
+        run: ./gradlew :tools:upstream-diff:run | tee upstream-diff-excluded.log
+
+      - name: Execution differential, tofu-risk dictionaries included
+        # A step of its own: Gradle rejects an empty --args, so the default
+        # setting cannot share a step with this one.
+        run: ./gradlew :tools:upstream-diff:run --args="--tofu" | tee upstream-diff-included.log
+
+      - name: Summary
+        if: always()
+        env:
+          OPENCC_SHA: ${{ steps.opencc.outputs.sha }}
+        run: |
+          {
+            echo "### Alignment with BYVoid/OpenCC@${OPENCC_SHA:0:12} (pinned)"
+            echo '```'
+            grep -h -E '^\[diff\] ([a-z0-9]+: .*MISMATCHED|corpus|comparisons|ALIGNED|DIVERGED)' upstream-diff-*.log 2> /dev/null \
+              || echo "(the differential did not run)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: upstream-pinned-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+            upstream-diff-*.log
+          if-no-files-found: ignore
+          retention-days: 14
+
+  head:
+    name: Rehearse a pin bump to upstream HEAD
+    if: github.event_name == 'schedule' || inputs.rehearse-head
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-build-env
+        with:
+          kotlin-native: "false"
+
+      - id: opencc
+        uses: ./.github/actions/checkout-opencc
+        with:
+          revision: head
+
+      - name: Compare upstream HEAD with the pin
+        id: moved
+        env:
+          PINNED_SHA: ${{ steps.opencc.outputs.pinned-sha }}
+          HEAD_SHA: ${{ steps.opencc.outputs.sha }}
+        run: |
+          if [ "$HEAD_SHA" = "$PINNED_SHA" ]; then
+            echo "moved=false" >> "$GITHUB_OUTPUT"
+            echo "Upstream HEAD is still the pinned commit ${PINNED_SHA:0:12}; nothing to rehearse." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "moved=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Runs the closure checks too: a profile added or removed upstream fails here.
+      - name: Regenerate the packaged configs and dictionaries
+        if: steps.moved.outputs.moved == 'true'
+        run: ./gradlew :tools:dictgen:run
+
+      - name: Swap in the upstream golden corpus
+        if: steps.moved.outputs.moved == 'true'
+        run: cp OpenCC/test/testcases/testcases.json sokkuri-runtime/src/commonTest/resources/testcases/testcases.json
+
+      - name: Golden suite and clone-gated acceptance tests
+        if: steps.moved.outputs.moved == 'true'
+        env:
+          OPENCC_DIR: ${{ github.workspace }}/OpenCC
+        run: ./gradlew :sokkuri-runtime:jvmTest --rerun :tools:dictgen:test --rerun
+
+      - name: Execution differential, tofu-risk dictionaries excluded
+        if: steps.moved.outputs.moved == 'true'
+        run: ./gradlew :tools:upstream-diff:run | tee upstream-diff-excluded.log
+
+      - name: Execution differential, tofu-risk dictionaries included
+        if: steps.moved.outputs.moved == 'true'
+        run: ./gradlew :tools:upstream-diff:run --args="--tofu" | tee upstream-diff-included.log
+
+      - name: Summary
+        if: always() && steps.moved.outputs.moved == 'true'
+        env:
+          PINNED_SHA: ${{ steps.opencc.outputs.pinned-sha }}
+          HEAD_SHA: ${{ steps.opencc.outputs.sha }}
+          OUTCOME: ${{ job.status }}
+        run: |
+          {
+            echo "### Pin bump rehearsal ${PINNED_SHA:0:12} → ${HEAD_SHA:0:12}: $OUTCOME"
+            echo "Upstream changes: https://github.com/BYVoid/OpenCC/compare/$PINNED_SHA...$HEAD_SHA"
+            echo
+            echo "Packaged resources and corpus a bump would change:"
+            echo '```'
+            git status --short -- sokkuri-runtime/src | grep . || echo "(none)"
+            echo '```'
+            echo '```'
+            grep -h -E '^\[diff\] ([a-z0-9]+: .*MISMATCHED|corpus|comparisons|ALIGNED|DIVERGED)' upstream-diff-*.log 2> /dev/null \
+              || echo "(the differential did not run)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: upstream-head-reports
+          path: |
+            **/build/reports/tests/
+            **/build/test-results/
+            upstream-diff-*.log
+          if-no-files-found: ignore
+          retention-days: 14
