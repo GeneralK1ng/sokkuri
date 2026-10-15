@@ -42,8 +42,12 @@ tasks.test {
 
 // Both entry points run with the repository root as working directory so
 // the default --opencc-dir / --output-dir relative paths resolve correctly.
+// Both read the clone, so both first check that it sits unmodified at the
+// pinned commit (:checkOpenccClone); a run pointed elsewhere with
+// --opencc-dir skips that with -x checkOpenccClone.
 tasks.named<JavaExec>("run") {
     workingDir = rootDir
+    dependsOn(":checkOpenccClone")
 }
 
 /**
@@ -58,4 +62,5 @@ tasks.register<JavaExec>("checkDictionaries") {
     classpath = sourceSets["main"].runtimeClasspath
     workingDir = rootDir
     args = listOf("--check")
+    dependsOn(":checkOpenccClone")
 }

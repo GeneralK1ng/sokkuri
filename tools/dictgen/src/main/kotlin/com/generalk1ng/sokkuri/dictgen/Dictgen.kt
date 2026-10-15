@@ -89,7 +89,7 @@ private fun requireValue(args: Array<String>, index: Int, flag: String): String 
 internal fun run(options: DictgenOptions): Int {
     if (!options.openccDir.isDirectory) {
         System.err.println("OpenCC clone not found at ${options.openccDir.absolutePath}")
-        System.err.println("Clone https://github.com/BYVoid/OpenCC there, or pass --opencc-dir")
+        System.err.println("Run ./gradlew fetchOpencc to check it out at the pinned commit, or pass --opencc-dir")
         return 1
     }
     return try {

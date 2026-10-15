@@ -148,8 +148,44 @@ abstract class FetchOpencc : OpenccCloneTask() {
     }
 }
 
+/**
+ * Fails unless the clone sits at the pinned commit with unmodified tracked
+ * files. The tasks that read the clone depend on it, so a stale or edited
+ * clone stops them up front instead of surfacing as drift or divergence that
+ * is not Sokkuri's.
+ */
+abstract class CheckOpenccClone : OpenccCloneTask() {
+
+    @TaskAction
+    fun verify() {
+        val pinned = pinnedCommit()
+        if (!hasOwnRepository()) {
+            throw GradleException("No OpenCC clone at $CLONE/; run ./gradlew fetchOpencc")
+        }
+        val head = head()
+        if (head != pinned) {
+            throw GradleException(
+                "$CLONE is at ${head ?: "no commit"}, but $PIN pins $pinned; " +
+                    "run ./gradlew fetchOpencc (to move the pin, edit its Commit line first)",
+            )
+        }
+        if (hasModifiedFiles()) {
+            throw GradleException(
+                "$CLONE has modified tracked files; the clone is the spec and is never edited " +
+                    "(see git -C $CLONE status)",
+            )
+        }
+    }
+}
+
 tasks.register<FetchOpencc>("fetchOpencc") {
     group = "upstream"
     description = "Checks out the OpenCC reference clone at the commit pinned in testcases/UPSTREAM"
+    repositoryRoot = layout.projectDirectory
+}
+
+tasks.register<CheckOpenccClone>("checkOpenccClone") {
+    group = "upstream"
+    description = "Fails unless the OpenCC reference clone is unmodified at the pinned commit"
     repositoryRoot = layout.projectDirectory
 }

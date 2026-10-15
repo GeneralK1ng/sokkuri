@@ -38,6 +38,10 @@ application {
 
 // Resolves the default --opencc-dir (and the default build dir under it)
 // relative to the repository root, matching tools:dictgen and tools:benchmark.
+// The oracle is built from the clone, so the run first checks that the clone
+// sits unmodified at the pinned commit (:checkOpenccClone); a run pointed
+// elsewhere with --opencc-dir skips that with -x checkOpenccClone.
 tasks.named<JavaExec>("run") {
     workingDir = rootDir
+    dependsOn(":checkOpenccClone")
 }

@@ -46,7 +46,7 @@ internal class UpstreamBuild(
     fun prepare() {
         require(openccDir.isDirectory) {
             "OpenCC clone not found at ${openccDir.absolutePath}; " +
-                "clone https://github.com/BYVoid/OpenCC there or pass --opencc-dir"
+                "run ./gradlew fetchOpencc to check it out at the pinned commit, or pass --opencc-dir"
         }
         if (rebuild || !File(buildDir, "src/libopencc.a").isFile) {
             cmakeConfigure()
