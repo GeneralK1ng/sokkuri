@@ -15,6 +15,7 @@
  */
 
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.jetbrains.kotlin.gradle.dsl.abi.ExperimentalAbiValidation
 
 plugins {
     alias(libs.plugins.kotlinMultiplatform)
@@ -24,6 +25,19 @@ plugins {
 
 kotlin {
     explicitApi()
+
+    // Binary-compatibility gate: `check` compares the public ABI with the
+    // reference dumps in api/ (refresh them with updateKotlinAbi). Only
+    // sokkuri-api and sokkuri-runtime make an ABI promise; @SokkuriInternalApi
+    // declarations are excluded, as they may change in any minor version.
+    @OptIn(ExperimentalAbiValidation::class)
+    abiValidation {
+        filters {
+            exclude {
+                annotatedWith.add("com.generalk1ng.sokkuri.SokkuriInternalApi")
+            }
+        }
+    }
 
     jvm()
     iosArm64()

@@ -1,0 +1,86 @@
+public final class com/generalk1ng/sokkuri/Inspection {
+	public fun <init> (Ljava/lang/String;Ljava/util/List;Ljava/util/List;Ljava/util/List;Ljava/lang/String;)V
+	public final fun getInput ()Ljava/lang/String;
+	public final fun getNormalizationStages ()Ljava/util/List;
+	public final fun getOutput ()Ljava/lang/String;
+	public final fun getSegments ()Ljava/util/List;
+	public final fun getStages ()Ljava/util/List;
+}
+
+public final class com/generalk1ng/sokkuri/Inspection$Stage {
+	public fun <init> (ILjava/util/List;)V
+	public final fun getIndex ()I
+	public final fun getSegments ()Ljava/util/List;
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriConfig : java/lang/Enum {
+	public static final field Companion Lcom/generalk1ng/sokkuri/SokkuriConfig$Companion;
+	public static final field HK2S Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field HK2SP Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field HK2T Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field JP2T Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field S2HK Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field S2HKP Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field S2T Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field S2TW Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field S2TWP Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field T2HK Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field T2JP Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field T2S Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field T2TW Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field TW2S Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field TW2SP Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static final field TW2T Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static fun getEntries ()Lkotlin/enums/EnumEntries;
+	public final fun getStem ()Ljava/lang/String;
+	public static fun valueOf (Ljava/lang/String;)Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public static fun values ()[Lcom/generalk1ng/sokkuri/SokkuriConfig;
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriConfig$Companion {
+	public final fun fromStem (Ljava/lang/String;)Lcom/generalk1ng/sokkuri/SokkuriConfig;
+}
+
+public abstract class com/generalk1ng/sokkuri/SokkuriException : java/lang/RuntimeException {
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/Throwable;Lkotlin/jvm/internal/DefaultConstructorMarker;)V
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriException$FileNotFound : com/generalk1ng/sokkuri/SokkuriException {
+	public fun <init> (Ljava/lang/String;Ljava/lang/String;)V
+	public synthetic fun <init> (Ljava/lang/String;Ljava/lang/String;ILkotlin/jvm/internal/DefaultConstructorMarker;)V
+	public final fun getPath ()Ljava/lang/String;
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriException$InvalidConfig : com/generalk1ng/sokkuri/SokkuriException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriException$InvalidFormat : com/generalk1ng/sokkuri/SokkuriException {
+	public fun <init> (Ljava/lang/String;)V
+	public final fun getDetail ()Ljava/lang/String;
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriException$Unsupported : com/generalk1ng/sokkuri/SokkuriException {
+	public fun <init> (Ljava/lang/String;)V
+}
+
+public abstract interface annotation class com/generalk1ng/sokkuri/SokkuriInternalApi : java/lang/annotation/Annotation {
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriOptions {
+	public static final field Companion Lcom/generalk1ng/sokkuri/SokkuriOptions$Companion;
+	public final fun getIncludeTofuRiskDictionaries ()Z
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriOptions$Builder {
+	public fun <init> ()V
+	public final fun build ()Lcom/generalk1ng/sokkuri/SokkuriOptions;
+	public final fun getIncludeTofuRiskDictionaries ()Z
+	public final fun setIncludeTofuRiskDictionaries (Z)V
+}
+
+public final class com/generalk1ng/sokkuri/SokkuriOptions$Companion {
+	public final fun getDEFAULT ()Lcom/generalk1ng/sokkuri/SokkuriOptions;
+	public final fun invoke (Lkotlin/jvm/functions/Function1;)Lcom/generalk1ng/sokkuri/SokkuriOptions;
+}
+

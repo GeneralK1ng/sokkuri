@@ -1,0 +1,27 @@
+public final class com/generalk1ng/sokkuri/Sokkuri {
+	public static final field Companion Lcom/generalk1ng/sokkuri/Sokkuri$Companion;
+	public final fun convert (Ljava/lang/String;)Ljava/lang/String;
+	public final fun getConfig ()Lcom/generalk1ng/sokkuri/SokkuriConfig;
+	public final fun inspect (Ljava/lang/String;)Lcom/generalk1ng/sokkuri/Inspection;
+}
+
+public final class com/generalk1ng/sokkuri/Sokkuri$Companion {
+	public final fun create (Lcom/generalk1ng/sokkuri/SokkuriConfig;Lcom/generalk1ng/sokkuri/SokkuriOptions;)Lcom/generalk1ng/sokkuri/Sokkuri;
+	public static synthetic fun create$default (Lcom/generalk1ng/sokkuri/Sokkuri$Companion;Lcom/generalk1ng/sokkuri/SokkuriConfig;Lcom/generalk1ng/sokkuri/SokkuriOptions;ILjava/lang/Object;)Lcom/generalk1ng/sokkuri/Sokkuri;
+	public final fun createResult (Lcom/generalk1ng/sokkuri/SokkuriConfig;Lcom/generalk1ng/sokkuri/SokkuriOptions;)Lcom/generalk1ng/sokkuri/Sokkuri$CreateResult;
+	public static synthetic fun createResult$default (Lcom/generalk1ng/sokkuri/Sokkuri$Companion;Lcom/generalk1ng/sokkuri/SokkuriConfig;Lcom/generalk1ng/sokkuri/SokkuriOptions;ILjava/lang/Object;)Lcom/generalk1ng/sokkuri/Sokkuri$CreateResult;
+}
+
+public abstract class com/generalk1ng/sokkuri/Sokkuri$CreateResult {
+}
+
+public final class com/generalk1ng/sokkuri/Sokkuri$CreateResult$Failure : com/generalk1ng/sokkuri/Sokkuri$CreateResult {
+	public fun <init> (Lcom/generalk1ng/sokkuri/SokkuriException;)V
+	public final fun getError ()Lcom/generalk1ng/sokkuri/SokkuriException;
+}
+
+public final class com/generalk1ng/sokkuri/Sokkuri$CreateResult$Success : com/generalk1ng/sokkuri/Sokkuri$CreateResult {
+	public fun <init> (Lcom/generalk1ng/sokkuri/Sokkuri;)V
+	public final fun getSokkuri ()Lcom/generalk1ng/sokkuri/Sokkuri;
+}
+

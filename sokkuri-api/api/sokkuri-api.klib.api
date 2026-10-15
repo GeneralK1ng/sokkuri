@@ -1,0 +1,112 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <sokkuri:sokkuri-api>
+open annotation class com.generalk1ng.sokkuri/SokkuriInternalApi : kotlin/Annotation { // com.generalk1ng.sokkuri/SokkuriInternalApi|null[0]
+    constructor <init>() // com.generalk1ng.sokkuri/SokkuriInternalApi.<init>|<init>(){}[0]
+}
+
+final enum class com.generalk1ng.sokkuri/SokkuriConfig : kotlin/Enum<com.generalk1ng.sokkuri/SokkuriConfig> { // com.generalk1ng.sokkuri/SokkuriConfig|null[0]
+    enum entry HK2S // com.generalk1ng.sokkuri/SokkuriConfig.HK2S|null[0]
+    enum entry HK2SP // com.generalk1ng.sokkuri/SokkuriConfig.HK2SP|null[0]
+    enum entry HK2T // com.generalk1ng.sokkuri/SokkuriConfig.HK2T|null[0]
+    enum entry JP2T // com.generalk1ng.sokkuri/SokkuriConfig.JP2T|null[0]
+    enum entry S2HK // com.generalk1ng.sokkuri/SokkuriConfig.S2HK|null[0]
+    enum entry S2HKP // com.generalk1ng.sokkuri/SokkuriConfig.S2HKP|null[0]
+    enum entry S2T // com.generalk1ng.sokkuri/SokkuriConfig.S2T|null[0]
+    enum entry S2TW // com.generalk1ng.sokkuri/SokkuriConfig.S2TW|null[0]
+    enum entry S2TWP // com.generalk1ng.sokkuri/SokkuriConfig.S2TWP|null[0]
+    enum entry T2HK // com.generalk1ng.sokkuri/SokkuriConfig.T2HK|null[0]
+    enum entry T2JP // com.generalk1ng.sokkuri/SokkuriConfig.T2JP|null[0]
+    enum entry T2S // com.generalk1ng.sokkuri/SokkuriConfig.T2S|null[0]
+    enum entry T2TW // com.generalk1ng.sokkuri/SokkuriConfig.T2TW|null[0]
+    enum entry TW2S // com.generalk1ng.sokkuri/SokkuriConfig.TW2S|null[0]
+    enum entry TW2SP // com.generalk1ng.sokkuri/SokkuriConfig.TW2SP|null[0]
+    enum entry TW2T // com.generalk1ng.sokkuri/SokkuriConfig.TW2T|null[0]
+
+    final val entries // com.generalk1ng.sokkuri/SokkuriConfig.entries|#static{}entries[0]
+        final fun <get-entries>(): kotlin.enums/EnumEntries<com.generalk1ng.sokkuri/SokkuriConfig> // com.generalk1ng.sokkuri/SokkuriConfig.entries.<get-entries>|<get-entries>#static(){}[0]
+    final val stem // com.generalk1ng.sokkuri/SokkuriConfig.stem|{}stem[0]
+        final fun <get-stem>(): kotlin/String // com.generalk1ng.sokkuri/SokkuriConfig.stem.<get-stem>|<get-stem>(){}[0]
+
+    final fun valueOf(kotlin/String): com.generalk1ng.sokkuri/SokkuriConfig // com.generalk1ng.sokkuri/SokkuriConfig.valueOf|valueOf#static(kotlin.String){}[0]
+    final fun values(): kotlin/Array<com.generalk1ng.sokkuri/SokkuriConfig> // com.generalk1ng.sokkuri/SokkuriConfig.values|values#static(){}[0]
+
+    final object Companion { // com.generalk1ng.sokkuri/SokkuriConfig.Companion|null[0]
+        final fun fromStem(kotlin/String): com.generalk1ng.sokkuri/SokkuriConfig? // com.generalk1ng.sokkuri/SokkuriConfig.Companion.fromStem|fromStem(kotlin.String){}[0]
+    }
+}
+
+final class com.generalk1ng.sokkuri/Inspection { // com.generalk1ng.sokkuri/Inspection|null[0]
+    constructor <init>(kotlin/String, kotlin.collections/List<com.generalk1ng.sokkuri/Inspection.Stage>, kotlin.collections/List<kotlin/String>, kotlin.collections/List<com.generalk1ng.sokkuri/Inspection.Stage>, kotlin/String) // com.generalk1ng.sokkuri/Inspection.<init>|<init>(kotlin.String;kotlin.collections.List<com.generalk1ng.sokkuri.Inspection.Stage>;kotlin.collections.List<kotlin.String>;kotlin.collections.List<com.generalk1ng.sokkuri.Inspection.Stage>;kotlin.String){}[0]
+
+    final val input // com.generalk1ng.sokkuri/Inspection.input|{}input[0]
+        final fun <get-input>(): kotlin/String // com.generalk1ng.sokkuri/Inspection.input.<get-input>|<get-input>(){}[0]
+    final val normalizationStages // com.generalk1ng.sokkuri/Inspection.normalizationStages|{}normalizationStages[0]
+        final fun <get-normalizationStages>(): kotlin.collections/List<com.generalk1ng.sokkuri/Inspection.Stage> // com.generalk1ng.sokkuri/Inspection.normalizationStages.<get-normalizationStages>|<get-normalizationStages>(){}[0]
+    final val output // com.generalk1ng.sokkuri/Inspection.output|{}output[0]
+        final fun <get-output>(): kotlin/String // com.generalk1ng.sokkuri/Inspection.output.<get-output>|<get-output>(){}[0]
+    final val segments // com.generalk1ng.sokkuri/Inspection.segments|{}segments[0]
+        final fun <get-segments>(): kotlin.collections/List<kotlin/String> // com.generalk1ng.sokkuri/Inspection.segments.<get-segments>|<get-segments>(){}[0]
+    final val stages // com.generalk1ng.sokkuri/Inspection.stages|{}stages[0]
+        final fun <get-stages>(): kotlin.collections/List<com.generalk1ng.sokkuri/Inspection.Stage> // com.generalk1ng.sokkuri/Inspection.stages.<get-stages>|<get-stages>(){}[0]
+
+    final class Stage { // com.generalk1ng.sokkuri/Inspection.Stage|null[0]
+        constructor <init>(kotlin/Int, kotlin.collections/List<kotlin/String>) // com.generalk1ng.sokkuri/Inspection.Stage.<init>|<init>(kotlin.Int;kotlin.collections.List<kotlin.String>){}[0]
+
+        final val index // com.generalk1ng.sokkuri/Inspection.Stage.index|{}index[0]
+            final fun <get-index>(): kotlin/Int // com.generalk1ng.sokkuri/Inspection.Stage.index.<get-index>|<get-index>(){}[0]
+        final val segments // com.generalk1ng.sokkuri/Inspection.Stage.segments|{}segments[0]
+            final fun <get-segments>(): kotlin.collections/List<kotlin/String> // com.generalk1ng.sokkuri/Inspection.Stage.segments.<get-segments>|<get-segments>(){}[0]
+    }
+}
+
+final class com.generalk1ng.sokkuri/SokkuriOptions { // com.generalk1ng.sokkuri/SokkuriOptions|null[0]
+    final val includeTofuRiskDictionaries // com.generalk1ng.sokkuri/SokkuriOptions.includeTofuRiskDictionaries|{}includeTofuRiskDictionaries[0]
+        final fun <get-includeTofuRiskDictionaries>(): kotlin/Boolean // com.generalk1ng.sokkuri/SokkuriOptions.includeTofuRiskDictionaries.<get-includeTofuRiskDictionaries>|<get-includeTofuRiskDictionaries>(){}[0]
+
+    final class Builder { // com.generalk1ng.sokkuri/SokkuriOptions.Builder|null[0]
+        constructor <init>() // com.generalk1ng.sokkuri/SokkuriOptions.Builder.<init>|<init>(){}[0]
+
+        final var includeTofuRiskDictionaries // com.generalk1ng.sokkuri/SokkuriOptions.Builder.includeTofuRiskDictionaries|{}includeTofuRiskDictionaries[0]
+            final fun <get-includeTofuRiskDictionaries>(): kotlin/Boolean // com.generalk1ng.sokkuri/SokkuriOptions.Builder.includeTofuRiskDictionaries.<get-includeTofuRiskDictionaries>|<get-includeTofuRiskDictionaries>(){}[0]
+            final fun <set-includeTofuRiskDictionaries>(kotlin/Boolean) // com.generalk1ng.sokkuri/SokkuriOptions.Builder.includeTofuRiskDictionaries.<set-includeTofuRiskDictionaries>|<set-includeTofuRiskDictionaries>(kotlin.Boolean){}[0]
+
+        final fun build(): com.generalk1ng.sokkuri/SokkuriOptions // com.generalk1ng.sokkuri/SokkuriOptions.Builder.build|build(){}[0]
+    }
+
+    final object Companion { // com.generalk1ng.sokkuri/SokkuriOptions.Companion|null[0]
+        final val DEFAULT // com.generalk1ng.sokkuri/SokkuriOptions.Companion.DEFAULT|{}DEFAULT[0]
+            final fun <get-DEFAULT>(): com.generalk1ng.sokkuri/SokkuriOptions // com.generalk1ng.sokkuri/SokkuriOptions.Companion.DEFAULT.<get-DEFAULT>|<get-DEFAULT>(){}[0]
+
+        final fun invoke(kotlin/Function1<com.generalk1ng.sokkuri/SokkuriOptions.Builder, kotlin/Unit>): com.generalk1ng.sokkuri/SokkuriOptions // com.generalk1ng.sokkuri/SokkuriOptions.Companion.invoke|invoke(kotlin.Function1<com.generalk1ng.sokkuri.SokkuriOptions.Builder,kotlin.Unit>){}[0]
+    }
+}
+
+sealed class com.generalk1ng.sokkuri/SokkuriException : kotlin/RuntimeException { // com.generalk1ng.sokkuri/SokkuriException|null[0]
+    final class FileNotFound : com.generalk1ng.sokkuri/SokkuriException { // com.generalk1ng.sokkuri/SokkuriException.FileNotFound|null[0]
+        constructor <init>(kotlin/String, kotlin/String? = ...) // com.generalk1ng.sokkuri/SokkuriException.FileNotFound.<init>|<init>(kotlin.String;kotlin.String?){}[0]
+
+        final val path // com.generalk1ng.sokkuri/SokkuriException.FileNotFound.path|{}path[0]
+            final fun <get-path>(): kotlin/String // com.generalk1ng.sokkuri/SokkuriException.FileNotFound.path.<get-path>|<get-path>(){}[0]
+    }
+
+    final class InvalidConfig : com.generalk1ng.sokkuri/SokkuriException { // com.generalk1ng.sokkuri/SokkuriException.InvalidConfig|null[0]
+        constructor <init>(kotlin/String) // com.generalk1ng.sokkuri/SokkuriException.InvalidConfig.<init>|<init>(kotlin.String){}[0]
+    }
+
+    final class InvalidFormat : com.generalk1ng.sokkuri/SokkuriException { // com.generalk1ng.sokkuri/SokkuriException.InvalidFormat|null[0]
+        constructor <init>(kotlin/String) // com.generalk1ng.sokkuri/SokkuriException.InvalidFormat.<init>|<init>(kotlin.String){}[0]
+
+        final val detail // com.generalk1ng.sokkuri/SokkuriException.InvalidFormat.detail|{}detail[0]
+            final fun <get-detail>(): kotlin/String // com.generalk1ng.sokkuri/SokkuriException.InvalidFormat.detail.<get-detail>|<get-detail>(){}[0]
+    }
+
+    final class Unsupported : com.generalk1ng.sokkuri/SokkuriException { // com.generalk1ng.sokkuri/SokkuriException.Unsupported|null[0]
+        constructor <init>(kotlin/String) // com.generalk1ng.sokkuri/SokkuriException.Unsupported.<init>|<init>(kotlin.String){}[0]
+    }
+}

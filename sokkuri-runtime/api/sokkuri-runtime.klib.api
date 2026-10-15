@@ -1,0 +1,36 @@
+// Klib ABI Dump
+// Targets: [iosArm64, iosSimulatorArm64]
+// Rendering settings:
+// - Signature version: 2
+// - Show manifest properties: true
+// - Show declarations: true
+
+// Library unique name: <sokkuri:sokkuri-runtime>
+final class com.generalk1ng.sokkuri/Sokkuri { // com.generalk1ng.sokkuri/Sokkuri|null[0]
+    final val config // com.generalk1ng.sokkuri/Sokkuri.config|{}config[0]
+        final fun <get-config>(): com.generalk1ng.sokkuri/SokkuriConfig // com.generalk1ng.sokkuri/Sokkuri.config.<get-config>|<get-config>(){}[0]
+
+    final fun convert(kotlin/String): kotlin/String // com.generalk1ng.sokkuri/Sokkuri.convert|convert(kotlin.String){}[0]
+    final fun inspect(kotlin/String): com.generalk1ng.sokkuri/Inspection // com.generalk1ng.sokkuri/Sokkuri.inspect|inspect(kotlin.String){}[0]
+
+    sealed class CreateResult { // com.generalk1ng.sokkuri/Sokkuri.CreateResult|null[0]
+        final class Failure : com.generalk1ng.sokkuri/Sokkuri.CreateResult { // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Failure|null[0]
+            constructor <init>(com.generalk1ng.sokkuri/SokkuriException) // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Failure.<init>|<init>(com.generalk1ng.sokkuri.SokkuriException){}[0]
+
+            final val error // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Failure.error|{}error[0]
+                final fun <get-error>(): com.generalk1ng.sokkuri/SokkuriException // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Failure.error.<get-error>|<get-error>(){}[0]
+        }
+
+        final class Success : com.generalk1ng.sokkuri/Sokkuri.CreateResult { // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Success|null[0]
+            constructor <init>(com.generalk1ng.sokkuri/Sokkuri) // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Success.<init>|<init>(com.generalk1ng.sokkuri.Sokkuri){}[0]
+
+            final val sokkuri // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Success.sokkuri|{}sokkuri[0]
+                final fun <get-sokkuri>(): com.generalk1ng.sokkuri/Sokkuri // com.generalk1ng.sokkuri/Sokkuri.CreateResult.Success.sokkuri.<get-sokkuri>|<get-sokkuri>(){}[0]
+        }
+    }
+
+    final object Companion { // com.generalk1ng.sokkuri/Sokkuri.Companion|null[0]
+        final fun create(com.generalk1ng.sokkuri/SokkuriConfig, com.generalk1ng.sokkuri/SokkuriOptions = ...): com.generalk1ng.sokkuri/Sokkuri // com.generalk1ng.sokkuri/Sokkuri.Companion.create|create(com.generalk1ng.sokkuri.SokkuriConfig;com.generalk1ng.sokkuri.SokkuriOptions){}[0]
+        final fun createResult(com.generalk1ng.sokkuri/SokkuriConfig, com.generalk1ng.sokkuri/SokkuriOptions = ...): com.generalk1ng.sokkuri/Sokkuri.CreateResult // com.generalk1ng.sokkuri/Sokkuri.Companion.createResult|createResult(com.generalk1ng.sokkuri.SokkuriConfig;com.generalk1ng.sokkuri.SokkuriOptions){}[0]
+    }
+}
