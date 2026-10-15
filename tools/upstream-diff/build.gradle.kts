@@ -26,11 +26,16 @@ plugins {
 }
 
 dependencies {
-    // Addresses Sokkuri through the consumer facade and nothing else: the
-    // comparison is against what a consumer would get, so the internal layers
-    // stay out of reach. The one exception is the JSON reader used to pull
-    // inputs out of the upstream golden file.
+    // The conversion and inspection comparisons address Sokkuri through the
+    // consumer facade only: they compare against what a consumer gets.
     implementation(project(":sokkuri-runtime"))
+    // The config comparison is the one exception: it runs Sokkuri's config
+    // parser over fixture dictionaries, because until D12 a consumer cannot
+    // hand Sokkuri an arbitrary config, so the facade cannot reach that
+    // behavior.
+    implementation(project(":sokkuri-config"))
+    implementation(project(":sokkuri-resource"))
+    // Reads the upstream golden file and the harness's JSON lines.
     implementation(libs.kotlinx.serialization.json)
     testImplementation(libs.kotlin.test)
 }

@@ -28,7 +28,8 @@ import java.io.File
 internal class UpstreamHarness(
     private val binary: File,
     private val configDir: File,
-    private val dataDir: File,
+    /** The reference build's compiled dictionaries (`.ocd2`). */
+    val dataDir: File,
 ) {
 
     /** Converts each of [inputs] independently under profile [stem], one call per input. */
@@ -39,6 +40,17 @@ internal class UpstreamHarness(
     fun inspect(stem: String, inputs: List<String>, includeTofu: Boolean): List<UpstreamInspection> =
         runPerLine(listOf("inspect") + profileArguments(stem, includeTofu), inputs)
             .map { json.decodeFromString(UpstreamInspection.serializer(), it) }
+
+    /**
+     * Loads each of [configFiles] with upstream's `NewFromString`, resolving
+     * dictionaries against [dictDir] only, and converts every line of
+     * [probesFile] with each config that loads.
+     */
+    fun configs(dictDir: File, includeTofu: Boolean, probesFile: File, configFiles: List<File>): List<ConfigOutcome> =
+        runPerLine(
+            listOf("config", dictDir.absolutePath, flag(includeTofu), probesFile.absolutePath),
+            configFiles.map { it.absolutePath },
+        ).map { json.decodeFromString(HarnessConfigAnswer.serializer(), it).toOutcome() }
 
     private fun profileArguments(stem: String, includeTofu: Boolean): List<String> =
         listOf(stem, configDir.absolutePath, dataDir.absolutePath, flag(includeTofu))
@@ -58,27 +70,34 @@ internal class UpstreamHarness(
     /**
      * Runs the harness with [lines] on stdin and returns its stdout lines.
      *
-     * Both streams go through files rather than pipes: a harness that fills
-     * its stdout pipe while this side is still writing stdin would deadlock.
+     * All three streams go through files rather than pipes: a harness that
+     * fills its stdout pipe while this side is still writing stdin would
+     * deadlock. Stderr is shown only when the harness fails; otherwise it
+     * holds nothing but upstream's own chatter, such as the schema warnings
+     * it prints while loading a config.
      */
     private fun run(arguments: List<String>, lines: List<String>): List<String> {
         val inputFile = File.createTempFile("upstream-harness-", ".in")
         val outputFile = File.createTempFile("upstream-harness-", ".out")
+        val errorFile = File.createTempFile("upstream-harness-", ".err")
         try {
             inputFile.writeText(lines.joinToString(separator = "") { "$it\n" })
             val process = ProcessBuilder(listOf(binary.absolutePath) + arguments)
                 .redirectInput(inputFile)
                 .redirectOutput(outputFile)
-                .redirectError(ProcessBuilder.Redirect.INHERIT)
+                .redirectError(errorFile)
                 .start()
             val exit = process.waitFor()
-            check(exit == 0) { "harness exited $exit: ${arguments.joinToString(" ")}" }
+            check(exit == 0) {
+                "harness exited $exit: ${arguments.joinToString(" ")}\n${errorFile.readText().trimEnd()}"
+            }
             // Every answer ends with a newline, so the split leaves one empty
             // artifact after the last answer (and only that for no answers).
             return outputFile.readText().split("\n").dropLast(1)
         } finally {
             inputFile.delete()
             outputFile.delete()
+            errorFile.delete()
         }
     }
 

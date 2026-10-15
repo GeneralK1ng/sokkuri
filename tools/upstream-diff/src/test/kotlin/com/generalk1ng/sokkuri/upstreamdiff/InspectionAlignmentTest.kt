@@ -74,7 +74,12 @@ class InspectionAlignmentTest {
             stages = emptyList(),
             pipelineStages = listOf(
                 single(listOf("鼠标里面"), listOf("鼠标里面"), output = "鼠标里面"),
-                single(listOf("鼠标", "里面"), listOf("鼠標", "裏面"), listOf("鼠標", "裡面"), output = "鼠標裡面"),
+                single(
+                    listOf("鼠标", "里面"),
+                    listOf("鼠標", "裏面"),
+                    listOf("鼠標", "裡面"),
+                    output = "鼠標裡面",
+                ),
             ),
             output = "鼠標裡面",
         )
@@ -82,7 +87,10 @@ class InspectionAlignmentTest {
             input = "鼠标里面",
             normalizationStages = listOf(Inspection.Stage(1, listOf("鼠标里面"))),
             segments = listOf("鼠标", "里面"),
-            stages = listOf(Inspection.Stage(1, listOf("鼠標", "裏面")), Inspection.Stage(2, listOf("鼠標", "裡面"))),
+            stages = listOf(
+                Inspection.Stage(1, listOf("鼠標", "裏面")),
+                Inspection.Stage(2, listOf("鼠標", "裡面")),
+            ),
             output = "鼠標裡面",
         )
         assertEquals(FlatInspection.of(upstream), FlatInspection.of(sokkuri))

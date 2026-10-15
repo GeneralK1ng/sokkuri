@@ -23,9 +23,15 @@ import java.io.File
 import kotlin.system.exitProcess
 
 /**
- * `tools:upstream-diff` — converts one corpus with a build of the OpenCC
- * reference clone and with Sokkuri, then reports every input where the two
- * disagree.
+ * `tools:upstream-diff` — runs Sokkuri and a build of the OpenCC reference
+ * clone side by side and reports every place where the two disagree. Two
+ * subcommands:
+ *
+ * - `diff` (the default): converts and inspects one corpus with both, for
+ *   every profile;
+ * - `configs`: loads a catalog of config documents with both, comparing
+ *   which they accept, how they fail, and what the accepted ones convert to
+ *   ([ConfigCases]).
  *
  * This is the only check in the project that compares against upstream
  * *execution* rather than against upstream source. The golden suite is ported
@@ -37,14 +43,23 @@ import kotlin.system.exitProcess
  * the clone, neither of which a routine build should require.
  */
 internal fun main(args: Array<String>) {
-    val options = try {
-        parseArgs(args)
+    val invocation = try {
+        parseInvocation(args.toList())
     } catch (e: IllegalArgumentException) {
         System.err.println(e.message)
         System.err.println(USAGE)
         exitProcess(2)
     }
+    exitProcess(
+        when (invocation.command) {
+            Command.DIFF -> runDiff(invocation.options)
+            Command.CONFIGS -> runConfigs(invocation.options)
+        },
+    )
+}
 
+/** The `diff` subcommand; returns the process exit code. */
+private fun runDiff(options: Options): Int {
     println("[diff] preparing upstream at ${options.openccDir}")
     val upstream = UpstreamBuild(options.openccDir, options.buildDir, options.rebuild).prepare()
 
@@ -88,7 +103,7 @@ internal fun main(args: Array<String>) {
     } else {
         println("[diff] DIVERGED: Sokkuri and the reference build disagree on the inputs above")
     }
-    exitProcess(if (aligned) 0 else 1)
+    return if (aligned) 0 else 1
 }
 
 /** Running totals of one kind of comparison across profiles. */
@@ -128,7 +143,7 @@ private fun renderMismatch(stem: String, input: String, upstream: String, sokkur
     }
 
 /** Renders control characters and surrogates so failures stay readable. */
-private fun String.forDisplay(): String = buildString {
+internal fun String.forDisplay(): String = buildString {
     append('"')
     for (ch in this@forDisplay) {
         when {
@@ -145,7 +160,20 @@ private fun String.forDisplay(): String = buildString {
     append('"')
 }
 
-private data class DiffOptions(
+/** The subcommands; [DIFF] runs when none is named. */
+internal enum class Command(val word: String, val flags: Set<String>) {
+    DIFF(
+        "diff",
+        setOf(
+            "--opencc-dir", "--opencc-build-dir", "--rebuild", "--inputs", "--seed", "--corpus", "--tofu",
+            "--max-samples",
+        ),
+    ),
+    CONFIGS("configs", setOf("--opencc-dir", "--opencc-build-dir", "--rebuild")),
+}
+
+/** Options shared by the subcommands; each accepts only the flags it lists in [Command.flags]. */
+internal data class Options(
     val openccDir: File,
     val buildDir: File,
     val inputs: Int,
@@ -156,23 +184,32 @@ private data class DiffOptions(
     val maxSamples: Int,
 )
 
+internal data class Invocation(val command: Command, val options: Options)
+
 private const val USAGE = """
-Usage: upstream-diff [options]
+Usage: upstream-diff [diff|configs] [options]
+
+  diff (default)            convert and inspect one corpus with both implementations
+  configs                   load the config catalog with both implementations
 
   --opencc-dir <dir>        OpenCC clone root (default: <cwd>/OpenCC)
   --opencc-build-dir <dir>  cmake build of the clone (default: <cwd>/build/upstream-opencc);
                             configured and built on first run and whenever
                             the clone has moved to another commit
+  --rebuild                 rebuild the clone and the harness
+diff only:
   --inputs <n>              random inputs to generate (default: 20000)
   --seed <n>                random seed (default: 20261006)
   --corpus <file>           extra inputs, one per line
   --tofu                    include tofu-risk dictionaries on BOTH sides
-  --rebuild                 rebuild the clone and the harness
   --max-samples <n>         mismatching inputs to print per profile (default: 5)
 """
 
-private fun parseArgs(args: Array<String>): DiffOptions {
-    val cwd = File("").absoluteFile
+internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFile): Invocation {
+    val named = Command.entries.firstOrNull { it.word == args.firstOrNull() }
+    val command = named ?: Command.DIFF
+    val flags = if (named != null) args.drop(1) else args
+
     var openccDir = File(cwd, "OpenCC")
     var buildDir: File? = null
     var inputs = 20000
@@ -184,11 +221,16 @@ private fun parseArgs(args: Array<String>): DiffOptions {
 
     var index = 0
     fun value(flag: String): String {
-        if (index + 1 >= args.size) throw IllegalArgumentException("$flag requires a value")
-        return args[++index]
+        if (index + 1 >= flags.size) throw IllegalArgumentException("$flag requires a value")
+        return flags[++index]
     }
-    while (index < args.size) {
-        when (val arg = args[index]) {
+    while (index < flags.size) {
+        val arg = flags[index]
+        if (arg == "-h" || arg == "--help") throw IllegalArgumentException("")
+        if (arg !in command.flags) {
+            throw IllegalArgumentException("unknown argument for ${command.word}: $arg")
+        }
+        when (arg) {
             "--opencc-dir" -> openccDir = File(value(arg))
             "--opencc-build-dir" -> buildDir = File(value(arg))
             "--inputs" -> inputs = value(arg).toIntOrNull()
@@ -200,19 +242,20 @@ private fun parseArgs(args: Array<String>): DiffOptions {
                 ?: throw IllegalArgumentException("--max-samples needs an integer")
             "--tofu" -> includeTofu = true
             "--rebuild" -> rebuild = true
-            "-h", "--help" -> throw IllegalArgumentException("")
-            else -> throw IllegalArgumentException("unknown argument: $arg")
         }
         index++
     }
-    return DiffOptions(
-        openccDir = openccDir,
-        buildDir = buildDir ?: File(cwd, "build/upstream-opencc"),
-        inputs = inputs,
-        seed = seed,
-        includeTofu = includeTofu,
-        corpus = corpus,
-        rebuild = rebuild,
-        maxSamples = maxSamples,
+    return Invocation(
+        command,
+        Options(
+            openccDir = openccDir,
+            buildDir = buildDir ?: File(cwd, "build/upstream-opencc"),
+            inputs = inputs,
+            seed = seed,
+            includeTofu = includeTofu,
+            corpus = corpus,
+            rebuild = rebuild,
+            maxSamples = maxSamples,
+        ),
     )
 }
