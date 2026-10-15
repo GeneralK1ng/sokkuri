@@ -45,9 +45,8 @@ internal fun main(args: Array<String>) {
         exitProcess(2)
     }
 
-    val upstream = UpstreamBuild(options.openccDir, options.buildDir, options.rebuild)
     println("[diff] preparing upstream at ${options.openccDir}")
-    upstream.prepare()
+    val upstream = UpstreamBuild(options.openccDir, options.buildDir, options.rebuild).prepare()
 
     val corpus = Corpus.build(options.openccDir, options.inputs, options.seed, options.corpus)
     val tofu = if (options.includeTofu) "included" else "excluded"
@@ -65,9 +64,6 @@ internal fun main(args: Array<String>) {
         )
 
         val expected = upstream.convert(stem, corpus, options.includeTofu)
-        check(expected.size == corpus.size) {
-            "upstream returned ${expected.size} lines for ${corpus.size} inputs on '$stem'"
-        }
 
         var profileMismatches = 0
         val samples = mutableListOf<String>()

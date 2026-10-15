@@ -17,10 +17,11 @@
 package com.generalk1ng.sokkuri.upstreamdiff
 
 import java.io.File
+import java.security.MessageDigest
 
 /**
- * Builds the OpenCC reference clone and the per-input harness, then runs the
- * harness as an oracle.
+ * Builds the OpenCC reference clone and the harness that drives it, and
+ * hands out the harness ([UpstreamHarness]) as the oracle.
  *
  * The clone is the behavioral spec (see the project documentation), so the
  * oracle is a build of exactly that revision rather than a released binary.
@@ -47,7 +48,11 @@ internal class UpstreamBuild(
     /** Records the clone commit the cached build was made from. */
     private val builtStamp: File get() = File(buildDir, "sokkuri-opencc-commit")
 
-    fun prepare() {
+    /** Records the SHA-256 of the harness source the cached binary was compiled from. */
+    private val harnessStamp: File get() = File(workDir, "opencc_harness.sha256")
+
+    /** Builds whatever is missing or stale, then returns the harness over this build. */
+    fun prepare(): UpstreamHarness {
         require(openccDir.isDirectory) {
             "OpenCC clone not found at ${openccDir.absolutePath}; " +
                 "run ./gradlew fetchOpencc to check it out at the pinned commit, or pass --opencc-dir"
@@ -67,11 +72,18 @@ internal class UpstreamBuild(
             cmakeConfigure()
             cmakeBuild()
         }
-        // The harness links the library statically, so it follows every rebuild.
-        if (rebuildLibrary || !harnessBinary.isFile) {
-            compileHarness()
+        // The harness links the library statically, so it follows every
+        // rebuild; it is also rebuilt whenever its own source has changed,
+        // since a stale binary would speak an older line protocol.
+        val harnessSource = resourceBytes(HARNESS_SOURCE)
+        val sourceDigest = sha256(harnessSource)
+        val harnessStale = harnessStamp.takeIf { it.isFile }?.readText()?.trim() != sourceDigest
+        if (rebuildLibrary || harnessStale || !harnessBinary.isFile) {
+            compileHarness(harnessSource)
+            harnessStamp.writeText("$sourceDigest\n")
         }
         commit?.let { builtStamp.writeText("$it\n") }
+        return UpstreamHarness(harnessBinary, configDir, dataDir)
     }
 
     /**
@@ -87,43 +99,6 @@ internal class UpstreamBuild(
             .start()
         val output = process.inputStream.bufferedReader().readText().trim()
         return output.takeIf { process.waitFor() == 0 }
-    }
-
-    /**
-     * Converts [inputs] with the reference implementation, one call per input.
-     *
-     * The corpus goes through a file rather than a pipe: a harness that fills
-     * its stdout pipe while this side is still writing stdin would deadlock.
-     */
-    fun convert(stem: String, inputs: List<String>, includeTofu: Boolean): List<String> {
-        val corpusFile = File.createTempFile("upstream-diff-", ".txt")
-        val outputFile = File.createTempFile("upstream-diff-", ".out")
-        try {
-            corpusFile.writeText(inputs.joinToString("\n") + "\n")
-            val command = mutableListOf(
-                harnessBinary.absolutePath,
-                stem,
-                configDir.absolutePath,
-                dataDir.absolutePath,
-            )
-            if (includeTofu) command += "1"
-
-            val process = ProcessBuilder(command)
-                .redirectInput(corpusFile)
-                .redirectOutput(outputFile)
-                .redirectError(ProcessBuilder.Redirect.INHERIT)
-                .start()
-            val exit = process.waitFor()
-            check(exit == 0) { "harness exited $exit for profile '$stem'" }
-
-            val lines = outputFile.readText().split("\n")
-            // The harness terminates every output with a newline; drop the
-            // artifact so the list lines up with the input list.
-            return lines.dropLast(1)
-        } finally {
-            corpusFile.delete()
-            outputFile.delete()
-        }
     }
 
     private fun cmakeConfigure() {
@@ -144,11 +119,10 @@ internal class UpstreamBuild(
         run("cmake", "--build", buildDir.absolutePath, "-j", jobs)
     }
 
-    private fun compileHarness() {
+    private fun compileHarness(harnessSource: ByteArray) {
         val source = File.createTempFile("opencc_harness-", ".cpp")
         try {
-            javaClass.getResourceAsStream("/opencc_harness.cpp")!!
-                .use { input -> source.outputStream().use { input.copyTo(it) } }
+            source.writeBytes(harnessSource)
             workDir.mkdirs()
             val command = mutableListOf(
                 compiler(),
@@ -166,6 +140,12 @@ internal class UpstreamBuild(
             source.delete()
         }
     }
+
+    private fun resourceBytes(name: String): ByteArray =
+        checkNotNull(javaClass.getResourceAsStream(name)) { "missing resource $name" }.use { it.readBytes() }
+
+    private fun sha256(bytes: ByteArray): String =
+        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
 
     /** The bundled marisa archive, whose location follows the vendor version. */
     private fun marisaArchive(): String? =
@@ -197,5 +177,10 @@ internal class UpstreamBuild(
             .start()
         val exit = process.waitFor()
         check(exit == 0) { "command failed with exit $exit: ${command.joinToString(" ")}" }
+    }
+
+    private companion object {
+        /** Classpath location of the harness source compiled into [harnessBinary]. */
+        const val HARNESS_SOURCE = "/opencc_harness.cpp"
     }
 }
