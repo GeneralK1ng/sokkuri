@@ -113,6 +113,7 @@ private fun generate(openccDir: File): Map<String, ByteArray> {
     val referenced = LinkedHashSet<String>()
     val generator = DictionaryGenerator(openccDir)
 
+    ConsistencyCheck.verifyConfigStems(upstreamProfileStems(openccDir))
     for (config in SokkuriConfig.entries) {
         val source = openccDir.resolve("data/config/${config.stem}.json")
         if (!source.isFile) throw DictgenException("missing config: ${source.path}")
@@ -120,7 +121,6 @@ private fun generate(openccDir: File): Map<String, ByteArray> {
         outputs["config/${config.stem}.json"] = rewritten.encodeToByteArray()
         collectReferenced(rewritten, referenced)
     }
-    ConsistencyCheck.verifyConfigStems(SokkuriConfig.entries.map { it.stem }.toSet())
 
     for (baseName in referenced.sorted()) {
         val (fileName, bytes) = generator.compile(generator.recipeFor(baseName))
@@ -132,6 +132,18 @@ private fun generate(openccDir: File): Map<String, ByteArray> {
         .toSet())
     return outputs
 }
+
+/**
+ * Stems of every profile config in the clone's `data/config`. The directory
+ * also holds the config JSON schema and non-JSON build and test files, none
+ * of which are profiles.
+ */
+internal fun upstreamProfileStems(openccDir: File): Set<String> =
+    openccDir.resolve("data/config").listFiles().orEmpty()
+        .map { it.name }
+        .filter { it.endsWith(".json") && !it.endsWith(".schema.json") }
+        .map { it.removeSuffix(".json") }
+        .toSet()
 
 /** Collects dictionary basenames (without extension) from a rewritten config. */
 private fun collectReferenced(rewrittenJson: String, out: MutableSet<String>) {

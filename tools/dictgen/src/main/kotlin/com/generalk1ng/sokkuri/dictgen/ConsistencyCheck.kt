@@ -19,26 +19,44 @@ package com.generalk1ng.sokkuri.dictgen
 import com.generalk1ng.sokkuri.SokkuriConfig
 
 /**
- * The closure checks: the packaged config set must
- * be exactly the 16 profiles of [SokkuriConfig] (invariant I8 — a mismatch means a
- * profile was added or removed upstream and needs a human decision), and
- * the compiled dictionary set must be exactly what those configs reference
- * (no dangling references, no orphaned files).
+ * The closure checks: the clone's profile configs must be exactly the
+ * profiles of [SokkuriConfig] plus [UNPORTED_UPSTREAM_STEMS] (invariant I8 — a
+ * mismatch means a profile was added or removed upstream and needs a human
+ * decision), and the compiled dictionary set must be exactly what the packaged
+ * configs reference (no dangling references, no orphaned files).
  */
 internal object ConsistencyCheck {
 
-    /** [generatedStems] must equal `SokkuriConfig.entries`' stems, both directions. */
-    internal fun verifyConfigStems(generatedStems: Set<String>) {
-        val expected = SokkuriConfig.entries.map { it.stem }.toSet()
-        if (expected == generatedStems) return
+    /**
+     * Upstream profiles deliberately not ported: the seal family
+     * (docs/architecture.md §7 #4). Registered by name rather than matched by
+     * pattern, so a stale entry fails like any other drift.
+     */
+    internal val UNPORTED_UPSTREAM_STEMS: Set<String> = setOf("s2seal", "seal2t", "t2seal")
+
+    /**
+     * [upstreamStems] (every profile config in the clone's `data/config`) must
+     * equal `SokkuriConfig.entries`' stems plus [UNPORTED_UPSTREAM_STEMS], both
+     * directions.
+     */
+    internal fun verifyConfigStems(upstreamStems: Set<String>) {
+        val ported = SokkuriConfig.entries.map { it.stem }.toSet()
+        val missing = ported - upstreamStems
+        val unregistered = upstreamStems - ported - UNPORTED_UPSTREAM_STEMS
+        val stale = UNPORTED_UPSTREAM_STEMS - upstreamStems
+        if (missing.isEmpty() && unregistered.isEmpty() && stale.isEmpty()) return
         throw DictgenException(buildString {
-            append("generated configs and SokkuriConfig.entries disagree (I8):\n")
-            for (stem in (expected - generatedStems).sorted()) {
-                append("  missing config: ").append(stem).append(".json\n")
+            append("upstream configs and SokkuriConfig.entries disagree (I8):\n")
+            for (stem in missing.sorted()) {
+                append("  missing upstream config: ").append(stem).append(".json\n")
             }
-            for (stem in (generatedStems - expected).sorted()) {
-                append("  unexpected config: ").append(stem).append(".json")
-                append(" (not in SokkuriConfig; add it to the enum deliberately)\n")
+            for (stem in unregistered.sorted()) {
+                append("  unported upstream config: ").append(stem).append(".json")
+                append(" (add it to SokkuriConfig deliberately, or register it as unported)\n")
+            }
+            for (stem in stale.sorted()) {
+                append("  stale unported registration: ").append(stem)
+                append(" (no longer shipped upstream)\n")
             }
         })
     }
