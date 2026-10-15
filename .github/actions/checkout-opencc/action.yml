@@ -1,14 +1,20 @@
-# Fetches the OpenCC reference clone into ./OpenCC, where every tool and test
-# expects it (docs/architecture.md §10.2). A shallow fetch of one commit is
-# enough: the tools read only the working tree, and OpenCC's cmake falls back
-# to a default version string when no tags are present. This is the one place
-# that knows how the clone is obtained.
+# Checks out the OpenCC reference clone into ./OpenCC, where every tool and
+# test expects it (docs/architecture.md §10). The checkout itself is the root
+# build's fetchOpencc task, the one place that knows how the clone is
+# obtained, so CI and a local checkout cannot drift apart; run setup-build-env
+# first. A fresh clone is a shallow fetch of one commit: the tools read only
+# the working tree, and OpenCC's cmake falls back to a default version string
+# when no tags are present.
+#
+# 'head' rehearses a pin bump the way one is made by hand: the pin is moved
+# to upstream HEAD first, in this workspace only, so the fetch and every
+# clone check downstream follow the moved pin.
 name: Check out the OpenCC reference clone
-description: Fetches BYVoid/OpenCC at the commit pinned in testcases/UPSTREAM, or at upstream HEAD, into ./OpenCC.
+description: Checks out BYVoid/OpenCC into ./OpenCC at the commit pinned in testcases/UPSTREAM, after moving the pin to upstream HEAD when asked to.
 
 inputs:
   revision:
-    description: "'pinned' for the commit recorded in testcases/UPSTREAM, 'head' for upstream's default branch."
+    description: "'pinned' for the commit recorded in testcases/UPSTREAM, 'head' to move the pin to upstream's default branch first (in this workspace only)."
     required: false
     default: pinned
 
@@ -17,7 +23,7 @@ outputs:
     description: The OpenCC commit checked out.
     value: ${{ steps.fetch.outputs.sha }}
   pinned-sha:
-    description: The OpenCC commit pinned in testcases/UPSTREAM.
+    description: The OpenCC commit pinned in testcases/UPSTREAM as committed.
     value: ${{ steps.pin.outputs.sha }}
 
 runs:
@@ -26,7 +32,16 @@ runs:
     - name: Read the pinned commit
       id: pin
       shell: bash
+      env:
+        REVISION: ${{ inputs.revision }}
       run: |
+        case "$REVISION" in
+          pinned | head) ;;
+          *)
+            echo "::error::unknown revision '$REVISION' (expected 'pinned' or 'head')"
+            exit 1
+            ;;
+        esac
         upstream_note=sokkuri-runtime/src/commonTest/resources/testcases/UPSTREAM
         sha=$(awk '/^Commit:/ { print $2 }' "$upstream_note")
         if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
@@ -35,24 +50,23 @@ runs:
         fi
         echo "sha=$sha" >> "$GITHUB_OUTPUT"
 
+    - name: Move the pin to upstream HEAD
+      if: inputs.revision == 'head'
+      shell: bash
+      run: |
+        upstream_note=sokkuri-runtime/src/commonTest/resources/testcases/UPSTREAM
+        sha=$(git ls-remote https://github.com/BYVoid/OpenCC.git HEAD | cut -f1)
+        if ! [[ "$sha" =~ ^[0-9a-f]{40}$ ]]; then
+          echo "::error::could not resolve the HEAD of BYVoid/OpenCC"
+          exit 1
+        fi
+        # -i with a suffix is the one spelling BSD and GNU sed both accept.
+        sed -i.orig "s/^Commit: .*/Commit:  $sha/" "$upstream_note"
+        rm "$upstream_note.orig"
+
     - name: Fetch OpenCC
       id: fetch
       shell: bash
-      env:
-        REVISION: ${{ inputs.revision }}
-        PINNED: ${{ steps.pin.outputs.sha }}
       run: |
-        case "$REVISION" in
-          pinned) ref="$PINNED" ;;
-          head) ref=HEAD ;;
-          *)
-            echo "::error::unknown revision '$REVISION' (expected 'pinned' or 'head')"
-            exit 1
-            ;;
-        esac
-        rm -rf OpenCC
-        git init -q OpenCC
-        git -C OpenCC remote add origin https://github.com/BYVoid/OpenCC.git
-        git -C OpenCC fetch -q --depth 1 origin "$ref"
-        git -C OpenCC checkout -q --detach FETCH_HEAD
+        ./gradlew fetchOpencc
         echo "sha=$(git -C OpenCC rev-parse HEAD)" >> "$GITHUB_OUTPUT"

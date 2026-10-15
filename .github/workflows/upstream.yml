@@ -8,9 +8,10 @@
 # the schedule catches whatever slipped past a merge.
 #
 # The head job rehearses moving the pin to upstream's default branch: it
-# regenerates the packaged resources and swaps in the corpus inside its own
-# workspace (nothing is committed), then reruns the same checks. Its failure
-# blocks nothing; it means upstream moved in a way that needs a human.
+# moves the pin, regenerates the packaged resources and swaps in the corpus
+# inside its own workspace (nothing is committed), then reruns the same
+# checks. Its failure blocks nothing; it means upstream moved in a way that
+# needs a human.
 name: Upstream alignment
 
 on:
@@ -188,7 +189,7 @@ jobs:
             echo "### Pin bump rehearsal ${PINNED_SHA:0:12} → ${HEAD_SHA:0:12}: $OUTCOME"
             echo "Upstream changes: https://github.com/BYVoid/OpenCC/compare/$PINNED_SHA...$HEAD_SHA"
             echo
-            echo "Packaged resources and corpus a bump would change:"
+            echo "Pin, packaged resources and corpus a bump would change:"
             echo '```'
             git status --short -- sokkuri-runtime/src | grep . || echo "(none)"
             echo '```'
