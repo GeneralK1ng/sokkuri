@@ -16,6 +16,7 @@
 
 package com.generalk1ng.sokkuri.dictgen
 
+import org.opentest4j.TestAbortedException
 import java.io.File
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -27,7 +28,8 @@ import kotlin.test.assertTrue
  * Tests for the derivation ports: synthetic cases pin
  * the semantics line by line, and — when `OPENCC_DIR` points at a clone and
  * `python3` is available — the byte-diff acceptance test compares the
- * Kotlin ports against the actual upstream script outputs.
+ * Kotlin ports against the actual upstream script outputs. Without either,
+ * that test is reported as skipped, never as passed.
  */
 class DictionaryDerivationsTest {
 
@@ -175,9 +177,12 @@ class DictionaryDerivationsTest {
 
     @Test
     fun portsMatchUpstreamScriptOutputsByteForByte() {
+        // Maintainer-only acceptance: abort (reported as skipped) rather than
+        // return, so a run without the clone cannot pass for one that checked.
         val openccDir = System.getenv("OPENCC_DIR")?.let(::File)
-            ?: return // maintainer-only acceptance; CI-friendly skip
-        val python = shutilWhich("python3") ?: return
+            ?: throw TestAbortedException("OPENCC_DIR is not set; this check needs the OpenCC reference clone")
+        val python = shutilWhich("python3")
+            ?: throw TestAbortedException("python3 is not on the PATH; this check runs upstream's scripts")
         val scripts = openccDir.resolve("data/scripts")
         val tmp = kotlin.io.path.createTempDirectory("sokkuri-dictgen").toFile()
 

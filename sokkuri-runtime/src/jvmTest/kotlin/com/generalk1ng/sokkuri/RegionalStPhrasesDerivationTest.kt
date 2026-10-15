@@ -20,6 +20,7 @@ package com.generalk1ng.sokkuri
 
 import com.generalk1ng.sokkuri.engine.Utf
 import com.generalk1ng.sokkuri.resource.SokDictionaryEncoder
+import org.junit.AssumptionViolatedException
 import java.io.File
 import kotlin.test.*
 
@@ -37,13 +38,15 @@ import kotlin.test.*
  *
  * `tools:dictgen` is the permanent generator; this test is
  * the runtime-side tripwire that its products are current. Runs only when
- * `OPENCC_DIR` points at a reference clone.
+ * `OPENCC_DIR` points at a reference clone, and is reported as skipped —
+ * never as passed — otherwise.
  */
 class RegionalStPhrasesDerivationTest {
 
     @Test
     fun packagedDerivedDictionaryMatchesFreshDerivationByteForByte() {
-        val openccDir = System.getenv("OPENCC_DIR") ?: return
+        val openccDir = System.getenv("OPENCC_DIR")
+            ?: throw AssumptionViolatedException("OPENCC_DIR is not set; this check needs the OpenCC reference clone")
         val t2s = Sokkuri.create(
             SokkuriConfig.T2S,
             SokkuriOptions { includeTofuRiskDictionaries = true },
