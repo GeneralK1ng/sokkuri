@@ -84,6 +84,19 @@ public class SokDictionary internal constructor(
             return Utf8.utf16LengthOf(bytes, start, keyEnd(index) - start)
         }
 
+        override fun keyCodePointAt(index: Int, offset: Int): Int {
+            val position = keyStart(index) + offset
+            val end = keyEnd(index)
+            return if (position >= end) -1 else Utf8.firstCodePointAt(bytes, position, end - position)
+        }
+
+        override fun encodedWidth(codePoint: Int): Int = when {
+            codePoint < 0x80 -> 1
+            codePoint < 0x800 -> 2
+            codePoint < 0x10000 -> 3
+            else -> 4
+        }
+
         override fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int {
             val keyOffset = keyStart(index)
             return Utf8.compareRegionToWindow(bytes, keyOffset, keyEnd(index) - keyOffset, text, start, end)

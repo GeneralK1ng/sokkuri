@@ -54,6 +54,19 @@ public interface SortedKeyTable {
      */
     public fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int
 
+    /**
+     * Code point of the key at [index] that begins [offset] native units
+     * into the key, or `-1` when the key ends exactly at [offset]. Native
+     * units are the table's key encoding: UTF-16 code units for String
+     * keys, UTF-8 bytes for `.sok`. Retrieval asks only at offsets on a
+     * code-point boundary, reached by summing [encodedWidth] over the code
+     * points it has already matched in that key.
+     */
+    public fun keyCodePointAt(index: Int, offset: Int): Int
+
+    /** Native units [codePoint] occupies in this table's key encoding. */
+    public fun encodedWidth(codePoint: Int): Int
+
     /** Whether the key at [index] equals the start of the `text[start, end)` window. */
     public fun keyPrefixesWindowAt(index: Int, text: CharArray, start: Int, end: Int): Boolean
 
@@ -70,23 +83,30 @@ public interface SortedKeyTable {
 }
 
 /**
- * Retrieval over a code-point-sorted key table, the single source of truth
- * for OpenCC `TextDict`'s lookup shape (first-code-point lower bound, then
- * an in-group longest-prefix scan, with `mayStartKey` backed by the
- * first-code-point set).
+ * Retrieval over a code-point-sorted key table: the single implementation
+ * of exact and longest-prefix lookup, shared so every lexicon backend
+ * delegates to the same algorithm and retrieval semantics cannot drift
+ * between them. [SortedListDictionary] and the `.sok` binary dictionary
+ * both supply a [SortedKeyTable], and a byte-backed table probes without
+ * decoding a key.
  *
- * Extracted as a shared component so every lexicon backend delegates to the
- * same algorithm and retrieval semantics cannot drift between them:
- * [SortedListDictionary] and the `.sok` binary dictionary both supply a
- * [SortedKeyTable].
+ * Longest-prefix lookup narrows a range instead of scanning one: keys that
+ * share a prefix are contiguous in code-point order and sorted by their
+ * next code point, with the key that ends at the prefix first (`-1` from
+ * [SortedKeyTable.keyCodePointAt] sorts before every code point). The
+ * first input code point selects its group through the first-code-point
+ * index; every further code point narrows the range by binary search over
+ * the keys' code point at the current offset, and a range that starts with
+ * a key ending there is a hit. The last hit is the longest key prefixing
+ * the window, the entry upstream's `Dict::MatchPrefix` returns. A match of
+ * k code points in a group of g keys costs O(k log g) single-code-point
+ * probes; the scan this replaced compared every key of the group at every
+ * position: about 53 whole keys per input character of the benchmark's
+ * `medium` sample against STPhrases.
  *
  * Ordering invariants (I2): the table must be sorted by
- * [Utf.compareByCodePoint] with unique, non-empty keys; both the binary
- * search in [indexOf] and the group scan in [matchPrefix] rely on it.
- *
- * Generalized from `keyAt`/`defaultValueAt` string callbacks to
- * [SortedKeyTable]: the algorithm is unchanged, but a byte-backed table now
- * probes without decoding.
+ * [Utf.compareByCodePoint] with unique, non-empty keys; the binary search
+ * in [indexOf], the first-code-point index and the narrowing all rely on it.
  */
 @SokkuriInternalApi
 public class SortedTableRetrieval private constructor(
@@ -97,41 +117,37 @@ public class SortedTableRetrieval private constructor(
     public val maxKeyLength: Int get() = table.maxKeyLength
 
     /**
-     * Distinct first code points, sorted — a plain IntArray so hot-path
-     * membership checks binary-search without boxing (the previous
-     * `Set<Int>` allocated a boxed Integer per lookup on the JVM, once per
-     * scanned position). Built once per dictionary; contents identical to
-     * the distinct key set.
+     * The groups of keys sharing a first code point: [codePoints] holds
+     * the distinct first code points in ascending order, and group `i`
+     * spans entries `[groupStarts[i], groupStarts[i + 1])`. Plain IntArrays,
+     * so lookups binary-search without boxing.
      */
-    private val sortedFirstCodePoints: IntArray by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        (0 until table.entryCount)
-            .map { table.keyFirstCodePointAt(it) }
-            .distinct()
-            .sorted()
-            .toIntArray()
-    }
+    private class FirstCodePointIndex(val codePoints: IntArray, val groupStarts: IntArray)
 
     /**
-     * Whether [codePoint] begins any key of the table. Hand-rolled binary
-     * search rather than the stdlib's `IntArray.binarySearch`: the stdlib
-     * overloads are not visible to every backend's common compilation
-     * (K/N and metadata compilation rejected them while JVM accepted),
-     * and the loop mirrors [lowerBoundByFirstCodePoint]'s shape anyway.
-     * The array is read into a local first: the property's `lazy`
-     * delegate publishes through a volatile field, and a volatile read
-     * cannot be hoisted out of a loop — one read per call, not per probe
+     * Built once per dictionary, on first use. Callers read it into a
+     * local once per call: the `lazy` delegate publishes through a
+     * volatile field, and a volatile read cannot be hoisted out of a loop
      * (measured ~15% on s2t when read inside the loop).
      */
-    public fun mayStartKey(codePoint: Int): Boolean {
-        val firstCodePoints = sortedFirstCodePoints
-        var lo = 0
-        var hi = firstCodePoints.size
-        while (lo < hi) {
-            val mid = (lo + hi) ushr 1
-            if (firstCodePoints[mid] < codePoint) lo = mid + 1 else hi = mid
+    private val firstCodePointIndex: FirstCodePointIndex by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val codePoints = IntArray(table.entryCount)
+        val groupStarts = IntArray(table.entryCount + 1)
+        var groups = 0
+        for (index in 0 until table.entryCount) {
+            val first = table.keyFirstCodePointAt(index)
+            if (groups == 0 || codePoints[groups - 1] != first) {
+                codePoints[groups] = first
+                groupStarts[groups] = index
+                groups += 1
+            }
         }
-        return lo < firstCodePoints.size && firstCodePoints[lo] == codePoint
+        groupStarts[groups] = table.entryCount
+        FirstCodePointIndex(codePoints.copyOf(groups), groupStarts.copyOf(groups + 1))
     }
+
+    /** Whether [codePoint] begins any key of the table. */
+    public fun mayStartKey(codePoint: Int): Boolean = groupOf(firstCodePointIndex, codePoint) >= 0
 
     /**
      * Index of [key] in the table, or `-1` when absent. Binary search by
@@ -174,52 +190,82 @@ public class SortedTableRetrieval private constructor(
     }
 
     /**
-     * Shared longest-prefix scan: first-code-point lower bound, then the
-     * in-group prefix scan. Returns the winning `(entryIndex, keyLength)`
-     * packed into a Long (high 32 bits index, low 32 bits length), or `-1`
-     * when no key prefixes the window.
+     * Shared longest-prefix lookup, by narrowing (see the class
+     * documentation). Returns the winning `(entryIndex, keyLength)` packed
+     * into a Long (high 32 bits index, low 32 bits length in UTF-16 code
+     * units), or `-1` when no key prefixes the window.
      */
     private fun findLongestPrefixIndex(text: CharArray, start: Int, end: Int): Long {
         if (start >= end) return -1L
+        val index = firstCodePointIndex
         val first = Utf.codePointAt(text, start, end)
-        if (!mayStartKey(first)) return -1L
+        val group = groupOf(index, first)
+        if (group < 0) return -1L
 
-        var index = lowerBoundByFirstCodePoint(first)
+        var lo = index.groupStarts[group]
+        var hi = index.groupStarts[group + 1]
+        var offset = table.encodedWidth(first)
+        var position = start + Utf.charCount(first)
         var bestIndex = -1
         var bestLength = -1
+        if (table.keyCodePointAt(lo, offset) < 0) {
+            bestIndex = lo
+            bestLength = position - start
+        }
         val maxEnd = minOf(end, start + maxKeyLength)
-        while (index < table.entryCount) {
-            // Keys are code-point ordered: once the first code point
-            // diverges, no further entry can prefix this text.
-            if (table.keyFirstCodePointAt(index) != first) break
-            // A prefix hit is implicitly within the window (the check
-            // exhausts at maxEnd), so the length scan runs only for actual
-            // hits — group entries pay one fused scan, not two.
-            if (table.keyPrefixesWindowAt(index, text, start, maxEnd)) {
-                val keyLength = table.keyUtf16LengthAt(index)
-                if (keyLength > bestLength) {
-                    bestIndex = index
-                    bestLength = keyLength
-                }
+        while (position < maxEnd) {
+            val codePoint = Utf.codePointAt(text, position, end)
+            lo = lowerBound(lo, hi, offset, codePoint)
+            if (lo == hi || table.keyCodePointAt(lo, offset) != codePoint) break
+            hi = upperBound(lo, hi, offset, codePoint)
+            offset += table.encodedWidth(codePoint)
+            position += Utf.charCount(codePoint)
+            if (table.keyCodePointAt(lo, offset) < 0) {
+                bestIndex = lo
+                bestLength = position - start
             }
-            index += 1
         }
         return if (bestIndex < 0) -1L else (bestIndex.toLong() shl 32) or bestLength.toLong()
     }
 
+    /** First entry in `[lo, hi)` whose code point at [offset] is not below [codePoint]. */
+    private fun lowerBound(lo: Int, hi: Int, offset: Int, codePoint: Int): Int {
+        var a = lo
+        var b = hi
+        while (a < b) {
+            val mid = (a + b) ushr 1
+            if (table.keyCodePointAt(mid, offset) < codePoint) a = mid + 1 else b = mid
+        }
+        return a
+    }
+
+    /** First entry in `[lo, hi)` whose code point at [offset] is above [codePoint]. */
+    private fun upperBound(lo: Int, hi: Int, offset: Int, codePoint: Int): Int {
+        var a = lo
+        var b = hi
+        while (a < b) {
+            val mid = (a + b) ushr 1
+            if (table.keyCodePointAt(mid, offset) <= codePoint) a = mid + 1 else b = mid
+        }
+        return a
+    }
+
     /**
-     * First index whose first code point is >= [codePoint]. Equivalent to
-     * an [indexOf]-style lower bound against a single-code-point probe,
-     * since such a probe sorts before every key sharing its code point.
+     * Group slot of [codePoint] in [index], or `-1` when no key begins
+     * with it. Hand-rolled binary search rather than the stdlib's
+     * `IntArray.binarySearch`: the stdlib overloads are not visible to
+     * every backend's common compilation (K/N and metadata compilation
+     * rejected them while JVM accepted).
      */
-    private fun lowerBoundByFirstCodePoint(codePoint: Int): Int {
+    private fun groupOf(index: FirstCodePointIndex, codePoint: Int): Int {
+        val codePoints = index.codePoints
         var lo = 0
-        var hi = table.entryCount
+        var hi = codePoints.size
         while (lo < hi) {
             val mid = (lo + hi) ushr 1
-            if (table.keyFirstCodePointAt(mid) < codePoint) lo = mid + 1 else hi = mid
+            if (codePoints[mid] < codePoint) lo = mid + 1 else hi = mid
         }
-        return lo
+        return if (lo < codePoints.size && codePoints[lo] == codePoint) lo else -1
     }
 
     public companion object {

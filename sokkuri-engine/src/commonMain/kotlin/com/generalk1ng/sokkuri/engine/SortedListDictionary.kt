@@ -61,6 +61,13 @@ public class SortedListDictionary private constructor(
 
         override fun keyUtf16LengthAt(index: Int): Int = entries[index].key.length
 
+        override fun keyCodePointAt(index: Int, offset: Int): Int {
+            val key = entries[index].key
+            return if (offset >= key.length) -1 else Utf.codePointAt(key, offset)
+        }
+
+        override fun encodedWidth(codePoint: Int): Int = Utf.charCount(codePoint)
+
         override fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int =
             Utf.compareByCodePoint(entries[index].key, text, start, end)
 
