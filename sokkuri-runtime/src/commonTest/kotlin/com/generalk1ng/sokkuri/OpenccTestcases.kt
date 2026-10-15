@@ -28,12 +28,20 @@ import kotlinx.serialization.json.jsonPrimitive
  *
  * Source: `OpenCC/test/testcases/testcases.json` (JSONC — comments and
  * trailing commas), copied verbatim into commonTest resources with the
- * upstream commit recorded in `testcases/UPSTREAM`. Stems outside the
- * ported [SokkuriConfig] profiles (the `*seal*` families, deliberately not ported)
- * are skipped defensively via [SokkuriConfig.fromStem].
+ * upstream commit recorded in `testcases/UPSTREAM`. Every stem in the corpus
+ * must be a ported [SokkuriConfig] profile or registered in [UNPORTED_STEMS]:
+ * an unregistered stem means upstream added a profile, and a registration the
+ * corpus no longer uses is stale; both fail loudly instead of being skipped.
  */
 @OptIn(SokkuriInternalApi::class)
 internal object OpenccTestcases {
+
+    /**
+     * Upstream stems deliberately not ported: the seal family
+     * (docs/architecture.md §7 #4). Declared before [byStem], whose
+     * initializer reads it.
+     */
+    private val UNPORTED_STEMS: Set<String> = setOf("s2seal", "seal2t", "t2seal")
 
     /** One corpus entry for one profile: the expected conversion under `stem`. */
     internal data class Case(
@@ -57,18 +65,29 @@ internal object OpenccTestcases {
         val cleaned = JsonSupport.stripComments(bytes.decodeToString())
         val root = JsonSupport.opencc.parseToJsonElement(cleaned).jsonObject
         val byStem = HashMap<String, ArrayList<Case>>()
+        val unknownStems = HashSet<String>()
         for (element in root.getValue("cases").jsonArray) {
             val obj = element.jsonObject
             val id = obj.getValue("id").jsonPrimitive.content
             val input = obj.getValue("input").jsonPrimitive.content
             for ((stem, value) in obj.getValue("expected").jsonObject) {
-                val profile = SokkuriConfig.fromStem(stem) ?: continue
+                val profile = SokkuriConfig.fromStem(stem)
+                if (profile == null) {
+                    unknownStems.add(stem)
+                    continue
+                }
                 byStem.getOrPut(profile.stem) { ArrayList() }
                     .add(Case(id, input, value.jsonPrimitive.content))
             }
         }
         val missing = SokkuriConfig.entries.map { it.stem } - byStem.keys
         check(missing.isEmpty()) { "no upstream cases for ported profiles: $missing" }
+        val unregistered = (unknownStems - UNPORTED_STEMS).sorted()
+        check(unregistered.isEmpty()) {
+            "upstream cases for stems neither ported nor registered as unported: $unregistered"
+        }
+        val stale = (UNPORTED_STEMS - unknownStems).sorted()
+        check(stale.isEmpty()) { "registered unported stems absent from the corpus: $stale" }
         return byStem
     }
 }
