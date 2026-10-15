@@ -234,7 +234,5 @@ internal object ConfigCases {
             "Sokkuri rejects the dictionary",
         "text-empty-key" to "upstream keeps an entry with an empty key, which never matches; " +
             "Sokkuri rejects the dictionary",
-        "inline-duplicate-key" to "upstream rejects an inline key listed twice; Sokkuri keeps the first " +
-            "occurrence, as it does for every repeated member",
     )
 }

@@ -267,6 +267,37 @@ class ConfigParserTest {
     }
 
     @Test
+    fun anInlineKeyListedTwiceIsInvalidLikeUpstream() {
+        val repeated = """{"type": "inline", "entries": {"a": "A", "\u0061": "B"}}"""
+        val placements = listOf(
+            """{"conversion_chain": [{"dict": $repeated}]}""",
+            """{"normalization": [{"dict": $repeated}], "conversion_chain": []}""",
+            """{"segmentation": {"type": "mmseg", "dict": $repeated}, "conversion_chain": []}""",
+            """{"conversion_chain": [{"dict": {"type": "group", "dicts": [{"type": "inline", "entries": {"b": "B"}},
+                $repeated]}}]}""",
+            // Indices count object members, as the decoded chain does.
+            """{"conversion_chain": [{"dict": {"type": "inline", "entries": {"b": "B"}}}, 7, {"dict": $repeated}]}""",
+        )
+        for (json in placements) {
+            assertFailsWith<SokkuriException.InvalidConfig>(json) { parse(json) }
+        }
+    }
+
+    @Test
+    fun aRepeatedInlineKeyIsOnlyAnErrorWhereUpstreamLoadsTheDictionary() {
+        // A tofu-risk group is dropped before its members are parsed, so its
+        // inline members are never checked, upstream or here.
+        val json = """{"conversion_chain": [{"dict": {"type": "group", "may_output_tofu": true,
+            "dicts": [{"type": "inline", "entries": {"a": "A", "a": "B"}}]}}]}"""
+        assertEquals("a", parse(json, includeTofu = false).convert("a"))
+        assertFailsWith<SokkuriException.InvalidConfig> { parse(json, includeTofu = true) }
+        // A repeat outside an inline dictionary's entries is just a repeated member.
+        val repeatedMember = """{"conversion_chain": [{"dict": {"type": "inline", "entries": {"a": "A"},
+            "entries": {"a": "B"}}}]}"""
+        assertEquals("A", parse(repeatedMember).convert("a"))
+    }
+
+    @Test
     fun unknownSegmentationTypeIsUnsupported() {
         assertFailsWith<SokkuriException.Unsupported> {
             parse(

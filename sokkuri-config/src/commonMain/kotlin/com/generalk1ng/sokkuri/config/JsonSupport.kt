@@ -51,7 +51,8 @@ public object JsonSupport {
      * dropped but the first, since rapidjson's `FindMember` returns the first
      * occurrence where kotlinx-serialization would keep the last. Syntax is
      * left alone: text that cannot be followed passes through unchanged for
-     * the decoder to reject.
+     * the decoder to reject. [ConfigParser] also needs the repeated inline
+     * keys the same reading finds, and reads through [JsonStructure] itself.
      */
     public fun prepare(jsonc: String): String = JsonStructure.firstOccurrencesOnly(stripComments(jsonc))
 

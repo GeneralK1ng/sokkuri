@@ -61,13 +61,16 @@ public class ConfigParser public constructor(
 ) {
 
     public fun parse(configJson: String): Converter {
-        val document = decode(configJson)
-        val segmentation: Segmentation? = document.segmentation?.let(::buildSegmentation)
-        val chain: ConversionChain = buildChain(document.conversionChain)
+        val reading = JsonStructure.readAsUpstream(JsonSupport.stripComments(configJson))
+        val document = decode(reading.json)
+        val repeats = reading.repeatedInlineKeys
+        val segmentation: Segmentation? = document.segmentation?.let { buildSegmentation(it, repeats) }
+        val chain: ConversionChain = buildChain(document.conversionChain, DictPath.CONVERSION_CHAIN, repeats)
         val main = Converter.SingleStage(segmentation, chain)
         val normalization: Converter? = document.normalization
             .takeIf { it.isNotEmpty() }
-            ?.let { Converter.SingleStage(segmentation = null, chain = buildChain(it)) }
+            ?.let { buildChain(it, DictPath.NORMALIZATION, repeats) }
+            ?.let { Converter.SingleStage(segmentation = null, chain = it) }
         return if (normalization != null) {
             Converter.Normalizing(normalization, main)
         } else {
@@ -75,10 +78,10 @@ public class ConfigParser public constructor(
         }
     }
 
-    private fun decode(configJson: String): ConfigDocument {
-        val cleaned = JsonSupport.prepare(configJson)
+    /** Decodes a config text already prepared as upstream reads it (comments out, first occurrences only). */
+    private fun decode(prepared: String): ConfigDocument {
         return try {
-            JsonSupport.opencc.decodeFromString<ConfigDocument>(cleaned)
+            JsonSupport.opencc.decodeFromString<ConfigDocument>(prepared)
         } catch (e: SerializationException) {
             throw SokkuriException.InvalidConfig(e.message ?: "malformed JSON")
         } catch (e: IllegalArgumentException) {
@@ -86,28 +89,44 @@ public class ConfigParser public constructor(
         }
     }
 
-    private fun buildSegmentation(document: SegmentationDocument): Segmentation {
+    /*
+     * `repeats` maps inline dictionaries, by DictPath, to a key their entries
+     * list twice (JsonStructure.readAsUpstream); the builders pass each
+     * dictionary's path down so buildInline can reject exactly the ones
+     * upstream would load.
+     */
+
+    private fun buildSegmentation(document: SegmentationDocument, repeats: Map<String, String>): Segmentation {
         if (document.type != "mmseg") {
             throw SokkuriException.Unsupported("segmentation type '${document.type}'")
         }
         val dictDocument = document.dict
             ?: throw SokkuriException.InvalidConfig("mmseg segmentation requires a dict")
         // OpenCC loads segmentation dictionaries with tofu-risk included.
-        val dict = buildDict(dictDocument, includeTofu = true)
+        val dict = buildDict(dictDocument, includeTofu = true, DictPath.SEGMENTATION, repeats)
             ?: throw SokkuriException.InvalidConfig("mmseg segmentation dictionary unavailable")
         return MaxMatchSegmentation(dict)
     }
 
-    private fun buildChain(specs: List<ConversionDocument>): ConversionChain {
-        val conversions = specs.mapNotNull { spec ->
-            buildDict(spec.dict, includeTofu = includeTofuRiskDictionaries)?.let(::Conversion)
+    private fun buildChain(
+        specs: List<ConversionDocument>,
+        list: String,
+        repeats: Map<String, String>,
+    ): ConversionChain {
+        val conversions = specs.mapIndexedNotNull { index, spec ->
+            buildDict(spec.dict, includeTofuRiskDictionaries, DictPath.stage(list, index), repeats)?.let(::Conversion)
         }
         return ConversionChain(conversions)
     }
 
-    private fun buildDict(document: DictDocument, includeTofu: Boolean): Dictionary? {
+    private fun buildDict(
+        document: DictDocument,
+        includeTofu: Boolean,
+        path: String,
+        repeats: Map<String, String>,
+    ): Dictionary? {
         return when (document) {
-            is DictDocument.Inline -> buildInline(document)
+            is DictDocument.Inline -> buildInline(document, repeats[path])
             is DictDocument.Text -> openFileBacked("text", document.file, document.mayOutputTofu, includeTofu)
             is DictDocument.Ocd -> openFileBacked("ocd", document.file, document.mayOutputTofu, includeTofu)
             is DictDocument.Ocd2 -> openFileBacked("ocd2", document.file, document.mayOutputTofu, includeTofu)
@@ -117,7 +136,9 @@ public class ConfigParser public constructor(
                 // OpenCC resolves the match policy before filtering children:
                 // an unknown policy is an error even for empty groups.
                 val policy = parsePolicy(document.matchPolicy)
-                val children = document.dicts.mapNotNull { buildDict(it, includeTofu) }
+                val children = document.dicts.mapIndexedNotNull { index, child ->
+                    buildDict(child, includeTofu, DictPath.groupMember(path, index), repeats)
+                }
                 if (children.isEmpty()) null else DictGroup(children, policy)
             }
         }
@@ -128,13 +149,19 @@ public class ConfigParser public constructor(
         return dictionaries.open(type, file)
     }
 
-    private fun buildInline(document: DictDocument.Inline): Dictionary {
+    /** [repeatedKey]: a key the dictionary's entries list more than once in the text, if any. */
+    private fun buildInline(document: DictDocument.Inline, repeatedKey: String?): Dictionary {
         // Presence, not value: upstream rejects on HasMember alone, so an
         // explicit `may_output_tofu: false` is an error there too.
         if (document.mayOutputTofu != null) {
             throw SokkuriException.InvalidFormat(
                 "inline dictionary does not support may_output_tofu",
             )
+        }
+        // Decoding keeps only the first occurrence, so the repeat is reported
+        // by the structural reading; upstream's LoadInlineDict rejects it.
+        if (repeatedKey != null) {
+            throw SokkuriException.InvalidConfig("inline dictionary contains duplicate key: $repeatedKey")
         }
         val pairs = document.entries.entries.map { (key, value) ->
             if (key.isEmpty() || value.isEmpty()) {

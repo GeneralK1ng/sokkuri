@@ -63,14 +63,29 @@ internal object JsonStructure {
     }
 
     /**
-     * [json] with every repeated member removed except the first occurrence
-     * in each object, recursively: the document upstream effectively reads.
-     * Unchanged when there is nothing to remove or the text cannot be read.
+     * What upstream reads from [json]:
+     * - [json] is the text with every repeated member removed except the
+     *   first occurrence in each object, recursively;
+     * - [repeatedInlineKeys] maps the [DictPath] of each inline dictionary
+     *   upstream's `ParseDict` could reach to the first key its `entries`
+     *   list more than once, which upstream rejects when it loads that
+     *   dictionary. Whether it is loaded at all (tofu filtering) is the
+     *   parser's call, so the repeats are reported, not thrown.
      */
-    fun firstOccurrencesOnly(json: String): String {
-        val root = read(json) ?: return json
+    class Reading(val json: String, val repeatedInlineKeys: Map<String, String>)
+
+    /** Reads [json] as upstream does; unchanged and with no repeats when the text cannot be followed. */
+    fun readAsUpstream(json: String): Reading {
+        val root = read(json) ?: return Reading(json, emptyMap())
         val removals = ArrayList<IntRange>()
         collectRepeats(root, removals)
+        return Reading(withoutRanges(json, removals), repeatedInlineKeys(root))
+    }
+
+    /** [json] with every repeated member removed except the first occurrence: the document upstream reads. */
+    fun firstOccurrencesOnly(json: String): String = readAsUpstream(json).json
+
+    private fun withoutRanges(json: String, removals: List<IntRange>): String {
         if (removals.isEmpty()) return json
         val out = StringBuilder(json.length)
         var copied = 0
@@ -80,6 +95,34 @@ internal object JsonStructure {
         }
         out.append(json, copied, json.length)
         return out.toString()
+    }
+
+    /**
+     * Follows the dictionaries upstream's `ParseDict` reaches, by first
+     * occurrence, as [DictPath] names them: the segmentation dictionary, each
+     * object member of the two conversion lists, and group members.
+     */
+    private fun repeatedInlineKeys(root: Node): Map<String, String> {
+        val document = root as? ObjectNode ?: return emptyMap()
+        val repeats = LinkedHashMap<String, String>()
+        fun visit(node: Node?, path: String) {
+            val dict = node as? ObjectNode ?: return
+            when ((dict.first("type") as? TextNode)?.value) {
+                "inline" -> {
+                    val entries = dict.first("entries") as? ObjectNode ?: return
+                    val seen = HashSet<String>()
+                    entries.members.firstOrNull { !seen.add(it.key) }?.let { repeats[path] = it.key }
+                }
+                "group" -> (dict.first("dicts") as? ArrayNode)?.items
+                    ?.forEachIndexed { index, member -> visit(member, DictPath.groupMember(path, index)) }
+            }
+        }
+        (document.first("segmentation") as? ObjectNode)?.let { visit(it.first("dict"), DictPath.SEGMENTATION) }
+        for (list in listOf(DictPath.CONVERSION_CHAIN, DictPath.NORMALIZATION)) {
+            val stages = (document.first(list) as? ArrayNode)?.items?.filterIsInstance<ObjectNode>().orEmpty()
+            stages.forEachIndexed { index, stage -> visit(stage.first("dict"), DictPath.stage(list, index)) }
+        }
+        return repeats
     }
 
     private fun collectRepeats(node: Node, removals: MutableList<IntRange>) {
@@ -218,4 +261,21 @@ internal object JsonStructure {
             const val SCALAR_ENDS = ",]}:"
         }
     }
+}
+
+/**
+ * Names a dictionary by where it sits in a config, the same way for the
+ * structural reading ([JsonStructure.readAsUpstream]) and the parser, so the
+ * two agree on which inline dictionary a repeat belongs to. Indices in the
+ * conversion lists count object members only, matching the decoded lists,
+ * which skip the rest.
+ */
+internal object DictPath {
+    const val SEGMENTATION = "segmentation.dict"
+    const val CONVERSION_CHAIN = "conversion_chain"
+    const val NORMALIZATION = "normalization"
+
+    fun stage(list: String, index: Int): String = "$list[$index].dict"
+
+    fun groupMember(group: String, index: Int): String = "$group.dicts[$index]"
 }
