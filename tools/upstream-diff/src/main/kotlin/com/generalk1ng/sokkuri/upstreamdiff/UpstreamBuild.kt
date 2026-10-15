@@ -25,7 +25,8 @@ import java.io.File
  * The clone is the behavioral spec (see the project documentation), so the
  * oracle is a build of exactly that revision rather than a released binary.
  * Building it is the caller's cost to pay once; the result is cached in
- * [buildDir] and reused until [rebuild] is set.
+ * [buildDir] and reused while the clone stays at the commit it was built
+ * from, or until [rebuild] is set.
  */
 internal class UpstreamBuild(
     private val openccDir: File,
@@ -43,18 +44,49 @@ internal class UpstreamBuild(
     /** Where the build writes the compiled `.ocd2` dictionaries. */
     private val dataDir: File get() = File(buildDir, "data")
 
+    /** Records the clone commit the cached build was made from. */
+    private val builtStamp: File get() = File(buildDir, "sokkuri-opencc-commit")
+
     fun prepare() {
         require(openccDir.isDirectory) {
             "OpenCC clone not found at ${openccDir.absolutePath}; " +
                 "run ./gradlew fetchOpencc to check it out at the pinned commit, or pass --opencc-dir"
         }
-        if (rebuild || !File(buildDir, "src/libopencc.a").isFile) {
+        // A build is an oracle only for the commit it was built from: once the
+        // clone moves (a pin bump), the cached one would answer for the old
+        // commit. A build without a stamp predates stamping and counts as moved.
+        val library = File(buildDir, "src/libopencc.a")
+        val commit = cloneCommit()
+        val moved = library.isFile && commit != null &&
+            commit != builtStamp.takeIf { it.isFile }?.readText()?.trim()
+        val rebuildLibrary = rebuild || moved || !library.isFile
+        if (rebuildLibrary) {
+            if (moved && !rebuild) {
+                println("[diff] clone moved to $commit since the cached build; rebuilding")
+            }
             cmakeConfigure()
             cmakeBuild()
         }
-        if (rebuild || !harnessBinary.isFile) {
+        // The harness links the library statically, so it follows every rebuild.
+        if (rebuildLibrary || !harnessBinary.isFile) {
             compileHarness()
         }
+        commit?.let { builtStamp.writeText("$it\n") }
+    }
+
+    /**
+     * The commit the clone has checked out, or null when it is not a git
+     * repository of its own; git run in a plain folder would answer for
+     * whatever work tree encloses it. Without a commit the build is reused
+     * until [rebuild], as before stamping.
+     */
+    private fun cloneCommit(): String? {
+        if (!File(openccDir, ".git").exists()) return null
+        val process = ProcessBuilder("git", "-C", openccDir.absolutePath, "rev-parse", "HEAD")
+            .redirectError(ProcessBuilder.Redirect.DISCARD)
+            .start()
+        val output = process.inputStream.bufferedReader().readText().trim()
+        return output.takeIf { process.waitFor() == 0 }
     }
 
     /**

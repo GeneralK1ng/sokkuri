@@ -139,7 +139,8 @@ Usage: upstream-diff [options]
 
   --opencc-dir <dir>        OpenCC clone root (default: <cwd>/OpenCC)
   --opencc-build-dir <dir>  cmake build of the clone (default: <cwd>/build/upstream-opencc);
-                            configured and built on first run
+                            configured and built on first run and whenever
+                            the clone has moved to another commit
   --inputs <n>              random inputs to generate (default: 20000)
   --seed <n>                random seed (default: 20261006)
   --corpus <file>           extra inputs, one per line
