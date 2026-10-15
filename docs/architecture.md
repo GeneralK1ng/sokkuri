@@ -265,6 +265,7 @@ inline 词典的 `may_output_tofu` 曾按值判定而非按字段存在判定，
 | D10 | 资源缺失诊断下沉到 loader：`missingResourceHint()` 组合进 `FileNotFound.detail` | 已实现       |
 | D11 | 未知或缺失 `dict.type` 统一由 `JsonSupport` 的模块级默认反序列化器拒绝，见 I10           | 已实现       |
 | D12 | `Sokkuri.fromConfig` 接受用户自带 OpenCC 配置                              | 架构预留（扩展手册 #13） |
+| D13 | 持续集成分层：构建门禁、上游对齐、发布前置对齐、上游观察                            | 规划（10.2） |
 
 ## 10. 测试与对齐策略
 
@@ -288,3 +289,34 @@ inline 词典的 `may_output_tofu` 曾按值判定而非按字段存在判定，
 执行比对有一个本质边界：上游的转换入口收 UTF-8，而 Sokkuri 收 `CharArray`。持有孤立代理项的 Kotlin 字符串没有对应的 UTF-8 形式，上游会在那里抛 `InvalidUTF8`，因此这类输入两侧不可比，由 Sokkuri 自身的模糊测试覆盖。尚未纳入比对的还有 `inspect()` 的结构，以及缺资源、畸形配置、未知 `dict.type` 等错误路径。
 
 该工具不挂入 `check`，因为它需要 C++ 工具链与克隆的 cmake 构建，日常构建不应有此前提。
+
+### 10.2 持续集成
+
+**状态：规划，尚未实现。** 目前仓库只有 tag 触发的 `release.yml`，日常 push 不运行任何检查；10.1 的第一层执行比对与 `:tools:dictgen:checkDictionaries` 只能手动执行，漏跑一次，偏离就可能随版本发布。本节是落地方案，实现后翻转第 9 章 D13 的状态。
+
+设计原则：
+
+- **日常门禁即发布门禁**：日常门禁与 `release.yml` 执行同一条 `./gradlew build`，主干为绿即具备发布条件，不另设第二套标准。ABI 校验 `checkKotlinAbi` 已挂入 `check`，随之生效。
+- **对齐结论可复现**：对齐检查只针对 `sokkuri-runtime/src/commonTest/resources/testcases/UPSTREAM` 钉住的上游提交，同一提交的结论可以复现；跟踪上游最新提交另设观察任务，失败只发出提示，不阻断任何流程。
+- **跳过不冒充通过**：依赖克隆的验收测试在缺少 `OPENCC_DIR` 时报告为 skipped，日常门禁中它们必然 skipped；对齐层必须设置 `OPENCC_DIR`，让它们真正执行。
+- **环境只定义一次**：JDK 21、Gradle 与 Android SDK 的安装步骤抽成一个 composite action，供全部工作流共用，包括 API 37 须从 canary 通道安装的处理，避免各工作流各自漂移。
+
+| 层         | 工作流                  | 触发                               | 内容                                                                                                                                              | 失败的含义                         |
+|------------|-------------------------|------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
+| 1 构建门禁 | `ci.yml`                | push 到 `main`、所有 PR            | `./gradlew build`：JVM、Android host 与 iOS 模拟器三端测试，tools 单测，ABI 校验                                                                    | 阻断合并                           |
+| 2 上游对齐 | `upstream.yml`          | 每周定时、手动触发、由发布流程调用 | 按 `UPSTREAM` 克隆 OpenCC；`checkDictionaries`；带 `OPENCC_DIR` 运行 `:sokkuri-runtime:jvmTest` 与 `:tools:dictgen:test`；`upstream-diff` 两种 tofu 口径各跑一次 | 阻断发布                           |
+| 3 发布     | `release.yml`（已有）   | 推送 `v*` tag                      | 先调用第 2 层，通过后执行现有的 `build` 与 `publishToMavenCentral`                                                                                    | 不上传                             |
+| 观察       | `upstream.yml` 的 head 任务 | 每周定时                       | 以上游默认分支的最新提交演练一次推进锁定：重新生成词典、换入新的 golden 语料，再跑 `:sokkuri-runtime:jvmTest` 与第 2 层的检查                          | 只提示上游已变化，需评估是否推进锁定 |
+
+全部工作流使用 macos-latest：iOS 模拟器测试只能在 macOS 上运行，统一 runner 也让环境只需维护一份；第 2 层所需的 cmake、clang++ 与 python3 在该镜像中预装。
+
+实现要点：
+
+- 第 2 层的两个测试任务必须加 `--rerun`：环境变量不是任务输入，构建缓存可能直接复用缺少克隆时的 skipped 结果。
+- `upstream-diff` 的两种口径写成两个独立步骤：Gradle 拒绝空的 `--args`，不能靠传空参数复用同一步骤。
+- 缓存 Gradle（`gradle/actions/setup-gradle` 自带）与 Kotlin/Native 工具链目录 `~/.konan`（以 Kotlin 版本为键）。OpenCC 的 cmake 构建不必缓存：本机（18 核）实测，含 cmake 构建的首次运行 14 秒，之后每种口径约 3 秒，在 runner 上即使慢数倍也只是分钟级。
+- 观察任务的产物只留在 CI 工作区，不提交；推进锁定仍由人工完成：更新 `UPSTREAM`、刷新语料、运行 `:tools:dictgen:run` 后提交。
+- 失败时上传 `**/build/reports/tests/` 作为 artifact；工作流权限收紧为 `contents: read`，发布凭据仍只出现在 `release.yml`。
+- 第 1 层在同一分支有新提交时取消旧的运行；发布流程维持现有的不取消策略。
+
+**届时改动清单**：新增 `.github/actions/setup-build-env`，并让 `release.yml` 改用它；新增 `ci.yml`；新增 `upstream.yml`，同时声明 `schedule`、`workflow_dispatch` 与 `workflow_call`；`release.yml` 增加调用第 2 层的任务，发布任务依赖它；在仓库设置中把第 1 层设为 `main` 的必需检查；翻转 D13 的状态。
