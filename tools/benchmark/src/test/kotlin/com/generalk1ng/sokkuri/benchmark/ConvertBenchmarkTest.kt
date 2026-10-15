@@ -48,23 +48,23 @@ class ConvertBenchmarkTest {
 
     @Test
     fun profileRunEmitsOneStableBenchLinePerSample() {
-        // S2HK carries two samples (medium + hk); iterations forced small
-        // so the assertion stays a smoke test, not a benchmark.
+        // S2HK carries three samples (medium + long + hk); iterations forced
+        // small so the assertion stays a smoke test, not a benchmark.
         val (code, out) = captureStdout {
             ConvertBenchmark.run(listOf("--profile", "s2hk", "--iterations", "30"))
         }
         assertEquals(0, code)
         val lines = out.lines().filter { it.startsWith("[bench]") }
-        assertEquals(2, lines.size)
+        assertEquals(3, lines.size)
         val lineRe =
             Regex(
-                """\[bench] kind=convert profile=s2hk sample=(medium|hk) iterations=30 """ +
+                """\[bench] kind=convert profile=s2hk sample=(medium|long|hk) iterations=30 """ +
                         """medianUs=\d+\.\d{2} p90Us=\d+\.\d{2} minUs=\d+\.\d{2}""",
             )
         for (line in lines) {
             assertTrue(lineRe.matches(line), "line shape drifted: $line")
         }
-        assertEquals(listOf("medium", "hk"), lines.map { it.substringAfter("sample=").substringBefore(" ") })
+        assertEquals(listOf("medium", "long", "hk"), lines.map { it.substringAfter("sample=").substringBefore(" ") })
     }
 
     /** Runs [block] with stdout captured; returns the exit code and output. */

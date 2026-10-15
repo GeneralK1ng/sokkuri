@@ -22,30 +22,31 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * The sample set: `medium` leads every profile's list (it is the
- * cross-profile comparable probe), specials attach only to their tagged
- * profile, and the phrase-stress sample carries its downshifted default
- * iteration count.
+ * The sample set: `medium` leads every profile's list and `long` follows
+ * it (both are cross-profile comparable probes), specials attach only to
+ * their tagged profile, and the phrase-stress and long samples carry their
+ * downshifted default iteration counts.
  */
 class SamplesTest {
 
     @Test
-    fun mediumLeadsEveryProfileAndSpecialsAttachOnlyToTheirTag() {
+    fun mediumAndLongLeadEveryProfileAndSpecialsAttachOnlyToTheirTag() {
         for (profile in SokkuriConfig.entries) {
             val samples = Samples.forProfile(profile)
             assertEquals(Samples.MEDIUM, samples.first(), "medium must lead for ${profile.stem}")
             when (profile) {
-                SokkuriConfig.S2T -> assertEquals(listOf("medium", "short", "phrases"), samples.map { it.id })
-                SokkuriConfig.S2TWP -> assertEquals(listOf("medium", "twp"), samples.map { it.id })
-                SokkuriConfig.S2HK -> assertEquals(listOf("medium", "hk"), samples.map { it.id })
-                else -> assertEquals(listOf("medium"), samples.map { it.id })
+                SokkuriConfig.S2T -> assertEquals(listOf("medium", "long", "short", "phrases"), samples.map { it.id })
+                SokkuriConfig.S2TWP -> assertEquals(listOf("medium", "long", "twp"), samples.map { it.id })
+                SokkuriConfig.S2HK -> assertEquals(listOf("medium", "long", "hk"), samples.map { it.id })
+                else -> assertEquals(listOf("medium", "long"), samples.map { it.id })
             }
         }
     }
 
     @Test
-    fun phraseStressSampleIsDownshiftedAndEverythingElseUsesTheDefault() {
+    fun phraseStressAndLongSamplesAreDownshiftedAndEverythingElseUsesTheDefault() {
         assertEquals(Sample.PHRASE_ITERATIONS, Samples.PHRASES.defaultIterations)
+        assertEquals(Sample.LONG_ITERATIONS, Samples.LONG.defaultIterations)
         assertEquals(Sample.DEFAULT_ITERATIONS, Samples.MEDIUM.defaultIterations)
     }
 
