@@ -17,7 +17,6 @@
 package com.generalk1ng.sokkuri.upstreamdiff
 
 import java.io.File
-import java.security.MessageDigest
 
 /**
  * Builds the OpenCC reference clone and the harness that drives it, and
@@ -45,11 +44,11 @@ internal class UpstreamBuild(
     /** Where the build writes the compiled `.ocd2` dictionaries. */
     private val dataDir: File get() = File(buildDir, "data")
 
-    /** Records the clone commit the cached build was made from. */
-    private val builtStamp: File get() = File(buildDir, "sokkuri-opencc-commit")
+    /** The clone commit the cached build was made from. */
+    private val builtStamp: Stamp get() = Stamp(File(buildDir, "sokkuri-opencc-commit"))
 
-    /** Records the SHA-256 of the harness source the cached binary was compiled from. */
-    private val harnessStamp: File get() = File(workDir, "opencc_harness.sha256")
+    /** The SHA-256 of the harness source the cached binary was compiled from. */
+    private val harnessStamp: Stamp get() = Stamp(File(workDir, "opencc_harness.sha256"))
 
     /** Builds whatever is missing or stale, then returns the harness over this build. */
     fun prepare(): UpstreamHarness {
@@ -61,13 +60,12 @@ internal class UpstreamBuild(
         // clone moves (a pin bump), the cached one would answer for the old
         // commit. A build without a stamp predates stamping and counts as moved.
         val library = File(buildDir, "src/libopencc.a")
-        val commit = cloneCommit()
-        val moved = library.isFile && commit != null &&
-            commit != builtStamp.takeIf { it.isFile }?.readText()?.trim()
+        val commit = cloneCommit(openccDir)
+        val moved = library.isFile && commit != null && !builtStamp.matches(commit)
         val rebuildLibrary = rebuild || moved || !library.isFile
         if (rebuildLibrary) {
             if (moved && !rebuild) {
-                println("[diff] clone moved to $commit since the cached build; rebuilding")
+                println("[upstream] clone moved to $commit since the cached build; rebuilding")
             }
             cmakeConfigure()
             cmakeBuild()
@@ -77,46 +75,32 @@ internal class UpstreamBuild(
         // since a stale binary would speak an older line protocol.
         val harnessSource = resourceBytes(HARNESS_SOURCE)
         val sourceDigest = sha256(harnessSource)
-        val harnessStale = harnessStamp.takeIf { it.isFile }?.readText()?.trim() != sourceDigest
-        if (rebuildLibrary || harnessStale || !harnessBinary.isFile) {
+        if (rebuildLibrary || !harnessStamp.matches(sourceDigest) || !harnessBinary.isFile) {
             compileHarness(harnessSource)
-            harnessStamp.writeText("$sourceDigest\n")
+            harnessStamp.record(sourceDigest)
         }
-        commit?.let { builtStamp.writeText("$it\n") }
+        commit?.let(builtStamp::record)
         return UpstreamHarness(harnessBinary, configDir, dataDir)
-    }
-
-    /**
-     * The commit the clone has checked out, or null when it is not a git
-     * repository of its own; git run in a plain folder would answer for
-     * whatever work tree encloses it. Without a commit the build is reused
-     * until [rebuild], as before stamping.
-     */
-    private fun cloneCommit(): String? {
-        if (!File(openccDir, ".git").exists()) return null
-        val process = ProcessBuilder("git", "-C", openccDir.absolutePath, "rev-parse", "HEAD")
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-        val output = process.inputStream.bufferedReader().readText().trim()
-        return output.takeIf { process.waitFor() == 0 }
     }
 
     private fun cmakeConfigure() {
         buildDir.mkdirs()
-        run(
-            "cmake",
-            "-S", openccDir.absolutePath,
-            "-B", buildDir.absolutePath,
-            "-DCMAKE_BUILD_TYPE=Release",
-            // Static: the harness links the archive directly, which keeps the
-            // oracle independent of any installed libopencc.
-            "-DBUILD_SHARED_LIBS=OFF",
+        runCommand(
+            listOf(
+                "cmake",
+                "-S", openccDir.absolutePath,
+                "-B", buildDir.absolutePath,
+                "-DCMAKE_BUILD_TYPE=Release",
+                // Static: the harness links the archive directly, which keeps the
+                // oracle independent of any installed libopencc.
+                "-DBUILD_SHARED_LIBS=OFF",
+            ),
         )
     }
 
     private fun cmakeBuild() {
         val jobs = Runtime.getRuntime().availableProcessors().toString()
-        run("cmake", "--build", buildDir.absolutePath, "-j", jobs)
+        runCommand(listOf("cmake", "--build", buildDir.absolutePath, "-j", jobs))
     }
 
     private fun compileHarness(harnessSource: ByteArray) {
@@ -133,50 +117,18 @@ internal class UpstreamBuild(
                 source.absolutePath,
                 File(buildDir, "src/libopencc.a").absolutePath,
             )
-            marisaArchive()?.let(command::add)
+            marisaArchive(buildDir)?.let { command += it.absolutePath }
             command += listOf("-o", harnessBinary.absolutePath)
-            run(*command.toTypedArray())
+            runCommand(command)
         } finally {
             source.delete()
         }
     }
 
-    private fun resourceBytes(name: String): ByteArray =
-        checkNotNull(javaClass.getResourceAsStream(name)) { "missing resource $name" }.use { it.readBytes() }
-
-    private fun sha256(bytes: ByteArray): String =
-        MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
-
-    /** The bundled marisa archive, whose location follows the vendor version. */
-    private fun marisaArchive(): String? =
-        File(buildDir, "deps")
-            .walkTopDown()
-            .firstOrNull { it.isFile && it.name == "libmarisa.a" }
-            ?.absolutePath
-
     private fun compiler(): String {
         val candidates = listOfNotNull(System.getenv("CXX"), "clang++", "g++")
-        return candidates.firstOrNull { executable(it) }
+        return candidates.firstOrNull { succeeds(listOf(it, "--version")) }
             ?: error("no C++ compiler found; set CXX or install clang++/g++")
-    }
-
-    private fun executable(name: String): Boolean = try {
-        ProcessBuilder(name, "--version")
-            .redirectOutput(ProcessBuilder.Redirect.DISCARD)
-            .redirectError(ProcessBuilder.Redirect.DISCARD)
-            .start()
-            .waitFor() == 0
-    } catch (_: Exception) {
-        false
-    }
-
-    private fun run(vararg command: String) {
-        val process = ProcessBuilder(*command)
-            .redirectOutput(ProcessBuilder.Redirect.INHERIT)
-            .redirectError(ProcessBuilder.Redirect.INHERIT)
-            .start()
-        val exit = process.waitFor()
-        check(exit == 0) { "command failed with exit $exit: ${command.joinToString(" ")}" }
     }
 
     private companion object {
