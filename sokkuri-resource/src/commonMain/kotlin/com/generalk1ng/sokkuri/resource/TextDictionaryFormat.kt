@@ -29,7 +29,8 @@ import com.generalk1ng.sokkuri.engine.SortedListDictionary
  * - an optional UTF-8 BOM is skipped;
  * - `#` lines and blank lines are ignored;
  * - each entry is `key<TAB>candidate[ candidate...]` — the first candidate
- *   is the default output;
+ *   is the default output; every space separates two candidates, so runs of
+ *   spaces yield empty candidates, as upstream's `ParseKeyValues` does;
  * - keys must be unique; unsorted input is sorted by code-point order.
  *
  * Retained as the `text` config type (useful for user-supplied dictionaries)
@@ -59,10 +60,11 @@ public object TextDictionaryFormat : DictionaryFormat {
             if (key.isEmpty()) {
                 throw SokkuriException.InvalidFormat("line $lineNumber: empty key")
             }
-            val candidates = line.substring(tab + 1).split(' ').filter { it.isNotEmpty() }
-            if (candidates.isEmpty()) {
-                throw SokkuriException.InvalidFormat("line $lineNumber: entry '$key' has no values")
-            }
+            // Every space separates two candidates, as in upstream's
+            // ParseKeyValues: a space right after the tab makes the empty
+            // string the default, and nothing after the tab maps the key to
+            // the empty string.
+            val candidates = line.substring(tab + 1).split(' ')
             pairs.add(key to candidates)
         }
 

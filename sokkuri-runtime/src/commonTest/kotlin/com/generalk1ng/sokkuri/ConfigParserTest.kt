@@ -411,6 +411,20 @@ class ConfigParserTest {
     }
 
     @Test
+    fun emptyCandidatesFromSpacesAreKeptLikeUpstream() {
+        // ParseKeyValues splits on every space: a space after the tab makes
+        // the empty string the default, and nothing after the tab maps the
+        // key to the empty string; a space after a candidate only appends an
+        // empty alternative.
+        val config = """{"conversion_chain": [{"dict": {"type": "text", "file": "d.txt"}}]}"""
+        fun convert(dictionary: String) = parse(config, files = mapOf("d.txt" to dictionary)).convert("干燥")
+        assertEquals("燥", convert("干\t 乾\n"))
+        assertEquals("燥", convert("干\t\n"))
+        assertEquals("乾燥", convert("干\t乾  幹\n"))
+        assertEquals("乾燥", convert("干\t乾 \n"))
+    }
+
+    @Test
     fun textDictionaryMultiCandidatesUseFirst() {
         val dictionary: Dictionary = TextDictionaryFormat.decode("干\t幹 干 乾\n".encodeToByteArray())
         assertEquals(listOf("幹", "干", "乾"), dictionary.matchExact("干")!!.candidates)

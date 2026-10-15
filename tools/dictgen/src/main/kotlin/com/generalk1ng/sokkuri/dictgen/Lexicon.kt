@@ -37,10 +37,12 @@ internal data class ParsedLexicon internal constructor(
 /**
  * Parses the OpenCC text dictionary line format (`key<TAB>v1 v2`), with the
  * `common.BaseDict.iter` semantics of OpenCC's data scripts: `#` comment
- * lines and blank lines are skipped; values are separated by single spaces
- * (empty fragments from runs of spaces are dropped, matching the runtime
- * `TextDictionaryFormat`). Errors name [fileName] and the 1-based line
- * number.
+ * lines and blank lines are skipped; values are separated by single spaces,
+ * and the empty fragments runs of spaces leave are dropped. The C++ core's
+ * text dictionaries, which the runtime `TextDictionaryFormat` follows, keep
+ * those fragments as empty candidates instead; no upstream data file has
+ * one, so the two readings agree on every dictionary dictgen compiles.
+ * Errors name [fileName] and the 1-based line number.
  */
 internal fun parseLexicon(text: String, fileName: String): ParsedLexicon {
     val entries = ArrayList<LexiconEntry>()
