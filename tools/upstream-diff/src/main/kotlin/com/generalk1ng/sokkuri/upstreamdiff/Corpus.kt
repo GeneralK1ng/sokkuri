@@ -161,10 +161,3 @@ internal object Corpus {
         return Regex(",(\\s*[}\\]])").replace(withoutComments.toString()) { it.groupValues[1] }
     }
 }
-
-/** The profile stems both sides are run over, in a stable order. */
-internal val PROFILE_STEMS: List<String> =
-    listOf(
-        "s2t", "t2s", "s2tw", "s2twp", "tw2s", "tw2sp", "t2tw", "tw2t",
-        "s2hk", "s2hkp", "hk2s", "hk2sp", "t2hk", "hk2t", "jp2t", "t2jp",
-    )

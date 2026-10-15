@@ -55,9 +55,10 @@ internal fun main(args: Array<String>) {
 
     var comparisons = 0
     var mismatches = 0
-    for (stem in PROFILE_STEMS) {
-        val config = SokkuriConfig.fromStem(stem)
-            ?: error("no SokkuriConfig for the upstream stem '$stem'")
+    // Every ported profile, in the enum's stable order: a profile added to
+    // SokkuriConfig is diffed without anyone having to list it here.
+    for (config in SokkuriConfig.entries) {
+        val stem = config.stem
         val converter = Sokkuri.create(
             config,
             SokkuriOptions { includeTofuRiskDictionaries = options.includeTofu },
