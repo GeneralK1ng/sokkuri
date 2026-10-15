@@ -107,25 +107,50 @@ public class DictGroup public constructor(
      * cannot enumerate its set; [mayStartKey] then asks the children.
      * Read into a local once per call, as the `lazy` delegate's field is
      * volatile.
+     *
+     * Only a group whose [mayStartKey] is queried keeps a set: one that is
+     * merely a child, such as s2t's nested union, merges afresh for its
+     * parent in [firstCodePoints] and retains nothing. Each converter owns
+     * its groups, so a kept set costs every converter instance: s2t keeps
+     * one set of 6,204 code points, about 24 KiB.
      */
     private val firstCodePointSet: IntArray? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        val sets = ArrayList<IntArray>(children.size)
-        for (child in children) sets += child.firstCodePoints() ?: return@lazy null
-        val merged = IntArray(sets.sumOf { it.size })
-        var size = 0
-        for (set in sets) {
-            set.copyInto(merged, size)
-            size += set.size
-        }
-        merged.sort()
-        var distinct = 0
-        for (index in merged.indices) {
-            if (distinct == 0 || merged[distinct - 1] != merged[index]) merged[distinct++] = merged[index]
-        }
-        merged.copyOf(distinct)
+        mergeFirstCodePoints()
     }
 
-    override fun firstCodePoints(): IntArray? = firstCodePointSet?.copyOf()
+    override fun firstCodePoints(): IntArray? = mergeFirstCodePoints()
+
+    /**
+     * Merges the children's sets, each ascending and distinct by the
+     * [Dictionary.firstCodePoints] contract, pairwise in linear time:
+     * merging runs on a converter's first conversion, where a sort was
+     * measurable in a fresh JVM.
+     */
+    private fun mergeFirstCodePoints(): IntArray? {
+        var merged = IntArray(0)
+        for (child in children) {
+            val set = child.firstCodePoints() ?: return null
+            merged = mergeAscending(merged, set)
+        }
+        return merged
+    }
+
+    private fun mergeAscending(a: IntArray, b: IntArray): IntArray {
+        val out = IntArray(a.size + b.size)
+        var i = 0
+        var j = 0
+        var size = 0
+        while (i < a.size && j < b.size) {
+            val x = a[i]
+            val y = b[j]
+            out[size++] = if (x <= y) x else y
+            if (x <= y) i++
+            if (y <= x) j++
+        }
+        while (i < a.size) out[size++] = a[i++]
+        while (j < b.size) out[size++] = b[j++]
+        return if (size == out.size) out else out.copyOf(size)
+    }
 
     override fun mayStartKey(codePoint: Int): Boolean {
         val codePoints = firstCodePointSet ?: return children.any { it.mayStartKey(codePoint) }
