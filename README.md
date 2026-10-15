@@ -9,7 +9,7 @@ Sokkuri 是 [OpenCC](https://github.com/BYVoid/OpenCC) 的 Kotlin Multiplatform 
 - **纯 Kotlin 实现，无原生依赖。** OpenCC 官方提供 C++ 核心、C 接口、命令行工具，以及 Python 与 Node.js 绑定，社区另有 Java、Go、WebAssembly、Swift 等移植。Sokkuri 让 JVM、Android 与 iOS 共享同一套 Kotlin 实现与词典数据，不经过 JNI，行为跨端一致。
 - **`.sok` 零拷贝词典格式。** 16 档词典合计约 1.7 MiB，驻留内存约等于文件原始大小；检索直接以字节区段比对输入，按码点逐级二分收窄候选范围，命中值写入输出缓冲，全程不产生中间字符串。s2t 实测约 3.1 µs/op，长文本每秒约 1150 万字；简转繁各档较组内线性扫描的实现快 2.8 至 7.2 倍，iOS 端快 2.1 至 4.1 倍；各级转换的固定开销削减后，繁转简与地区变体各档再快 1.4 至 2.5 倍，iOS 端 1.35 至 3.2 倍。
 - **`inspect()` 分级检查。** 除最终字符串外，同时返回分词结果与转换链各级的分段输出，可用于高亮、diff 与转换过程分析。上游只在 C++ API 与原生命令行中提供这一能力，C 接口与 Python、Node 绑定只返回最终结果；Sokkuri 在三端以库 API 提供，结构与上游的 `Converter::Inspect` 逐条比对一致。
-- **与上游逐条对齐。** 除移植 OpenCC `testcases.json` 全部 568 条期望并在 JVM、Android 宿主与 iOS 模拟器三端运行外，另以 OpenCC 参考实现的构建为预言机做逐条执行比对，16 档各 18932 条输入在两种 tofu 口径下，转换结果与 inspect 结构均无差异；另以 73 份配置文档比对两侧的接受、拒绝与转换结果。默认选项下仅 3 条期望与上游不同，均由 tofu 风险词典引起，已逐条登记；开启 `includeTofuRiskDictionaries` 即可完全对齐。
+- **与上游逐条对齐。** 除移植 OpenCC `testcases.json` 全部 568 条期望并在 JVM、Android 宿主与 iOS 模拟器三端运行外，另以 OpenCC 参考实现的构建为预言机做逐条执行比对，16 档各 18932 条输入在两种 tofu 口径下，转换结果与 inspect 结构均无差异；另以 75 份配置文档比对两侧的接受、拒绝与转换结果。默认选项下仅 3 条期望与上游不同，均由 tofu 风险词典引起，已逐条登记；开启 `includeTofuRiskDictionaries` 即可完全对齐。
 - **16 种转换配置**，含上游较新的香港词汇档 `s2hkp` 与 `hk2sp`。
 
 ## 安装
