@@ -79,11 +79,6 @@ class Utf8Test {
                         Utf8.compareRegionToWindow(bytes, 0, bytes.size, otherChars, 0, truncatedEnd),
                         "compareRegionToWindow(region=$region, window=${other.substring(0, truncatedEnd)})",
                     )
-                    assertEquals(
-                        Utf.startsWithAt(otherChars, 0, truncatedEnd, region),
-                        Utf8.startsWithRegionAt(bytes, 0, bytes.size, otherChars, 0, truncatedEnd),
-                        "startsWithRegionAt(region=$region, window=${other.substring(0, truncatedEnd)})",
-                    )
                 }
             }
         }
@@ -111,11 +106,6 @@ class Utf8Test {
                 Utf.compareByCodePoint(region, truncated),
                 Utf8.compareRegionToWindow(bytes, 0, bytes.size, chars, 0, end),
                 "compare(region=$region, window=$truncated)",
-            )
-            assertEquals(
-                Utf.startsWithAt(chars, 0, end, region),
-                Utf8.startsWithRegionAt(bytes, 0, bytes.size, chars, 0, end),
-                "startsWith(region=$region, window=$truncated)",
             )
             val out = StringBuilder()
             Utf8.decodeAppend(bytes, 0, bytes.size, out)
@@ -162,8 +152,8 @@ class Utf8Test {
 
     /**
      * An empty region behaves exactly like the empty string against the
-     * reference functions: prefix of everything, compares by the window's
-     * remaining length, decodes to nothing.
+     * reference functions: compares by the window's remaining length,
+     * decodes to nothing.
      */
     @Test
     fun emptyRegionMatchesEmptyStringSemantics() {
@@ -172,7 +162,6 @@ class Utf8Test {
 
         assertEquals(0, Utf8.compareRegionToWindow(empty, 0, 0, chars, 0, 0))
         assertTrue(Utf8.compareRegionToWindow(empty, 0, 0, chars, 0, 2) < 0)
-        assertTrue(Utf8.startsWithRegionAt(empty, 0, 0, chars, 1, 2))
         assertEquals(0, Utf8.utf16LengthOf(empty, 0, 0))
         val out = StringBuilder("x")
         Utf8.decodeAppend(empty, 0, 0, out)

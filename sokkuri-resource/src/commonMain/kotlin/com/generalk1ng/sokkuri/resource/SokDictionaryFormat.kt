@@ -62,7 +62,7 @@ public class SokDictionary internal constructor(
     /**
      * [SortedKeyTable] over this dictionary's byte blobs: probes read the
      * offset table and compare raw UTF-8 regions against input windows
-     * ([Utf8]), so the binary-search and group-scan hot paths decode
+     * ([Utf8]), so the binary-search and narrowing hot paths decode
      * nothing — probe elimination. No decoded-key
      * caching anywhere (zero-copy invariant): every access recomputes from
      * the immutable `bytes`, keeping the dictionary thread-safe (I3) at
@@ -77,11 +77,6 @@ public class SokDictionary internal constructor(
         override fun keyFirstCodePointAt(index: Int): Int {
             val start = keyStart(index)
             return Utf8.firstCodePointAt(bytes, start, keyEnd(index) - start)
-        }
-
-        override fun keyUtf16LengthAt(index: Int): Int {
-            val start = keyStart(index)
-            return Utf8.utf16LengthOf(bytes, start, keyEnd(index) - start)
         }
 
         override fun keyCodePointAt(index: Int, offset: Int): Int {
@@ -100,11 +95,6 @@ public class SokDictionary internal constructor(
         override fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int {
             val keyOffset = keyStart(index)
             return Utf8.compareRegionToWindow(bytes, keyOffset, keyEnd(index) - keyOffset, text, start, end)
-        }
-
-        override fun keyPrefixesWindowAt(index: Int, text: CharArray, start: Int, end: Int): Boolean {
-            val keyOffset = keyStart(index)
-            return Utf8.startsWithRegionAt(bytes, keyOffset, keyEnd(index) - keyOffset, text, start, end)
         }
 
         override fun defaultValueAt(index: Int): String = this@SokDictionary.defaultValueAt(index)

@@ -177,33 +177,6 @@ public object Utf8 {
     }
 
     /**
-     * Whether the UTF-8 region equals the start of the `text[start, end)`
-     * window, code unit by decoded code unit — the byte-storage form of
-     * [Utf.startsWithAt]. An empty region is a prefix of everything.
-     */
-    public fun startsWithRegionAt(
-        bytes: ByteArray,
-        offset: Int,
-        length: Int,
-        text: CharArray,
-        start: Int,
-        end: Int,
-    ): Boolean {
-        val limit = offset + length
-        var i = offset
-        var j = start
-        while (i < limit) {
-            if (j >= end) return false
-            val windowCodePoint = Utf.codePointAt(text, j, end)
-            val packed = decode(bytes, i, limit)
-            if (decodedCodePoint(packed) != windowCodePoint) return false
-            i += decodedWidth(packed)
-            j += Utf.charCount(windowCodePoint)
-        }
-        return true
-    }
-
-    /**
      * Appends the region's decoding to [out], surrogate pairs emitted as
      * two appended chars. Equivalence for valid UTF-8: the chars appended
      * equal `region.decodeToString()` exactly.

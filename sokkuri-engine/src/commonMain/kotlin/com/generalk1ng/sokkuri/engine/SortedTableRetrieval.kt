@@ -43,9 +43,6 @@ public interface SortedKeyTable {
     /** First code point of the key at [index]. */
     public fun keyFirstCodePointAt(index: Int): Int
 
-    /** UTF-16 code-unit length of the key at [index] (invariant I1). */
-    public fun keyUtf16LengthAt(index: Int): Int
-
     /**
      * Code-point-ordered comparison of the key at [index] against the
      * `text[start, end)` window — [Utf.compareByCodePoint] between the key
@@ -66,9 +63,6 @@ public interface SortedKeyTable {
 
     /** Native units [codePoint] occupies in this table's key encoding. */
     public fun encodedWidth(codePoint: Int): Int
-
-    /** Whether the key at [index] equals the start of the `text[start, end)` window. */
-    public fun keyPrefixesWindowAt(index: Int, text: CharArray, start: Int, end: Int): Boolean
 
     /** Default candidate (first) of the entry at [index]. Materializing by design: only called on an actual match. */
     public fun defaultValueAt(index: Int): String

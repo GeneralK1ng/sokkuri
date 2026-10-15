@@ -205,15 +205,4 @@ public object Utf {
         }
         return (text.length - i) - (end - j)
     }
-
-    /** Whether [text] starts with [prefix] at [start] (code-unit comparison). */
-    public fun startsWithAt(text: CharArray, start: Int, end: Int, prefix: String): Boolean {
-        if (end - start < prefix.length) return false
-        var i = 0
-        while (i < prefix.length) {
-            if (text[start + i] != prefix[i]) return false
-            i += 1
-        }
-        return true
-    }
 }

@@ -110,12 +110,4 @@ class UtfTest {
         assertEquals(0, Utf.compareByCodePoint("⿰x", "⿰x"))
         assertTrue(Utf.compareByCodePoint("ab", "abc") < 0)
     }
-
-    @Test
-    fun startsWithAt_boundsCheck() {
-        val text = "abcdef".toCharArray()
-        assertTrue(Utf.startsWithAt(text, 0, 6, "abc"))
-        assertTrue(!Utf.startsWithAt(text, 4, 6, "abc"))
-        assertTrue(!Utf.startsWithAt(text, 0, 2, "abc"))
-    }
 }

@@ -59,8 +59,6 @@ public class SortedListDictionary private constructor(
 
         override fun keyFirstCodePointAt(index: Int): Int = Utf.codePointAt(entries[index].key, 0)
 
-        override fun keyUtf16LengthAt(index: Int): Int = entries[index].key.length
-
         override fun keyCodePointAt(index: Int, offset: Int): Int {
             val key = entries[index].key
             return if (offset >= key.length) -1 else Utf.codePointAt(key, offset)
@@ -70,9 +68,6 @@ public class SortedListDictionary private constructor(
 
         override fun compareKeyAt(index: Int, text: CharArray, start: Int, end: Int): Int =
             Utf.compareByCodePoint(entries[index].key, text, start, end)
-
-        override fun keyPrefixesWindowAt(index: Int, text: CharArray, start: Int, end: Int): Boolean =
-            Utf.startsWithAt(text, start, end, entries[index].key)
 
         override fun defaultValueAt(index: Int): String = entries[index].candidates.first()
 
