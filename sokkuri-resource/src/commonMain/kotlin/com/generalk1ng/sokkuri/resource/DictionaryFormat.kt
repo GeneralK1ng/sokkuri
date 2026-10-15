@@ -51,7 +51,7 @@ public class UnsupportedDictionaryFormat public constructor(
 }
 
 /** Formats understood by [ResourceDictionaryProvider]. */
-@OptIn(SokkuriInternalApi::class)
+@SokkuriInternalApi
 public val DefaultDictionaryFormats: Map<String, DictionaryFormat> = mapOf(
     TextDictionaryFormat.type to TextDictionaryFormat,
     SokDictionaryFormat.type to SokDictionaryFormat,
