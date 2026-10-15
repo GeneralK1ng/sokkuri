@@ -29,7 +29,7 @@ plugins {
 
 /**
  * Base of the tasks that manage the OpenCC reference clone (docs/architecture.md
- * §10): the gitignored checkout of upstream at [CLONE] that tools:dictgen
+ * §10.3): the gitignored checkout of upstream at [CLONE] that tools:dictgen
  * compiles from and tools:upstream-diff builds its oracle from. It is pinned
  * to the commit on the `Commit:` line of [PIN], the note of the golden corpus
  * copied from that same commit; the pin is the only record of which upstream

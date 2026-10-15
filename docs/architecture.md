@@ -266,13 +266,14 @@ inline 词典的 `may_output_tofu` 曾按值判定而非按字段存在判定，
 | D11 | 未知或缺失 `dict.type` 统一由 `JsonSupport` 的模块级默认反序列化器拒绝，见 I10           | 已实现       |
 | D12 | `Sokkuri.fromConfig` 接受用户自带 OpenCC 配置                              | 架构预留（扩展手册 #13） |
 | D13 | 持续集成分层：构建门禁、上游对齐、发布前置对齐、上游演练，见 10.2                     | 已实现       |
+| D14 | OpenCC 参考克隆以锁文件加按需检出管理，不用 git 子模块，见 10.3                       | 已实现       |
 
 ## 10. 测试与对齐策略
 
 - **三层测试**：engine 纯函数单测；config 语义测试，使用 fake `DictionaryProvider`，覆盖组策略、tofu 过滤、normalization 序与 JSONC；runtime 集成测试，走平台 loader 的真实路径。
 - **golden 对齐**：以 `OpenCC/test/testcases/testcases.json` 为最终防线，全部 16 个 profile 逐条比对 convert 输出。
 - **专项**：IDS 与 UTF-16 边界 fuzz，覆盖 unpaired surrogate 与越界 IDS 树；词典缓存并发测试；Android host 与 device 路径都须覆盖。
-- `OpenCC/` 参考克隆是 spec 与测试语料源，**禁止提交、禁止修改**。
+- `OpenCC/` 参考克隆是 spec 与测试语料源，**禁止提交、禁止修改**；取得方式与锁定见 10.3。
 
 ### 10.1 上游对齐的验证边界
 
@@ -299,14 +300,14 @@ inline 词典的 `may_output_tofu` 曾按值判定而非按字段存在判定，
 - **日常门禁即发布门禁**：`ci.yml` 与 `release.yml` 执行同一条 `./gradlew build`，主干为绿即具备发布条件，不另设第二套标准。ABI 校验 `checkKotlinAbi` 挂在 `check` 下，随之生效。
 - **对齐结论可复现**：对齐检查只针对 `sokkuri-runtime/src/commonTest/resources/testcases/UPSTREAM` 钉住的上游提交，同一提交的结论可以复现；跟踪上游最新提交由演练任务承担，失败只发出提示，不阻断任何流程。
 - **跳过不冒充通过**：依赖克隆的验收测试在缺少 `OPENCC_DIR` 时报告为 skipped，日常门禁中它们必然 skipped；对齐层设置 `OPENCC_DIR` 运行它们，并校验报告中没有 skipped，防止它们在对齐层也悄悄跳过。
-- **环境只定义一次**：JDK、Gradle、Android SDK 与 Kotlin/Native 缓存集中在 `.github/actions/setup-build-env`，取得 OpenCC 的方式集中在 `.github/actions/checkout-opencc`，三个工作流共用，不会各自漂移。
+- **环境只定义一次**：JDK、Gradle、Android SDK 与 Kotlin/Native 缓存集中在 `.github/actions/setup-build-env`，三个工作流共用，不会各自漂移；取得 OpenCC 由 `.github/actions/checkout-opencc` 调用根构建的 `fetchOpencc` 任务完成，与本地检出是同一份实现，见 10.3。
 
 | 层         | 工作流                        | 触发                               | 内容                                                                                                                                                                              | 失败的含义                         |
 |------------|-------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
 | 1 构建门禁 | `ci.yml`                      | push 到 `main`、所有 PR、手动      | `./gradlew build --continue`：JVM、Android host 与 iOS 模拟器三端测试，tools 单测，ABI 校验                                                                                          | 阻断合并                           |
 | 2 上游对齐 | `upstream.yml` 的 pinned 任务 | 每周一定时、手动、由发布流程调用   | 按 `UPSTREAM` 取得 OpenCC；golden 语料逐字节比对；`checkDictionaries`；带 `OPENCC_DIR` 运行 `:sokkuri-runtime:jvmTest` 与 `:tools:dictgen:test` 并校验未跳过；`upstream-diff` 两种 tofu 口径各跑一次 | 阻断发布                           |
 | 3 发布     | `release.yml`                 | 推送 `v*` tag                      | 校验 tag 与 `VERSION_NAME` 一致；调用第 2 层；通过后执行 `build` 与 `publishToMavenCentral`                                                                                          | 不上传                             |
-| 演练       | `upstream.yml` 的 head 任务   | 每周一定时、手动                   | 上游默认分支的最新提交若已偏离锁定，就演练一次推进锁定：重新生成词典、换入新的 golden 语料，再跑 `:sokkuri-runtime:jvmTest`、带克隆的验收测试与两种口径的比对；摘要列出推进将改变的资源 | 只提示上游已变化，需评估是否推进锁定 |
+| 演练       | `upstream.yml` 的 head 任务   | 每周一定时、手动                   | 上游默认分支的最新提交若已偏离锁定，就演练一次推进锁定：在工作区内把锁改到该提交并检出，重新生成词典、换入新的 golden 语料，再跑 `:sokkuri-runtime:jvmTest`、带克隆的验收测试与两种口径的比对；摘要列出推进将改变的资源 | 只提示上游已变化，需评估是否推进锁定 |
 
 除只读 `gradle.properties` 的版本校验跑在 ubuntu-latest 外，全部任务使用 macos-latest：iOS 模拟器测试只能在 macOS 上运行，统一 runner 也让环境只需维护一份；第 2 层所需的 cmake、clang++ 与 python3 在该镜像中预装。
 
@@ -319,9 +320,29 @@ inline 词典的 `may_output_tofu` 曾按值判定而非按字段存在判定，
 - JDK 用 Azul Zulu 21：`gradle/gradle-daemon-jvm.properties` 把守护进程钉在 Azul 21，换用其他发行版会让 Gradle 每次另行下载一份 JDK。
 - Action 取各自最新主版本，唯独 `gradle/actions/setup-gradle` 停在 v5：v6 把缓存功能移入专有组件，升级即接受 Gradle 的使用条款，这属于项目决策，不是普通的版本升级。
 - `shell: bash` 自带 pipefail，`gradlew … | tee` 由此保留 Gradle 的退出码；同样因为 pipefail，安装 SDK 时的 `yes |` 必须改写，否则 `yes` 收到 SIGPIPE 会让步骤失败。
-- 演练任务的产物只留在 CI 工作区，不提交；推进锁定仍由人工完成：更新 `UPSTREAM`、刷新语料、运行 `:tools:dictgen:run` 后提交。
+- 演练任务的产物只留在 CI 工作区，不提交；推进锁定仍由人工完成，步骤见 10.3。
 - 失败时上传测试报告与比对日志作为 artifact，保留 14 天；各工作流的 `GITHUB_TOKEN` 只有 `contents: read`，checkout 不持久化凭据，发布凭据只出现在 `release.yml` 的发布步骤。
 - 第 1 层在 PR 有新提交时取消旧的运行，`main` 上的每个提交都保留结果；第 1 层不设路径过滤，因为它是必需检查，被过滤掉的 PR 永远等不到结果、无法合并。发布流程维持不取消策略。
 - 公开仓库连续 60 天没有活动时，GitHub 会停用定时工作流，需要在 Actions 页面重新启用。
 
 **仓库设置（需手动）**：在 `main` 的分支保护规则中把 `Build gate` 设为必需检查；工作流文件本身无法声明这一点。
+
+### 10.3 OpenCC 参考克隆
+
+**状态：已实现，2026-10-15。**
+
+`OpenCC/` 是上游仓库在仓库根目录下的检出，列在 `.gitignore` 中，不进入任何提交。它是行为 spec，是 `tools:dictgen` 生成打包词典的输入，是 `tools:upstream-diff` 构建预言机的源码，也是 golden 语料的出处。发布产物不依赖它：`./gradlew build` 与发布流程都不读取克隆。
+
+锁定只记录在一处：`sokkuri-runtime/src/commonTest/resources/testcases/UPSTREAM` 的 `Commit:` 行。打包词典、配置与 golden 语料都由这一提交派生并已提交进仓库，克隆只是随时可以按锁重新取得的工作副本。
+
+- `./gradlew fetchOpencc` 把克隆检出到锁定提交，语义同 `git submodule update --init`：克隆不存在时按提交浅取；已存在时只在缺少该提交时拉取，完整克隆保持完整，浅克隆保持浅；随后以分离头指针检出。跟踪文件有改动的克隆不会被移动。
+- `checkOpenccClone` 在克隆不在锁定提交、或跟踪文件有改动时失败。`:tools:dictgen:run`、`:tools:dictgen:checkDictionaries` 与 `:tools:upstream-diff:run` 都依赖它，克隆过期时直接报错，不会把克隆的版本差异误报成 Sokkuri 的漂移或分歧。以 `--opencc-dir` 指向别处的运行可用 `-x checkOpenccClone` 跳过该检查。
+- `upstream-diff` 缓存的 cmake 构建记录它对应的克隆提交，克隆移到别的提交后自动重建。
+- CI 的 `.github/actions/checkout-opencc` 调用同一个 `fetchOpencc`，取得克隆的逻辑只有一份。
+- 依赖克隆的验收测试仍按 `OPENCC_DIR` 定位克隆，本身不校验锁定；对齐层在运行它们之前，已由 `checkDictionaries` 校验过同一个克隆。
+
+推进锁定的步骤：改写 `UPSTREAM` 的 `Commit:` 与 `Date:` 行；运行 `./gradlew fetchOpencc`；运行 `./gradlew :tools:dictgen:run`；按 `UPSTREAM` 中的命令刷新 golden 语料，并更新其中的用例计数；带 `OPENCC_DIR` 运行测试，再运行两种口径的 `upstream-diff`；全部通过后一并提交。顺序是先改锁、再检出、再生成，CI 的演练任务按同样的顺序在工作区内执行。
+
+不用 git 子模块的理由：上游源码是否进入发布产物，决定了社区的常见做法。需要随包发布上游源码的项目用子模块，例如 Rust 的 `-sys` crate；只在开发与验证时使用上游、产物派生后提交的项目用锁文件加按需拉取，例如 `unicode-segmentation` 按固定的 Unicode 版本下载数据并生成表格。Sokkuri 属于后者。锁文件已在 git 中记录了提交，子模块在可复现性上没有额外收益，却带来 `git pull` 不更新子模块、`commit -a` 误移指针等使用负担。
+
+其他被否决的做法：把上游整体或部分 vendor 进仓库，会让几十 MB 源码永久进入历史，且 `upstream-diff` 仍需完整源码，最终两套机制并存；下载 GitHub 归档 tarball 再校验 sha256，GitHub 不保证归档字节稳定，校验和会无故失效，而按提交经 git 拉取本身就是内容寻址的。

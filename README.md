@@ -148,6 +148,7 @@ do {
 ./gradlew :sokkuri-runtime:jvmTest                # JVM
 ./gradlew :sokkuri-runtime:iosSimulatorArm64Test  # iOS 模拟器，需 Apple Silicon 主机
 ./gradlew :sokkuri-runtime:testAndroidHostTest    # Android 宿主单元测试
+./gradlew fetchOpencc                             # 按锁定的上游提交检出 OpenCC 参考克隆
 ./gradlew :tools:dictgen:checkDictionaries        # 打包词典对上游的漂移检查
 ./gradlew :tools:benchmark:run --args="convert --profile all"   # 性能基准
 ./gradlew :tools:upstream-diff:run                # 与 OpenCC 参考实现的逐条执行比对
@@ -158,7 +159,7 @@ do {
 - `inspect()` 结构校验：分词与转换链各级分段满足平铺不变式，且与 `convert()` 结果一致；
 - 性能基线，同机实测：`.sok` 解码驻留堆增量约为 0，冷启动建档约 50 ms，s2t 转换 9.4 µs/op。
 
-漂移检查与上游比对都不在 `build` 任务图中，也都依赖仓库根目录下的 OpenCC 参考克隆，需在本地准备好该克隆后手动运行；前者只读取克隆中的源文件，无需 cmake 构建，后者需要 cmake 与 C++ 编译器，会自行构建克隆并编译一个按条调用的采集器。日常构建门禁 `./gradlew build` 不包含这两项；CI 的上游对齐工作流按钉住的上游提交每周执行它们，并作为发布的前置条件，详见架构文档 10.2 节。
+漂移检查与上游比对都不在 `build` 任务图中，也都依赖仓库根目录下的 OpenCC 参考克隆。该克隆不进入提交，由 `./gradlew fetchOpencc` 按锁定的上游提交检出；两项检查运行前会确认克隆处于锁定提交且未被修改。前者只读取克隆中的源文件，无需 cmake 构建，后者需要 cmake 与 C++ 编译器，会自行构建克隆并编译一个按条调用的采集器。日常构建门禁 `./gradlew build` 不包含这两项；CI 的上游对齐工作流按钉住的上游提交每周执行它们，并作为发布的前置条件，详见架构文档 10.2 节。
 
 ## License
 
