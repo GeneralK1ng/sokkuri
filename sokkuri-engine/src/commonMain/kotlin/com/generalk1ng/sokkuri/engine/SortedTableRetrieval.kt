@@ -254,11 +254,16 @@ public class SortedTableRetrieval private constructor(
      * Inline because [mayStartKey] runs it for every character a
      * conversion bulk-skips: as an out-of-line call it cost Kotlin/Native
      * 3-4% on skip-dominated profiles (t2tw), which the JVM's JIT hid.
+     * For the same reason a code point outside the table's first-code-point
+     * range is rejected before searching: most text never reaches the key
+     * range of a narrow table, such as the CJK compatibility normalization,
+     * whose keys all lie at U+F900 and above.
      */
     @Suppress("NOTHING_TO_INLINE")
     private inline fun groupOf(codePoints: IntArray, codePoint: Int): Int {
-        var lo = 0
         var hi = codePoints.size
+        if (hi == 0 || codePoint < codePoints[0] || codePoint > codePoints[hi - 1]) return -1
+        var lo = 0
         while (lo < hi) {
             val mid = (lo + hi) ushr 1
             if (codePoints[mid] < codePoint) lo = mid + 1 else hi = mid
