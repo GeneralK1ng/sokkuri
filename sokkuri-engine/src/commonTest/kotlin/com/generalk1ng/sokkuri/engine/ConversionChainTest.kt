@@ -17,6 +17,7 @@
 @file:OptIn(com.generalk1ng.sokkuri.SokkuriInternalApi::class)
 package com.generalk1ng.sokkuri.engine
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -60,6 +61,52 @@ class ConversionChainTest {
         val out = StringBuilder()
         chain.appendConverted("发型".toCharArray(), 0, 2, out)
         assertEquals("HAIRSTYLE", out.toString())
+    }
+
+    @Test
+    fun segmentsStayIsolatedInEveryStage() {
+        // Stage 1 turns segment "a" into "xy" and segment "c" into "z"; the
+        // stage-2 key "yz" would match across that boundary if the segments'
+        // outputs were converted as one text.
+        val chain = ConversionChain(
+            listOf(
+                conversionOf("a" to "xy", "c" to "z"),
+                conversionOf("yz" to "!", "x" to "X"),
+            ),
+        )
+        val out = StringBuilder()
+        chain.appendConvertedSegments("ac".toCharArray(), listOf(0..<1, 1..<2), out)
+        assertEquals("Xyz", out.toString())
+    }
+
+    @Test
+    fun segmentedConversionEqualsConvertingSegmentBySegment() {
+        // Three stages whose values grow, shrink and chain into one another,
+        // over random texts cut into random segments (empty ones included).
+        val chain = ConversionChain(
+            listOf(
+                conversionOf("a" to "bc", "ab" to "d", "c" to "a"),
+                conversionOf("bc" to "e", "d" to "dd", "ca" to "f"),
+                conversionOf("e" to "a", "dd" to "b", "fa" to "g"),
+            ),
+        )
+        val random = Random(20261015)
+        repeat(500) {
+            val text = buildString { repeat(random.nextInt(0, 12)) { append("abcdef"[random.nextInt(6)]) } }
+            val chars = text.toCharArray()
+            val segments = ArrayList<IntRange>()
+            var start = 0
+            while (start < chars.size) {
+                val end = minOf(chars.size, start + random.nextInt(0, 4)) // 0: an empty segment
+                segments.add(start..<end)
+                start = end
+            }
+            val expected = StringBuilder()
+            for (range in segments) chain.appendConverted(chars, range.first, range.last + 1, expected)
+            val actual = StringBuilder()
+            chain.appendConvertedSegments(chars, segments, actual)
+            assertEquals(expected.toString(), actual.toString(), "text $text, segments $segments")
+        }
     }
 
     @Test

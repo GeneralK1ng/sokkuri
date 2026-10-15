@@ -58,9 +58,7 @@ public sealed interface Converter {
             if (segmentation == null) {
                 chain.appendConverted(chars, 0, chars.size, out)
             } else {
-                for (range in segmentation.segment(chars)) {
-                    chain.appendConverted(chars, range.first, range.last + 1, out)
-                }
+                chain.appendConvertedSegments(chars, segmentation.segment(chars), out)
             }
             return out.toString()
         }
