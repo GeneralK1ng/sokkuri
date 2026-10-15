@@ -195,6 +195,12 @@ internal object ConfigCases {
         case("inline-empty-value", "an inline value must not be empty", chain(inline("""{"干": ""}""")))
         case("inline-value-not-string", "an inline value must be a string", chain(inline("""{"干": 1}""")))
         case("inline-duplicate-key", "an inline key listed twice", chain(inline("""{"干": "乾", "干": "幹"}""")))
+        case("inline-duplicate-key-filtered", "a repeated inline key inside a group the tofu setting drops",
+            chain(
+                """{"type": "group", "may_output_tofu": true, """ +
+                    """"dicts": [${inline("""{"干": "乾", "干": "幹"}""")}]}""",
+                chars,
+            ))
         case("segmentation-not-object", "segmentation must be an object",
             """{"segmentation": "mmseg", "conversion_chain": []}""")
         case("segmentation-without-type", "segmentation needs a type",
