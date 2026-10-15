@@ -95,7 +95,7 @@ internal sealed interface DictionaryRecipe {
  *
  * The regional-phrase derivation needs a t2s converter; it is bootstrapped
  * from the clone's own `TS*.txt` files through Sokkuri's config layer
- * (dogfooding — the same pipeline step 0 validated), with
+ * (dogfooding — the same config pipeline the runtime ships), with
  * [com.generalk1ng.sokkuri.resource.TextDictionaryFormat] as the decoder.
  * `TSCharactersExt.txt` does not exist in the clone (it is itself derived),
  * so the bootstrap provider serves the extracted variant in memory —

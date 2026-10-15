@@ -35,7 +35,7 @@ import kotlin.test.*
  * it — guarding against a stale packaged artifact whenever the clone's
  * regional phrase tables or the derivation chain change.
  *
- * `tools:dictgen` (milestone M1) is the permanent generator; this test is
+ * `tools:dictgen` is the permanent generator; this test is
  * the runtime-side tripwire that its products are current. Runs only when
  * `OPENCC_DIR` points at a reference clone.
  */

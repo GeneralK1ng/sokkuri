@@ -30,7 +30,8 @@ import kotlin.test.assertTrue
  * astral pairs and truncation-mid-pair windows), randomly over a wide
  * code-point distribution, plus the pinned total-behavior on malformed
  * bytes (U+FFFD advancing one byte, so corrupt files degrade instead of
- * crashing). This file is the gate that lets step 2 trust the byte path.
+ * crashing). This file is the gate that lets `.sok` retrieval compare raw
+ * UTF-8 bytes against the input instead of decoded strings.
  */
 class Utf8Test {
 

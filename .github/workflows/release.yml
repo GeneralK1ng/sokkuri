@@ -65,4 +65,4 @@ jobs:
           ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_IN_MEMORY_KEY_PASSWORD }}
           # signingInMemoryKeyId is intentionally not set: the keyring holds a
           # single key (auto-selected), Gradle rejects 16-char fingerprints,
-          # and a wrong 8-char id fails the build (m4 doc, step 2 record).
+          # and a wrong 8-char id fails the build.
