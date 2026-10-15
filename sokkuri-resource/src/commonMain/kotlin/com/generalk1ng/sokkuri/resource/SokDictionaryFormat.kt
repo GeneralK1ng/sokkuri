@@ -136,6 +136,8 @@ public class SokDictionary internal constructor(
 
     override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
+    override fun firstCodePoints(): IntArray = retrieval.firstCodePoints()
+
     private fun keyAt(index: Int): String {
         val start = keyBlobBase +
             SokFormatLayout.readU32(bytes, keyOffsetsBase + index * 4).toInt()

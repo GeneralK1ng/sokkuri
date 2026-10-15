@@ -140,8 +140,14 @@ public class SortedTableRetrieval private constructor(
         FirstCodePointIndex(codePoints.copyOf(groups), groupStarts.copyOf(groups + 1))
     }
 
+    /**
+     * The distinct first code points of the table's keys, ascending: a
+     * copy of the index, for [Dictionary.firstCodePoints].
+     */
+    public fun firstCodePoints(): IntArray = firstCodePointIndex.codePoints.copyOf()
+
     /** Whether [codePoint] begins any key of the table. */
-    public fun mayStartKey(codePoint: Int): Boolean = groupOf(firstCodePointIndex.codePoints, codePoint) >= 0
+    public fun mayStartKey(codePoint: Int): Boolean = indexOfCodePoint(firstCodePointIndex.codePoints, codePoint) >= 0
 
     /**
      * Index of [key] in the table, or `-1` when absent. Binary search by
@@ -202,7 +208,7 @@ public class SortedTableRetrieval private constructor(
         if (start >= end) return -1L
         val index = firstCodePointIndex
         val first = Utf.codePointAt(text, start, end)
-        val group = groupOf(index.codePoints, first)
+        val group = indexOfCodePoint(index.codePoints, first)
         if (group < 0) return -1L
 
         var lo = index.groupStarts[group]
@@ -253,33 +259,6 @@ public class SortedTableRetrieval private constructor(
         return a
     }
 
-    /**
-     * Group slot of [codePoint] in [codePoints] (the first-code-point
-     * index), or `-1` when no key begins with it. Hand-rolled binary search
-     * rather than the stdlib's `IntArray.binarySearch`: the stdlib overloads
-     * are not visible to every backend's common compilation (K/N and
-     * metadata compilation rejected them while JVM accepted).
-     *
-     * Inline because [mayStartKey] runs it for every character a
-     * conversion bulk-skips: as an out-of-line call it cost Kotlin/Native
-     * 3-4% on skip-dominated profiles (t2tw), which the JVM's JIT hid.
-     * For the same reason a code point outside the table's first-code-point
-     * range is rejected before searching: most text never reaches the key
-     * range of a narrow table, such as the CJK compatibility normalization,
-     * whose keys all lie at U+F900 and above.
-     */
-    @Suppress("NOTHING_TO_INLINE")
-    private inline fun groupOf(codePoints: IntArray, codePoint: Int): Int {
-        var hi = codePoints.size
-        if (hi == 0 || codePoint < codePoints[0] || codePoint > codePoints[hi - 1]) return -1
-        var lo = 0
-        while (lo < hi) {
-            val mid = (lo + hi) ushr 1
-            if (codePoints[mid] < codePoint) lo = mid + 1 else hi = mid
-        }
-        return if (lo < codePoints.size && codePoints[lo] == codePoint) lo else -1
-    }
-
     public companion object {
 
         /**
@@ -289,4 +268,32 @@ public class SortedTableRetrieval private constructor(
          */
         public fun over(table: SortedKeyTable): SortedTableRetrieval = SortedTableRetrieval(table)
     }
+}
+
+/**
+ * Index of [codePoint] in [codePoints] (ascending, distinct), or `-1`.
+ * Shared by [SortedTableRetrieval] and [DictGroup] for their
+ * first-code-point sets. Hand-rolled binary search rather than the
+ * stdlib's `IntArray.binarySearch`: the stdlib overloads are not visible to
+ * every backend's common compilation (K/N and metadata compilation
+ * rejected them while JVM accepted).
+ *
+ * Inline because [Dictionary.mayStartKey] runs it for every character a
+ * conversion bulk-skips: as an out-of-line call it cost Kotlin/Native 3-4%
+ * on skip-dominated profiles (t2tw), which the JVM's JIT hid. For the same
+ * reason a code point outside the set's range is rejected before
+ * searching: most text never reaches the key range of a narrow table, such
+ * as the CJK compatibility normalization, whose keys all lie at U+F900 and
+ * above.
+ */
+@Suppress("NOTHING_TO_INLINE")
+internal inline fun indexOfCodePoint(codePoints: IntArray, codePoint: Int): Int {
+    var hi = codePoints.size
+    if (hi == 0 || codePoint < codePoints[0] || codePoint > codePoints[hi - 1]) return -1
+    var lo = 0
+    while (lo < hi) {
+        val mid = (lo + hi) ushr 1
+        if (codePoints[mid] < codePoint) lo = mid + 1 else hi = mid
+    }
+    return if (lo < codePoints.size && codePoints[lo] == codePoint) lo else -1
 }

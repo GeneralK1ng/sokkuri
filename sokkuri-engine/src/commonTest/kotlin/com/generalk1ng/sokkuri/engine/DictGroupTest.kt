@@ -132,6 +132,37 @@ class DictGroupTest {
     }
 
     @Test
+    fun mayStartKey_mergedSetEqualsAskingEveryChild() {
+        val random = Random(20261016)
+        val probes = (alphabet + listOf("z", "\uD800", "\uFFFF")).map { Utf.codePointAt(it, 0) }
+        repeat(150) { round ->
+            val children = List(random.nextInt(1, 4)) {
+                if (random.nextInt(3) == 0) randomGroup(random, depth = 1) else randomDictionary(random)
+            }
+            val group = DictGroup(children, GroupMatchPolicy.entries.random(random))
+            val expected = probes.filter { probe -> children.any { it.mayStartKey(probe) } }
+            assertEquals(expected, probes.filter { group.mayStartKey(it) }, "round $round")
+            assertEquals(
+                children.flatMap { it.firstCodePoints()!!.asList() }.distinct().sorted(),
+                group.firstCodePoints()!!.toList(),
+                "round $round",
+            )
+        }
+    }
+
+    @Test
+    fun mayStartKey_fallsBackToTheChildrenWhenOneCannotEnumerate() {
+        val opaque = object : Dictionary by dict("狗" to listOf("dog")) {
+            override fun firstCodePoints(): IntArray? = null
+        }
+        val group = DictGroup(listOf(dict("猫" to listOf("cat")), opaque), GroupMatchPolicy.UNION)
+        assertEquals(null, group.firstCodePoints())
+        assertEquals(true, group.mayStartKey('猫'.code))
+        assertEquals(true, group.mayStartKey('狗'.code))
+        assertEquals(false, group.mayStartKey('x'.code))
+    }
+
+    @Test
     fun emptyGroupIsRejected() {
         assertFailsWith<IllegalArgumentException> {
             DictGroup(emptyList(), GroupMatchPolicy.SHORT_CIRCUIT)

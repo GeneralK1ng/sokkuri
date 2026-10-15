@@ -90,6 +90,14 @@ public interface Dictionary {
      * skip loop — use [stopsBulkSkip], which adds the IDS-operator rule.
      */
     public fun mayStartKey(codePoint: Int): Boolean
+
+    /**
+     * The code points [mayStartKey] accepts, distinct and ascending, or
+     * `null` when this dictionary cannot enumerate them. A fresh array the
+     * caller owns; [DictGroup] merges its children's sets once, so this is
+     * never on a hot path.
+     */
+    public fun firstCodePoints(): IntArray? = null
 }
 
 /**

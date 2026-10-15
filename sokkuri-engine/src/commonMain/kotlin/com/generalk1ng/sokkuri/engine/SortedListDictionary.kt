@@ -88,6 +88,8 @@ public class SortedListDictionary private constructor(
 
     override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
+    override fun firstCodePoints(): IntArray = retrieval.firstCodePoints()
+
     public companion object {
         private fun toEntries(pairs: List<Pair<String, List<String>>>): List<Entry> {
             val sorted = pairs.sortedWith { a, b -> Utf.compareByCodePoint(a.first, b.first) }

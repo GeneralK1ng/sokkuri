@@ -229,6 +229,14 @@ abstract class DictionaryContractSuite {
                     }
                 }
             }
+            // Enumerating is optional (null), but an enumerated set must be exact.
+            d.firstCodePoints()?.let { enumerated ->
+                assertEquals(
+                    sorted.map { Utf.codePointAt(it, 0) }.distinct().sorted(),
+                    enumerated.toList(),
+                    "firstCodePoints, round $round, keys $sorted",
+                )
+            }
             for (symbol in inputAlphabet) {
                 val codePoint = Utf.codePointAt(symbol, 0)
                 assertEquals(

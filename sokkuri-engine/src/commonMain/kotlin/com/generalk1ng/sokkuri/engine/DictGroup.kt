@@ -99,5 +99,36 @@ public class DictGroup public constructor(
         return best
     }
 
-    override fun mayStartKey(codePoint: Int): Boolean = children.any { it.mayStartKey(codePoint) }
+    /**
+     * The union of the children's first code points, merged on first use,
+     * so [mayStartKey], which a conversion runs for every character it
+     * bulk-skips, costs one binary search instead of one per child (three
+     * on s2t's first stage, nested union included). `null` when a child
+     * cannot enumerate its set; [mayStartKey] then asks the children.
+     * Read into a local once per call, as the `lazy` delegate's field is
+     * volatile.
+     */
+    private val firstCodePointSet: IntArray? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        val sets = ArrayList<IntArray>(children.size)
+        for (child in children) sets += child.firstCodePoints() ?: return@lazy null
+        val merged = IntArray(sets.sumOf { it.size })
+        var size = 0
+        for (set in sets) {
+            set.copyInto(merged, size)
+            size += set.size
+        }
+        merged.sort()
+        var distinct = 0
+        for (index in merged.indices) {
+            if (distinct == 0 || merged[distinct - 1] != merged[index]) merged[distinct++] = merged[index]
+        }
+        merged.copyOf(distinct)
+    }
+
+    override fun firstCodePoints(): IntArray? = firstCodePointSet?.copyOf()
+
+    override fun mayStartKey(codePoint: Int): Boolean {
+        val codePoints = firstCodePointSet ?: return children.any { it.mayStartKey(codePoint) }
+        return indexOfCodePoint(codePoints, codePoint) >= 0
+    }
 }
