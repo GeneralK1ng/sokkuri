@@ -228,8 +228,6 @@ internal object ConfigCases {
      * fixing one makes its entry stale, which fails the run until removed.
      */
     val knownGaps: Map<String, String> = mapOf(
-        "name-not-a-string" to "upstream ignores a name that is not a string; Sokkuri's document model " +
-            "types it as a string and rejects the config",
         "duplicate-member" to "rapidjson resolves a repeated member to its first occurrence, " +
             "kotlinx-serialization to its last",
         "stage-not-object" to "upstream skips chain members that are not objects; Sokkuri rejects the config",

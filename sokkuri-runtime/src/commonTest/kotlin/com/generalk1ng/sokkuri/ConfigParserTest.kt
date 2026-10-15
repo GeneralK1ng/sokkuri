@@ -210,6 +210,18 @@ class ConfigParserTest {
     }
 
     @Test
+    fun nameThatIsNotAStringIsIgnoredLikeUpstream() {
+        // Config.cpp reads `name` only when it is a string; anything else is
+        // ignored rather than failing the config.
+        for (name in listOf("5", "null", "true", "[\"a\"]", "{\"x\": 1}", "\"a string\"")) {
+            val converter = parse(
+                """{"name": $name, "conversion_chain": [{"dict": {"type": "inline", "entries": {"a": "A"}}}]}""",
+            )
+            assertEquals("A", converter.convert("a"), "name $name")
+        }
+    }
+
+    @Test
     fun unknownSegmentationTypeIsUnsupported() {
         assertFailsWith<SokkuriException.Unsupported> {
             parse(

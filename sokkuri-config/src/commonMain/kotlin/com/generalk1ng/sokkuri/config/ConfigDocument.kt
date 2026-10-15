@@ -43,7 +43,8 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 @Serializable
 @SokkuriInternalApi
 public data class ConfigDocument(
-    val name: String? = null,
+    /** Informational; a value that is not a string is ignored, as upstream ignores it. */
+    @Serializable(with = NameSerializer::class) val name: String? = null,
     val normalization: List<ConversionDocument> = emptyList(),
     val segmentation: SegmentationDocument? = null,
     @SerialName("conversion_chain") val conversionChain: List<ConversionDocument>,
