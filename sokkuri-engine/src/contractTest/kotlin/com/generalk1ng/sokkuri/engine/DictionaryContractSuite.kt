@@ -18,6 +18,7 @@
 
 package com.generalk1ng.sokkuri.engine
 
+import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -179,6 +180,63 @@ abstract class DictionaryContractSuite {
         assertNull(d.prefixOf("𠀀日", 1, 3)) // mid-pair start matches nothing
         assertNull(d.prefixOf("\uD800")) // lone high surrogate is neither 日 nor 𠀀
         assertFalse(d.mayStartKey(0xDC00))
+    }
+
+    /**
+     * Longest-prefix retrieval against a brute-force oracle over random
+     * lexicons. A small alphabet makes keys share prefixes heavily (keys
+     * that prefix other keys, long groups under one first code point), and
+     * it mixes ASCII, BMP CJK, a supplementary-plane character and an IDS
+     * operator, so code-point order differs from UTF-16 order. Inputs add a
+     * character no key contains and an unpaired surrogate; windows start
+     * anywhere, mid-pair included, and end anywhere, splitting pairs too.
+     */
+    @Test
+    fun matchPrefixAgreesWithBruteForceOracle() {
+        val keyAlphabet = listOf("a", "b", "发", "髮", "𠀀", "⿰")
+        val inputAlphabet = keyAlphabet + listOf("z", "\uD800")
+        val random = Random(20261015)
+        repeat(30) { round ->
+            val keys = HashSet<String>()
+            val keyCount = random.nextInt(1, 60)
+            while (keys.size < keyCount) {
+                keys += buildString { repeat(random.nextInt(1, 5)) { append(keyAlphabet.random(random)) } }
+            }
+            val sorted = keys.sortedWith { a, b -> Utf.compareByCodePoint(a, b) }
+            val d = createDictionary(sorted.map { it to listOf("<$it>", "alt") })
+
+            repeat(25) {
+                val text = buildString { repeat(random.nextInt(0, 9)) { append(inputAlphabet.random(random)) } }
+                val chars = text.toCharArray()
+                for (start in 0..chars.size) {
+                    for (end in start..chars.size) {
+                        val expected = sorted
+                            .filter { start + it.length <= end && text.startsWith(it, start) }
+                            .maxByOrNull { it.length }
+                        val where = "round $round, keys $sorted, window [$start, $end) of ${text.toList()}"
+                        val hit = d.matchPrefix(chars, start, end)
+                        assertEquals(expected?.length, hit?.length, "matchPrefix length, $where")
+                        assertEquals(expected?.let { "<$it>" }, hit?.value, "matchPrefix value, $where")
+                        val out = StringBuilder("|")
+                        val appended = d.matchAppend(chars, start, end, out)
+                        assertEquals(expected?.length ?: -1, appended, "matchAppend length, $where")
+                        assertEquals(
+                            "|" + (expected?.let { "<$it>" } ?: ""),
+                            out.toString(),
+                            "matchAppend output, $where",
+                        )
+                    }
+                }
+            }
+            for (symbol in inputAlphabet) {
+                val codePoint = Utf.codePointAt(symbol, 0)
+                assertEquals(
+                    sorted.any { Utf.codePointAt(it, 0) == codePoint },
+                    d.mayStartKey(codePoint),
+                    "mayStartKey(${symbol.toList()}), round $round, keys $sorted",
+                )
+            }
+        }
     }
 
     @Test
