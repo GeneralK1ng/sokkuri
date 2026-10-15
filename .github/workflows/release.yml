@@ -1,6 +1,8 @@
-# Release workflow: a pushed v* tag is the only trigger. The tagged commit is
-# built and tested on all platforms first (./gradlew build is the gate), then
-# uploaded to Maven Central as a USER_MANAGED deployment (manual mode).
+# Release workflow: a pushed v* tag is the only trigger. The tagged commit must
+# first pass the upstream alignment (upstream.yml, docs/architecture.md §10.2),
+# then it is built and tested on all platforms (./gradlew build, the same gate
+# as ci.yml) and uploaded to Maven Central as a USER_MANAGED deployment
+# (manual mode).
 # Releasing the deployment stays a deliberate one-click step in the Central
 # Portal UI; flip to publishAndReleaseToMavenCentral only after the manual
 # flow has proven itself.
@@ -16,11 +18,24 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+# Publishing authenticates with the Central Portal secrets, never the
+# GITHUB_TOKEN, which therefore only needs to read the repository.
+permissions:
+  contents: read
+
 jobs:
+  upstream:
+    # The same pinned checks the weekly run performs, on the tagged commit;
+    # nothing is uploaded unless they pass.
+    name: Upstream alignment
+    uses: ./.github/workflows/upstream.yml
+
   publish:
+    needs: upstream
     # macOS is required: the library ships iosArm64/iosSimulatorArm64 targets
     # and `build` runs the iOS simulator test suite as part of the gate.
     runs-on: macos-latest
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v7
         with:
