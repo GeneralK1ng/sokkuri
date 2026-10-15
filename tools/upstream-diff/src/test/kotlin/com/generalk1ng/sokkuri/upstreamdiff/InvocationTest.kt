@@ -70,6 +70,19 @@ class InvocationTest {
     }
 
     @Test
+    fun fuzzTakesDurationAndCorpusFile() {
+        val defaults = parseInvocation(listOf("fuzz"), cwd)
+        assertEquals(Command.FUZZ, defaults.command)
+        assertEquals(300, defaults.options.seconds)
+        assertEquals(File(cwd, FuzzCorpus.SOURCE_PATH), defaults.options.fuzzCorpus)
+        val custom = parseInvocation(listOf("fuzz", "--seconds", "30", "--fuzz-corpus", "/tmp/c.jsonl"), cwd)
+        assertEquals(30, custom.options.seconds)
+        assertEquals(File("/tmp/c.jsonl"), custom.options.fuzzCorpus)
+        assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("fuzz", "--seconds", "-1"), cwd) }
+        assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("fuzz", "--tofu"), cwd) }
+    }
+
+    @Test
     fun flagsOfAnotherSubcommandAreRejected() {
         assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("configs", "--tofu"), cwd) }
         assertFailsWith<IllegalArgumentException> { parseInvocation(listOf("--inputs"), cwd) }

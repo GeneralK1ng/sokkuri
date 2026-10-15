@@ -56,12 +56,17 @@ internal fun cloneCommit(openccDir: File): String? {
 
 /** Runs [command] with its output shown, failing on a non-zero exit. */
 internal fun runCommand(command: List<String>, environment: Map<String, String> = emptyMap()) {
+    val exit = runProcess(command, environment)
+    check(exit == 0) { "command failed with exit $exit: ${command.joinToString(" ")}" }
+}
+
+/** Runs [command] with its output shown and returns its exit code. */
+internal fun runProcess(command: List<String>, environment: Map<String, String> = emptyMap()): Int {
     val builder = ProcessBuilder(command)
         .redirectOutput(ProcessBuilder.Redirect.INHERIT)
         .redirectError(ProcessBuilder.Redirect.INHERIT)
     builder.environment().putAll(environment)
-    val exit = builder.start().waitFor()
-    check(exit == 0) { "command failed with exit $exit: ${command.joinToString(" ")}" }
+    return builder.start().waitFor()
 }
 
 /** Whether [command] runs and exits zero, its output discarded. */

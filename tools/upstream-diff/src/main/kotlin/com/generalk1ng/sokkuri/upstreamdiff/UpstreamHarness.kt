@@ -28,7 +28,8 @@ import java.io.File
  */
 internal class UpstreamHarness(
     private val binary: File,
-    private val configDir: File,
+    /** The clone's profile configs (`data/config`). */
+    val configDir: File,
     /** The reference build's compiled dictionaries (`.ocd2`). */
     val dataDir: File,
 ) {

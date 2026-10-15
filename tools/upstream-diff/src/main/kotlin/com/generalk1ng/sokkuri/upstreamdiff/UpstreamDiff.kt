@@ -33,7 +33,9 @@ import kotlin.system.exitProcess
  *   which they accept, how they fail, and what the accepted ones convert to
  *   ([ConfigCases]);
  * - `bench`: times upstream on tools:benchmark's sample texts, the
- *   reference point for Sokkuri's own numbers.
+ *   reference point for Sokkuri's own numbers;
+ * - `fuzz`: grows the committed corpus `diff` replays, guided by libFuzzer's
+ *   coverage of upstream ([FuzzCorpus]).
  *
  * This is the only check in the project that compares against upstream
  * *execution* rather than against upstream source. The golden suite is ported
@@ -57,6 +59,7 @@ internal fun main(args: Array<String>) {
             Command.DIFF -> runDiff(invocation.options)
             Command.CONFIGS -> runConfigs(invocation.options)
             Command.BENCH -> runBench(invocation.options)
+            Command.FUZZ -> runFuzz(invocation.options)
         },
     )
 }
@@ -177,6 +180,7 @@ internal enum class Command(val word: String, val flags: Set<String>) {
         "bench",
         setOf("--opencc-dir", "--opencc-build-dir", "--rebuild", "--tofu", "--profile", "--samples", "--iterations"),
     ),
+    FUZZ("fuzz", setOf("--opencc-dir", "--opencc-build-dir", "--rebuild", "--seconds", "--fuzz-corpus")),
 }
 
 /** Options shared by the subcommands; each accepts only the flags it lists in [Command.flags]. */
@@ -195,16 +199,21 @@ internal data class Options(
     val samples: List<String> = listOf("medium", "long"),
     /** `bench`: measured iterations for every sample, overriding the per-sample defaults. */
     val iterations: Int? = null,
+    /** `fuzz`: how long libFuzzer runs. */
+    val seconds: Int = 300,
+    /** `fuzz`: the committed corpus file to grow. */
+    val fuzzCorpus: File? = null,
 )
 
 internal data class Invocation(val command: Command, val options: Options)
 
 private const val USAGE = """
-Usage: upstream-diff [diff|configs|bench] [options]
+Usage: upstream-diff [diff|configs|bench|fuzz] [options]
 
   diff (default)            convert and inspect one corpus with both implementations
   configs                   load the config catalog with both implementations
   bench                     time upstream on the benchmark sample texts
+  fuzz                      grow the replayed corpus with libFuzzer (needs a clang with libFuzzer)
 
   --opencc-dir <dir>        OpenCC clone root (default: <cwd>/OpenCC)
   --opencc-build-dir <dir>  cmake build of the clone (default: <cwd>/build/upstream-opencc);
@@ -222,6 +231,9 @@ bench only:
   --samples <id,id,...>     sample texts to time (default: medium,long)
   --iterations <n>          measured iterations per sample (default: tools:benchmark's)
   --tofu                    include tofu-risk dictionaries
+fuzz only:
+  --seconds <n>             how long libFuzzer runs (default: 300)
+  --fuzz-corpus <file>      corpus to grow (default: this tool's src/main/resources/fuzz-corpus.jsonl)
 """
 
 internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFile): Invocation {
@@ -240,6 +252,8 @@ internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFi
     var profile = "all"
     var samples = listOf("medium", "long")
     var iterations: Int? = null
+    var seconds = 300
+    var fuzzCorpus: File? = null
 
     var index = 0
     fun value(flag: String): String {
@@ -271,6 +285,9 @@ internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFi
                 .ifEmpty { throw IllegalArgumentException("--samples needs at least one id") }
             "--iterations" -> iterations = value(arg).toIntOrNull()?.takeIf { it > 0 }
                 ?: throw IllegalArgumentException("--iterations needs a positive integer")
+            "--seconds" -> seconds = value(arg).toIntOrNull()?.takeIf { it > 0 }
+                ?: throw IllegalArgumentException("--seconds needs a positive integer")
+            "--fuzz-corpus" -> fuzzCorpus = File(value(arg))
         }
         index++
     }
@@ -288,6 +305,8 @@ internal fun parseInvocation(args: List<String>, cwd: File = File("").absoluteFi
             profile = profile,
             samples = samples,
             iterations = iterations,
+            seconds = seconds,
+            fuzzCorpus = fuzzCorpus ?: File(cwd, FuzzCorpus.SOURCE_PATH),
         ),
     )
 }

@@ -25,8 +25,9 @@ import kotlin.random.Random
 
 /**
  * Builds the shared input corpus: every input from the upstream golden
- * test file, a fixed set of edge cases, and a seeded random sample over an
- * alphabet chosen to reach the parts of the pipeline that matter.
+ * test file, a fixed set of edge cases, the committed fuzz corpus
+ * ([FuzzCorpus]), and a seeded random sample over an alphabet chosen to
+ * reach the parts of the pipeline that matter.
  *
  * Inputs are single lines and UTF-8 encodable by construction — the harness
  * reads one input per line, and a Kotlin string holding an unpaired surrogate
@@ -81,11 +82,28 @@ internal object Corpus {
 
     fun build(openccDir: File, randomCount: Int, seed: Long, extra: File?): List<String> {
         val inputs = LinkedHashSet<String>()
-        inputs += goldenInputs(openccDir)
-        inputs += EDGE_CASES
+        inputs += builtIn(openccDir)
+        inputs += FuzzCorpus.bundled()
         inputs += randomInputs(randomCount, seed)
         extra?.let { inputs += it.readLines() }
         return inputs.filter(::isComparable)
+    }
+
+    /** The hand-picked inputs: upstream's golden inputs and the edge cases; the fuzzer's seeds. */
+    fun builtIn(openccDir: File): List<String> =
+        (goldenInputs(openccDir) + EDGE_CASES).distinct().filter(::isComparable)
+
+    /**
+     * Whole units for the fuzzer's dictionary: the random sample's fragments
+     * and every character of the golden inputs. Byte mutations of CJK text
+     * mostly produce invalid UTF-8, which the target rejects; inserting whole
+     * characters and phrases keeps mutants well formed.
+     */
+    fun fuzzTokens(openccDir: File): List<String> {
+        val characters = goldenInputs(openccDir).flatMap { input ->
+            input.codePoints().toArray().map { String(Character.toChars(it)) }
+        }
+        return (FRAGMENTS + characters).distinct().filter { it.isNotBlank() && isComparable(it) }
     }
 
     /**
@@ -118,11 +136,12 @@ internal object Corpus {
 
     /**
      * Whether both sides can be handed this input. Newlines would break the
-     * line-oriented harness, and text that will not survive UTF-8 encoding —
-     * an unpaired surrogate — has no representation on the upstream side.
+     * line-oriented harness, NUL would end upstream's C-string segments, and
+     * text that will not survive UTF-8 encoding — an unpaired surrogate — has
+     * no representation on the upstream side.
      */
-    private fun isComparable(input: String): Boolean {
-        if (input.contains('\n') || input.contains('\r')) return false
+    fun isComparable(input: String): Boolean {
+        if (input.contains('\n') || input.contains('\r') || input.contains('\u0000')) return false
         return input.encodeToByteArray().decodeToString() == input
     }
 
