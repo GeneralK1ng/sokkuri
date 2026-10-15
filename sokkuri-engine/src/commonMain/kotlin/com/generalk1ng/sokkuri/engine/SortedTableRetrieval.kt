@@ -141,7 +141,7 @@ public class SortedTableRetrieval private constructor(
     }
 
     /** Whether [codePoint] begins any key of the table. */
-    public fun mayStartKey(codePoint: Int): Boolean = groupOf(firstCodePointIndex, codePoint) >= 0
+    public fun mayStartKey(codePoint: Int): Boolean = groupOf(firstCodePointIndex.codePoints, codePoint) >= 0
 
     /**
      * Index of [key] in the table, or `-1` when absent. Binary search by
@@ -193,7 +193,7 @@ public class SortedTableRetrieval private constructor(
         if (start >= end) return -1L
         val index = firstCodePointIndex
         val first = Utf.codePointAt(text, start, end)
-        val group = groupOf(index, first)
+        val group = groupOf(index.codePoints, first)
         if (group < 0) return -1L
 
         var lo = index.groupStarts[group]
@@ -245,14 +245,18 @@ public class SortedTableRetrieval private constructor(
     }
 
     /**
-     * Group slot of [codePoint] in [index], or `-1` when no key begins
-     * with it. Hand-rolled binary search rather than the stdlib's
-     * `IntArray.binarySearch`: the stdlib overloads are not visible to
-     * every backend's common compilation (K/N and metadata compilation
-     * rejected them while JVM accepted).
+     * Group slot of [codePoint] in [codePoints] (the first-code-point
+     * index), or `-1` when no key begins with it. Hand-rolled binary search
+     * rather than the stdlib's `IntArray.binarySearch`: the stdlib overloads
+     * are not visible to every backend's common compilation (K/N and
+     * metadata compilation rejected them while JVM accepted).
+     *
+     * Inline because [mayStartKey] runs it for every character a
+     * conversion bulk-skips: as an out-of-line call it cost Kotlin/Native
+     * 3-4% on skip-dominated profiles (t2tw), which the JVM's JIT hid.
      */
-    private fun groupOf(index: FirstCodePointIndex, codePoint: Int): Int {
-        val codePoints = index.codePoints
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun groupOf(codePoints: IntArray, codePoint: Int): Int {
         var lo = 0
         var hi = codePoints.size
         while (lo < hi) {
