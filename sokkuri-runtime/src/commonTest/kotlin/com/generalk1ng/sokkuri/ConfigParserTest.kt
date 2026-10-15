@@ -222,6 +222,24 @@ class ConfigParserTest {
     }
 
     @Test
+    fun chainMembersThatAreNotObjectsAreSkippedLikeUpstream() {
+        // ParseConversionChain converts object members and silently skips the rest.
+        val stage = """{"dict": {"type": "inline", "entries": {"a": "A"}}}"""
+        val converter = parse("""{"conversion_chain": [1, "x", null, [], $stage, true]}""")
+        assertEquals("A", converter.convert("a"))
+        val normalization = """[0, {"dict": {"type": "inline", "entries": {"b": "a"}}}]"""
+        val normalized = parse("""{"normalization": $normalization, "conversion_chain": [$stage]}""")
+        assertEquals("A", normalized.convert("b"))
+    }
+
+    @Test
+    fun aConversionListThatIsNotAnArrayIsInvalid() {
+        for (json in listOf("""{"conversion_chain": {}}""", """{"normalization": 1, "conversion_chain": []}""")) {
+            assertFailsWith<SokkuriException.InvalidConfig>(json) { parse(json) }
+        }
+    }
+
+    @Test
     fun unknownSegmentationTypeIsUnsupported() {
         assertFailsWith<SokkuriException.Unsupported> {
             parse(

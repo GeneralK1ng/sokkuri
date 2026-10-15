@@ -45,9 +45,13 @@ import kotlinx.serialization.json.JsonClassDiscriminator
 public data class ConfigDocument(
     /** Informational; a value that is not a string is ignored, as upstream ignores it. */
     @Serializable(with = NameSerializer::class) val name: String? = null,
-    val normalization: List<ConversionDocument> = emptyList(),
+    /** Members that are not objects are skipped, as in upstream's `ParseConversionChain`. */
+    @Serializable(with = NormalizationSerializer::class) val normalization: List<ConversionDocument> = emptyList(),
     val segmentation: SegmentationDocument? = null,
-    @SerialName("conversion_chain") val conversionChain: List<ConversionDocument>,
+    /** Members that are not objects are skipped, as in upstream's `ParseConversionChain`. */
+    @SerialName("conversion_chain")
+    @Serializable(with = ConversionChainSerializer::class)
+    val conversionChain: List<ConversionDocument>,
 )
 
 /** One entry of `conversion_chain` / `normalization`: a single dictionary. */

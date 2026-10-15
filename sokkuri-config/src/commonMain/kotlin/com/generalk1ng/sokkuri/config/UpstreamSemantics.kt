@@ -16,14 +16,19 @@
 
 package com.generalk1ng.sokkuri.config
 
+import com.generalk1ng.sokkuri.SokkuriInternalApi
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonDecoder
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 
 /*
@@ -55,3 +60,33 @@ internal object NameSerializer : KSerializer<String?> {
         if (value == null) encoder.encodeNull() else encoder.encodeString(value)
     }
 }
+
+/**
+ * A list of conversions (`conversion_chain`, `normalization`) as upstream's
+ * `ParseConversionChain` reads it: the member must be an array, but array
+ * members that are not objects are skipped (`if (doc.IsObject()) … else {}`)
+ * instead of failing the config. Encodes as a plain list.
+ */
+@OptIn(SokkuriInternalApi::class)
+internal abstract class ConversionListSerializer(private val member: String) : KSerializer<List<ConversionDocument>> {
+
+    private val delegate = ListSerializer(ConversionDocument.serializer())
+
+    override val descriptor: SerialDescriptor get() = delegate.descriptor
+
+    override fun deserialize(decoder: Decoder): List<ConversionDocument> {
+        if (decoder !is JsonDecoder) return delegate.deserialize(decoder)
+        val array = decoder.decodeJsonElement() as? JsonArray
+            ?: throw SerializationException("Property must be an array: $member")
+        return array.filterIsInstance<JsonObject>()
+            .map { decoder.json.decodeFromJsonElement(ConversionDocument.serializer(), it) }
+    }
+
+    override fun serialize(encoder: Encoder, value: List<ConversionDocument>) {
+        delegate.serialize(encoder, value)
+    }
+}
+
+internal object ConversionChainSerializer : ConversionListSerializer("conversion_chain")
+
+internal object NormalizationSerializer : ConversionListSerializer("normalization")

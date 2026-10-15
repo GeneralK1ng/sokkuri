@@ -230,7 +230,6 @@ internal object ConfigCases {
     val knownGaps: Map<String, String> = mapOf(
         "duplicate-member" to "rapidjson resolves a repeated member to its first occurrence, " +
             "kotlinx-serialization to its last",
-        "stage-not-object" to "upstream skips chain members that are not objects; Sokkuri rejects the config",
         "text-leading-space" to "upstream splits candidates on every space, so a space after the tab makes the " +
             "empty string the default candidate; Sokkuri drops empty candidates",
         "text-missing-value" to "upstream maps a key with nothing after the tab to the empty string; " +
