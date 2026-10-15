@@ -1,0 +1,2 @@
+# Benchmark sample texts are measured byte for byte: never convert their line endings.
+tools/shared-resources/** text eol=lf

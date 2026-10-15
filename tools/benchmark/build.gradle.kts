@@ -34,6 +34,12 @@ dependencies {
     testImplementation(libs.kotlin.test)
 }
 
+// The benchmark sample texts (samples/<id>.txt), shared with tools:upstream-diff so
+// Sokkuri and upstream are timed on the same text.
+sourceSets.main {
+    resources.srcDir(rootDir.resolve("tools/shared-resources"))
+}
+
 application {
     mainClass.set("com.generalk1ng.sokkuri.benchmark.BenchmarkKt")
 }

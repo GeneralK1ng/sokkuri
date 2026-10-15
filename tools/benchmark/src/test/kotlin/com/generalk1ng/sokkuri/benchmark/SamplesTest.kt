@@ -51,6 +51,23 @@ class SamplesTest {
     }
 
     @Test
+    fun sampleTextsAreThePinnedOnes() {
+        // Lengths in UTF-16 code units: a stray edit to a shared sample file
+        // changes what every recorded benchmark measured.
+        val expected = mapOf("medium" to 48, "long" to 823, "short" to 8, "phrases" to 219, "twp" to 5, "hk" to 13)
+        for ((id, length) in expected) {
+            val text = sampleText(id)
+            assertEquals(length, text.length, "length of sample $id")
+            assertTrue('\r' !in text, "sample $id must not contain carriage returns")
+        }
+        assertEquals(
+            "鼠标里面的硅二极管坏了，需要更换。软件开发和硬件维护都需要严谨的态度。" +
+                "自干五扇风耳朵，铺眉搧眼。",
+            Samples.MEDIUM.text,
+        )
+    }
+
+    @Test
     fun everySampleTextIsNonBlank() {
         for (profile in SokkuriConfig.entries) {
             for ((id, text) in Samples.forProfile(profile)) {
