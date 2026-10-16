@@ -15,7 +15,7 @@
  */
 
 //! The canonical digests of the fixtures, pinned: the stream definition is
-//! normative (docs/design/sok-rs.md §5), so any change to how it is built
+//! normative (docs/verification/sok-reader.md), so any change to how it is built
 //! must show up here. The pinned values were computed by an independent
 //! Python reading of the stream definition; the Kotlin conformance tests prove
 //! the same stream on the packaged dictionaries and the fuzz corpus.

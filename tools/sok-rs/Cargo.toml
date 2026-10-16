@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The independent .sok reader (docs/design/sok-rs.md): a verification tool,
+# The independent .sok reader (docs/verification/sok-reader.md): a verification tool,
 # never published. The fuzz crate is its own workspace (cargo-fuzz needs
 # nightly), so it is excluded here.
 

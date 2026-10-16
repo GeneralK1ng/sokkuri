@@ -51,7 +51,7 @@ public class ResourceDictionaryProvider public constructor(
         val format = formats[type]
             ?: throw SokkuriException.Unsupported("unknown dictionary type '$type'")
         // The loader is the only component that knows where it looked, so
-        // the diagnosis travels with the miss (architecture.md §6, I9).
+        // the diagnosis travels with the miss (docs/architecture/invariants.md, I9).
         val bytes = loader.load(file)
             ?: throw SokkuriException.FileNotFound(file, loader.missingResourceHint())
         val decoded = try {

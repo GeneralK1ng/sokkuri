@@ -26,10 +26,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /**
- * The runtime decoder replays the conformance corpus (docs/design/sok-rs.md
- * §6.2) on every platform: the inputs the fuzzer kept against the
- * independent Rust reader, the hand-made cases of its tests that each break
- * one acceptance rule (§7), and the verdicts that reader wrote for them all.
+ * The runtime decoder replays the conformance corpus
+ * (docs/verification/sok-reader.md) on every platform: the inputs the fuzzer
+ * kept against the independent Rust reader, the hand-made cases of its tests
+ * that each break one acceptance rule, and the verdicts that reader wrote for
+ * them all.
  *
  * For every input the decoder must reach the same verdict, rejecting only by
  * [SokkuriException.InvalidFormat]; for every accepted one, the same digest,

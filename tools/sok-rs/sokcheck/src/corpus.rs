@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! The conformance corpus (docs/design/sok-rs.md §6.2): the inputs the fuzzer
+//! The conformance corpus (docs/verification/sok-reader.md): the inputs the fuzzer
 //! found, committed as text so a review can read the diff, and replayed by the
 //! Kotlin decoder on every platform against the expectations written here.
 //!
@@ -36,7 +36,7 @@ use crate::Failure;
 pub const MAX_INPUT_BYTES: usize = 512;
 
 const HEADER: &str = "\
-# The .sok conformance corpus (docs/design/sok-rs.md §6.2): one input per line,
+# The .sok conformance corpus (docs/verification/sok-reader.md): one input per line,
 # its FNV-1a 64 id, a tab, its bytes in hex. Written by `sokcheck corpus import`;
 # never edit it by hand. expected.txt beside it is `sokcheck expect --corpus`.
 ";

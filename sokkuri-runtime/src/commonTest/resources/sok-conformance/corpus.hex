@@ -1,4 +1,4 @@
-# The .sok conformance corpus (docs/design/sok-rs.md §6.2): one input per line,
+# The .sok conformance corpus (docs/verification/sok-reader.md): one input per line,
 # its FNV-1a 64 id, a tab, its bytes in hex. Written by `sokcheck corpus import`;
 # never edit it by hand. expected.txt beside it is `sokcheck expect --corpus`.
 00b8f1bd04604142	534f4b31010000000000000007000000030000001a0000002d00000000000002000000000100000003000000060000000c0000000f000000130000001a00000000000000030000000a000000140000001c0000001f000000280000002d000000010202010103017ac3a9e4b8ade4b8ade69687efbfbdf0a08080f1a08080e4b8ad01005a0200c3890100c80300e4b8ad0300e8a1860600e4b8addd962901000000000000030001d17a0300efbfbd

@@ -17,7 +17,7 @@
 package com.generalk1ng.sokkuri.dictgen
 
 /**
- * Code-point ordering (architecture invariant I2) and code-point counting,
+ * Code-point ordering (docs/architecture/invariants.md, I2) and code-point counting,
  * reimplemented here because `tools:dictgen` must not depend on
  * `:sokkuri-engine`. The comparison is
  * character-for-character aligned with `Utf.compareByCodePoint`; the

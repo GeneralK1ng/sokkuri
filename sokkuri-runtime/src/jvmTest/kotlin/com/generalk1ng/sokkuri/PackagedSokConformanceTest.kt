@@ -30,7 +30,7 @@ import kotlin.test.assertTrue
 /**
  * Every packaged dictionary gets the same verdict and the same canonical
  * digest from the runtime decoder as from the independent Rust reader
- * (docs/design/sok-rs.md §6.1), and every stored key is found again by the
+ * (docs/verification/sok-reader.md), and every stored key is found again by the
  * runtime lookups.
  *
  * The expectations come from `sokcheck expect --packaged`, through the file

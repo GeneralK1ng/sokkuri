@@ -19,7 +19,7 @@
 //! The format's single specification is the KDoc of `SokFormatLayout` in
 //! `sokkuri-resource`. This crate implements it again from that text alone,
 //! without reference to the Kotlin decoder, so that the two readings can be
-//! compared (docs/design/sok-rs.md): a rule the specification leaves out shows
+//! compared (docs/verification/sok-reader.md): a rule the specification leaves out shows
 //! up as a disagreement instead of being missed by both.
 //!
 //! The crate never writes `.sok`: the Kotlin encoder stays the only one (D6).

@@ -139,7 +139,7 @@ public class SokDictionary internal constructor(
     /**
      * The stored bytes of key [index], not decoded. With [entryCount] and
      * [rawCandidates], this is what the conformance tests against the
-     * independent Rust reader compare (docs/design/sok-rs.md §6): bytes, so a
+     * independent Rust reader compare (docs/verification/sok-reader.md): bytes, so a
      * malformed value is compared as what it is rather than as each reader's
      * replacement text. A fresh copy; never called at run time.
      *

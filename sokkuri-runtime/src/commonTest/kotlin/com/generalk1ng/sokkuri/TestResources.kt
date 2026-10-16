@@ -29,7 +29,7 @@ package com.generalk1ng.sokkuri
  * resolve test resources on every test runtime (JVM/Android host: test
  * resources sit on the class path; iOS: the Gradle wiring copies processed
  * test resources beside the test binary, where `NSBundle.mainBundle`
- * resolves), and reusing the real loading path keeps the constitution's
- * expect/actual restriction (R5) to its two production sites.
+ * resolves), and reusing the real loading path keeps the expect/actual
+ * restriction (docs/architecture/modules.md, R5) to its two production sites.
  */
 internal fun readTestResource(path: String): ByteArray? = defaultResourceLoader().load(path)

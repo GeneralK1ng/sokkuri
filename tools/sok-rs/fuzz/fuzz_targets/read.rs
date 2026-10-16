@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! Any bytes through the reader (docs/design/sok-rs.md §7). The reader must
+//! Any bytes through the reader (docs/verification/sok-reader.md). The reader must
 //! never panic, and an accepted file must be readable to the end: every entry,
 //! every candidate, the audit and the digest. Safe Rust panics on any
 //! out-of-bounds access, so "accepted means in bounds" is checked by running

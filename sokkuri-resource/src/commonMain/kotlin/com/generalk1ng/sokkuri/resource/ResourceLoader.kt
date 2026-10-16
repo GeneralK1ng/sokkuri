@@ -53,7 +53,7 @@ public interface ResourceLoader {
      * never be blank. It lives on the loader because the loader is the only
      * component that knows the search scope; a throw site observes just a
      * path and could not describe what was probed
-     * (docs/architecture.md §6, I9).
+     * (docs/architecture/invariants.md, I9).
      */
     public fun missingResourceHint(): String
 }

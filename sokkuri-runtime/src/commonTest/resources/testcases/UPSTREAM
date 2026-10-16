@@ -6,13 +6,13 @@ Date:    2026-09-26 (Add 况況, 擧舉 and 衛衞 to staging Allographs and re-
 Copied verbatim (JSONC: comments + trailing commas). 262 cases, 583
 stem expectations across 19 stems; the three `*seal*` stems (15
 expectations) are excluded because the seal profiles are deliberately
-not ported (docs/architecture.md). Golden coverage: 16 ported stems,
+not ported (docs/architecture/divergences.md #4). Golden coverage: 16 ported stems,
 583 - 15 = 568 expectations; see OpenccTestcasesGoldenTest.
 
 The Commit line is also the repository's pin of the OpenCC reference
 clone: ./gradlew fetchOpencc checks the clone out at it, and the tools
 that read the clone refuse to run against any other commit
-(docs/architecture.md §10.3).
+(docs/verification/opencc-clone.md).
 
 Pin bump: edit the Commit and Date lines, run ./gradlew fetchOpencc and
 ./gradlew :tools:dictgen:run, refresh the corpus, update the counts above.

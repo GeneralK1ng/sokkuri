@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# cargo mutants (docs/design/sok-rs.md §3.1): every surviving mutant must be
+# cargo mutants (docs/verification/sok-reader.md): every surviving mutant must be
 # equivalent and explained here; a full run otherwise reports none.
 
 exclude_re = [

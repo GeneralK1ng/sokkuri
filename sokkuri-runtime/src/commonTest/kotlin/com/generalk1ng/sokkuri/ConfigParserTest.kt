@@ -327,7 +327,7 @@ class ConfigParserTest {
     /**
      * `type` is a serializer-level discriminator, so the config layer never
      * sees its value; the wording comes from the module-level default
-     * deserializer in `JsonSupport` (architecture.md §9, D11).
+     * deserializer in `JsonSupport` (docs/architecture/decisions.md, D11).
      */
     @Test
     fun unknownDictionaryTypeIsInvalid() {
@@ -380,7 +380,7 @@ class ConfigParserTest {
             )
         }
         assertTrue(failure.message!!.contains("absent.txt"))
-        // The loader's diagnosis travels with the miss (architecture.md §6, I9).
+        // The loader's diagnosis travels with the miss (docs/architecture/invariants.md, I9).
         assertTrue(
             failure.message!!.contains(FakeResourceLoader.HINT),
             "expected the loader's missing-resource hint in: ${failure.message}",

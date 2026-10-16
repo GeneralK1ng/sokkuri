@@ -24,7 +24,7 @@ import com.generalk1ng.sokkuri.Sokkuri
  * retained heap per profile.
  *
  * Cold/warm honesty note: all profiles of one run share a process, and the
- * shared dictionary cache (constitution D3) is process-wide — so only the
+ * shared dictionary cache (docs/architecture/decisions.md, D3) is process-wide — so only the
  * first profile's `coldMs` is a true cold start; later profiles measure
  * "first create of this profile with dictionaries already cached", which
  * is exactly the product behavior a consumer sees when creating several

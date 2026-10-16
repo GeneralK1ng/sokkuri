@@ -28,7 +28,7 @@ import kotlin.test.assertNotEquals
  * it requires the platform resource loader to miss, and every profile's
  * resources are on the test class path by construction. Forcing it would
  * need a loader injection seam that `create` does not have yet
- * (docs/architecture.md §5 #12). The failure path is instead pinned by
+ * (docs/architecture/extending.md #12). The failure path is instead pinned by
  * `SokkuriCreateThrowsContractTest` in jvmTest, which reads the compiled
  * contract.
  */

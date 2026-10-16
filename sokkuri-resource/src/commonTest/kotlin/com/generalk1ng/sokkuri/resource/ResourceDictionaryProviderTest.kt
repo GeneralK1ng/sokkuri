@@ -68,7 +68,7 @@ class ResourceDictionaryProviderTest {
 
     /**
      * A miss is reported with the loader's own diagnosis: the provider sees
-     * only a path, the loader sees the search scope (architecture.md §6, I9).
+     * only a path, the loader sees the search scope (docs/architecture/invariants.md, I9).
      */
     @Test
     fun missingFileCarriesTheLoadersDiagnosis() {

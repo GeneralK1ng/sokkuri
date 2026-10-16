@@ -38,7 +38,7 @@ internal object OpenccTestcases {
 
     /**
      * Upstream stems deliberately not ported: the seal family
-     * (docs/architecture.md §7 #4). Declared before [byStem], whose
+     * (docs/architecture/divergences.md #4). Declared before [byStem], whose
      * initializer reads it.
      */
     private val UNPORTED_STEMS: Set<String> = setOf("s2seal", "seal2t", "t2seal")

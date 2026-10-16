@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! The canonical digest of docs/design/sok-rs.md §5: how two readers show they
+//! The canonical digest of docs/verification/sok-reader.md: how two readers show they
 //! split a file into the same entries, without trusting each other's code.
 //!
 //! It is FNV-1a 64 over this byte stream, built from the stored bytes, never

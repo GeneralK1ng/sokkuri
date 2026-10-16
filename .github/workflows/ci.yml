@@ -1,4 +1,4 @@
-# Build gate (docs/architecture.md §10.2, layer 1): the very `./gradlew build`
+# Build gate (docs/verification/ci.md, layer 1): the very `./gradlew build`
 # the release workflow runs, on every push to main and every pull request, so
 # a green main is releasable by construction. It covers the JVM, Android host
 # and iOS simulator test suites, the tools' unit tests and the ABI check;
@@ -54,7 +54,7 @@ jobs:
   sok-reader:
     name: sok reader
     # The independent Rust .sok reader and its conformance with the Kotlin
-    # decoder (docs/architecture.md §10.5). Not a required check yet; the
+    # decoder (docs/verification/sok-reader.md). Not a required check yet; the
     # Build gate never needs Rust.
     runs-on: macos-latest
     timeout-minutes: 30

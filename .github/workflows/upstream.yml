@@ -1,4 +1,4 @@
-# Upstream alignment (docs/architecture.md §10.2, layer 2) and the weekly
+# Upstream alignment (docs/verification/ci.md, layer 2) and the weekly
 # rehearsal of a pin bump.
 #
 # The pinned job checks this commit against the OpenCC commit recorded in
@@ -173,7 +173,7 @@ jobs:
 
       # The regenerated dictionaries through the independent Rust reader:
       # acceptance and audit, then the Kotlin decoder's verdicts and digests
-      # against its expectations (docs/architecture.md §10.5).
+      # against its expectations (docs/verification/sok-reader.md).
       - name: Rust reader on the regenerated dictionaries
         if: steps.moved.outputs.moved == 'true'
         run: ./gradlew :tools:sok-rs:verifyPackaged :sokkuri-runtime:sokConformanceTest

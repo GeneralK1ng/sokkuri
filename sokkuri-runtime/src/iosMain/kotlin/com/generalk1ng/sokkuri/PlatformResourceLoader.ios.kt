@@ -104,7 +104,7 @@ internal class BundleResourceLoader internal constructor() : ResourceLoader {
 }
 
 // Singleton so every Sokkuri.create shares one loader identity and therefore
-// one dictionary-cache scope (docs/architecture.md §4.3).
+// one dictionary-cache scope (docs/architecture/dictionaries.md).
 private val defaultLoader: ResourceLoader = BundleResourceLoader()
 
 internal actual fun defaultResourceLoader(): ResourceLoader = defaultLoader

@@ -28,12 +28,12 @@ plugins {
 }
 
 /**
- * Base of the tasks that manage the OpenCC reference clone (docs/architecture.md
- * §10.3): the gitignored checkout of upstream at [CLONE] that tools:dictgen
- * compiles from and tools:upstream-diff builds its oracle from. It is pinned
- * to the commit on the `Commit:` line of [PIN], the note of the golden corpus
- * copied from that same commit; the pin is the only record of which upstream
- * commit the repository is aligned with.
+ * Base of the tasks that manage the OpenCC reference clone
+ * (docs/verification/opencc-clone.md): the gitignored checkout of upstream at
+ * [CLONE] that tools:dictgen compiles from and tools:upstream-diff builds its
+ * oracle from. It is pinned to the commit on the `Commit:` line of [PIN], the
+ * note of the golden corpus copied from that same commit; the pin is the only
+ * record of which upstream commit the repository is aligned with.
  *
  * The tasks declare no outputs, so they always run: the clone's state lives
  * outside Gradle's view, and asking git about it is cheap.

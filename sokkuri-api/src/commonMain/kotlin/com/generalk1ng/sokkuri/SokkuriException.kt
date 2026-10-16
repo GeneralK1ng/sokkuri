@@ -28,7 +28,7 @@ package com.generalk1ng.sokkuri
  * explicit failure channel is `Sokkuri.CreateResult`; this exception is what
  * escapes when a caller does not use it. On Apple targets the type is
  * bridged to `NSError` only because `Sokkuri.create` names it in `@Throws`
- * (docs/architecture.md §6, I4).
+ * (docs/architecture/invariants.md, I4).
  */
 public sealed class SokkuriException(
     message: String,
