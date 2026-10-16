@@ -24,6 +24,7 @@
 //!
 //! The crate never writes `.sok`: the Kotlin encoder stays the only one (D6).
 
+pub mod digest;
 pub mod layout;
 mod reader;
 pub mod utf8;
