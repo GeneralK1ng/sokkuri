@@ -45,8 +45,14 @@ class SokFixtureFilesTest {
             directory.listFiles { file -> file.name.endsWith(".sok") }?.forEach { it.delete() }
             for ((name, entries) in FIXTURES) directory.resolve(name).writeBytes(SokDictionaryEncoder.encode(entries))
         }
-        val committed = directory.listFiles { file -> file.name.endsWith(".sok") }.orEmpty().map { it.name }.sorted()
-        assertEquals(FIXTURES.keys.sorted(), committed, "fixture files in $directory (regenerate with $WRITE_VARIABLE=1)")
+        val committed = directory.listFiles { file -> file.name.endsWith(".sok") }.orEmpty()
+            .map { it.name }
+            .sorted()
+        assertEquals(
+            FIXTURES.keys.sorted(),
+            committed,
+            "fixture files in $directory (regenerate with $WRITE_VARIABLE=1)",
+        )
         for ((name, entries) in FIXTURES) {
             assertContentEquals(
                 SokDictionaryEncoder.encode(entries),
