@@ -15,7 +15,7 @@
  */
 
 //! `sokcheck`: the command line of the independent `.sok` reader
-//! (docs/design/sok-rs.md).
+//! (docs/verification/sok-reader.md).
 //!
 //! Exit status: 0 when every check passes, 1 when a file violates the format,
 //! 2 on a usage or I/O error. Data goes to standard output, diagnostics to

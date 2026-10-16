@@ -30,7 +30,7 @@ package com.generalk1ng.sokkuri
  *   `may_output_tofu` (e.g. `TSCharactersExt`) are excluded unless this is
  *   `true`. OpenCC's CLI defaults to exclusion; its C++ core and own test
  *   corpus run with inclusion — Sokkuri follows the CLI default deliberately
- *   (registered deviation, docs/architecture.md §7).
+ *   (registered divergence #2, docs/architecture/divergences.md).
  */
 public class SokkuriOptions private constructor(
     public val includeTofuRiskDictionaries: Boolean,

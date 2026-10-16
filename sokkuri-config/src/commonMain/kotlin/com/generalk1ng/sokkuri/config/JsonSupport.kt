@@ -103,7 +103,7 @@ public object JsonSupport {
 
 /**
  * Reports an unrecognized `dict.type` in this library's own words, instead of
- * letting the sealed-class machinery do it (architecture.md §9, D11).
+ * letting the sealed-class machinery do it (docs/architecture/decisions.md, D11).
  *
  * `@JsonClassDiscriminator` demotes `type` from data to a serializer-level
  * discriminator, so the config layer never sees the string — only kotlinx can

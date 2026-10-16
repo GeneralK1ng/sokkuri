@@ -1,5 +1,5 @@
 # Release workflow: a pushed v* tag is the only trigger. The tagged commit must
-# first pass the upstream alignment (upstream.yml, docs/architecture.md §10.2),
+# first pass the upstream alignment (upstream.yml, docs/verification/ci.md),
 # then it is built and tested on all platforms (./gradlew build, the same gate
 # as ci.yml) and uploaded to Maven Central as a USER_MANAGED deployment
 # (manual mode).

@@ -1,4 +1,4 @@
-# The build environment every workflow shares (docs/architecture.md §10.2):
+# The build environment every workflow shares (docs/verification/ci.md):
 # one definition of the JDK, Gradle, the Android SDK and the Kotlin/Native
 # toolchain cache, so the build gate, the upstream alignment and the release
 # cannot drift apart. macOS runners only: the iOS targets need them, and the
@@ -81,7 +81,7 @@ runs:
         echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
 
-    # The independent .sok reader (docs/design/sok-rs.md §10.2). The version
+    # The independent .sok reader (docs/verification/sok-reader.md). The version
     # comes from its rust-toolchain.toml, the one place that pins it; rustup is
     # preinstalled on the macOS runners, and installed here if an image drops it.
     - name: Install the pinned Rust toolchain

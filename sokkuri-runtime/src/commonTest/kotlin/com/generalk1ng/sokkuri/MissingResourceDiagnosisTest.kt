@@ -28,7 +28,7 @@ import kotlin.test.assertTrue
 
 /**
  * A missing resource must reach the caller with the loader's own diagnosis
- * (architecture.md §6, I9). These run against the real platform [ResourceLoader]
+ * (docs/architecture/invariants.md, I9). These run against the real platform [ResourceLoader]
  * on every test runtime — JVM classpath, Android host, iOS simulator — so each
  * platform actual's wording is exercised, not just a fixture's.
  *

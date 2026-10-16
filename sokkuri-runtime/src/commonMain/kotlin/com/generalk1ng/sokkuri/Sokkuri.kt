@@ -61,7 +61,7 @@ public class Sokkuri private constructor(
      * SokkuriException` compiles but never matches — only `(error as
      * NSError).kotlinException` yields the Kotlin object. Returning a sealed
      * result gives Swift a typed, non-throwing path instead
-     * (docs/architecture.md §6, I4).
+     * (docs/architecture/invariants.md, I4).
      */
     public sealed class CreateResult {
 
@@ -146,8 +146,8 @@ public class Sokkuri private constructor(
 
         // Future extension points (source-compatible additions):
         //   create(config, options, loader)  — custom resource loading;
-        //     bound DictionaryCache's loader registry first (architecture.md
-        //     §5 #12, §4.3)
+        //     bound DictionaryCache's loader registry first
+        //     (docs/architecture/extending.md #12, dictionaries.md)
         //   fromConfig(json, ...)            — user-supplied OpenCC configs
     }
 }

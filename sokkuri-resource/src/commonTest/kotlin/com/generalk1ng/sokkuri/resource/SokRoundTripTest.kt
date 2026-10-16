@@ -140,7 +140,7 @@ class SokRoundTripTest {
 
     /**
      * The raw accessors the cross-implementation conformance tests read
-     * (docs/design/sok-rs.md §6) return the encoder's bytes, entry by entry in
+     * (docs/verification/sok-reader.md) return the encoder's bytes, entry by entry in
      * code-point order, and nothing past the last entry.
      */
     @Test

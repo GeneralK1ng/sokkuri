@@ -408,7 +408,7 @@ fn an_empty_candidate_reads_as_empty_wherever_it_stands() {
 }
 
 /// Writes every case of this file into the directory `SOKKURI_SOK_SEEDS`
-/// names, for the conformance corpus (docs/design/sok-rs.md §7): each breaks
+/// names, for the conformance corpus (docs/verification/sok-reader.md): each breaks
 /// exactly one acceptance rule, or none, in an otherwise valid file. Fuzzed
 /// inputs mostly break several rules at once, so they cannot show that the
 /// Kotlin decoder still has each check; these can. Run by

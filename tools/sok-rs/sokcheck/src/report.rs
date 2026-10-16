@@ -25,7 +25,7 @@ use sok::audit::{audit, summary};
 use sok::digest::{digest, hex};
 use sok::utf8::decode_first;
 
-/// One line of an expectation file (docs/design/sok-rs.md §6):
+/// One line of an expectation file (docs/verification/sok-reader.md):
 /// `<name> accept <entryCount> <maxKeyLength> <digest> <audit>` or
 /// `<name> reject <rule>`, tab-separated, where `<audit>` is `audit-ok` or
 /// `audit:` and the broken audit rules. Readers ignore trailing fields, so

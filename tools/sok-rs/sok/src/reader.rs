@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! Parsing: the acceptance rules V1 to V12 of docs/design/sok-rs.md §4.1,
+//! Parsing: the acceptance rules V1 to V12 of docs/verification/sok-reader.md,
 //! which must accept exactly the files the runtime decoder accepts, and a
 //! zero-copy view of an accepted file.
 
@@ -25,7 +25,7 @@ use std::iter::Take;
 use crate::layout::{CANDIDATE_HEADER_BYTES, HEADER_BYTES, Header, MAGIC, VERSION, u16_at, u32_at};
 use crate::utf8;
 
-/// An acceptance rule of the format (docs/design/sok-rs.md §4.1).
+/// An acceptance rule of the format (docs/verification/sok-reader.md).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum Rule {

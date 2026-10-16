@@ -220,14 +220,14 @@ internal object ConfigCases {
 
     /**
      * Cases whose outcomes differ by design, with the decision behind each
-     * (docs/architecture.md §7 unless noted).
+     * (docs/architecture/divergences.md unless noted).
      */
     val deliberateDivergences: Map<String, String> = mapOf(
         "ocd2" to "#3: ocd and ocd2 are not ported, their byte order and word size not being portable; " +
             "Sokkuri reports Unsupported where upstream loads the file",
         "segmentation-plugin" to "#9: segmentation plugins are never loaded; upstream fails to find the plugin " +
             "library, Sokkuri reports Unsupported",
-        "sok" to "§4.2: sok is Sokkuri's own production format, a type upstream does not know",
+        "sok" to "D6: sok is Sokkuri's own production format, a type upstream does not know",
     )
 
     /**

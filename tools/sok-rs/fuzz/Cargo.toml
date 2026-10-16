@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The fuzz target of the independent .sok reader (docs/design/sok-rs.md §7).
+# The fuzz target of the independent .sok reader (docs/verification/sok-reader.md).
 # A workspace of its own: cargo-fuzz needs a nightly toolchain, while the
 # reader's workspace pins a stable one. Run it from tools/sok-rs with
 # `cargo +nightly fuzz run read`, or through `./gradlew :tools:sok-rs:fuzz`.

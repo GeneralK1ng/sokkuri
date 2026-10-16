@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! The audit rules of docs/design/sok-rs.md §4.2: what the specification
+//! The audit rules of docs/verification/sok-reader.md: what the specification
 //! states and the encoder guarantees, but the runtime decoder does not check.
 //! An accepted file can break them; the audit says which, and never changes
 //! whether the file is accepted. A rule the decoder came to enforce moved to
@@ -27,7 +27,7 @@ use std::fmt;
 use crate::reader::SokFile;
 use crate::utf8;
 
-/// An audit rule (docs/design/sok-rs.md §4.2).
+/// An audit rule (docs/verification/sok-reader.md).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum AuditRule {

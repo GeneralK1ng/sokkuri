@@ -29,7 +29,7 @@ internal object ConsistencyCheck {
 
     /**
      * Upstream profiles deliberately not ported: the seal family
-     * (docs/architecture.md §7 #4). Registered by name rather than matched by
+     * (docs/architecture/divergences.md #4). Registered by name rather than matched by
      * pattern, so a stale entry fails like any other drift.
      */
     internal val UNPORTED_UPSTREAM_STEMS: Set<String> = setOf("s2seal", "seal2t", "t2seal")

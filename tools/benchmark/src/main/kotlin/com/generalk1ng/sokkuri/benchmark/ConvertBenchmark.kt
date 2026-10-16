@@ -24,7 +24,7 @@ import java.util.*
  * The `convert` subcommand: conversion throughput
  * per profile over the embedded sample set. One converter per profile,
  * created outside the timed region; dictionaries flow through the shared
- * process cache (constitution D3), so `--profile all` is dominated by the
+ * process cache (docs/architecture/decisions.md, D3), so `--profile all` is dominated by the
  * first profile's cold decode, not sixteen of them.
  */
 internal object ConvertBenchmark {

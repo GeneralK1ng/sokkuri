@@ -213,8 +213,8 @@ private fun Project.publishDictionariesAsKlibResourceVariants() {
 publishDictionariesAsKlibResourceVariants()
 
 // ---------------------------------------------------------------------------
-// Conformance with the independent Rust .sok reader (docs/design/sok-rs.md
-// §6.1). The packaged dictionaries' expectations are written by
+// Conformance with the independent Rust .sok reader
+// (docs/verification/sok-reader.md). The packaged dictionaries' expectations are written by
 // :tools:sok-rs:expectPackaged and handed to PackagedSokConformanceTest
 // through SOKKURI_SOK_EXPECT, so this task never skips the test. It runs the
 // jvm test classes, but is a task of its own: like everything in

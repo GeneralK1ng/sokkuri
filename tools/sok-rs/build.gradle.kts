@@ -17,8 +17,8 @@
 import java.io.File
 import javax.inject.Inject
 
-// The independent .sok reader is a cargo workspace (docs/design/sok-rs.md
-// §10.1). This project applies no plugin, so it has no build, check or test
+// The independent .sok reader is a cargo workspace
+// (docs/verification/sok-reader.md). This project applies no plugin, so it has no build, check or test
 // lifecycle task and `./gradlew build` never reaches it: it only registers
 // tasks that run cargo, for the one entry point `./gradlew sokConformance`.
 
@@ -190,7 +190,7 @@ val expectPackaged by tasks.registering(CargoTask::class) {
 }
 
 // ---------------------------------------------------------------------------
-// The conformance corpus (docs/design/sok-rs.md §6.2 and §7). Fuzzing is local
+// The conformance corpus (docs/verification/sok-reader.md). Fuzzing is local
 // only (decided 2026-10-15): CI checks the committed expectations, and the
 // Kotlin build replays the committed corpus on every platform. The fuzz tasks
 // need a nightly toolchain and cargo-fuzz (`rustup toolchain install nightly`,
@@ -283,7 +283,7 @@ tasks.register("fuzz") {
 
 tasks.register("sokConformance") {
     group = "sok-rs"
-    description = "Every check of the independent .sok reader (docs/architecture.md §10.5)."
+    description = "Every check of the independent .sok reader (docs/verification/sok-reader.md)."
     dependsOn(cargoLint, cargoTest, verifyPackaged, checkCorpusExpectations)
     dependsOn(":sokkuri-runtime:sokConformanceTest")
 }

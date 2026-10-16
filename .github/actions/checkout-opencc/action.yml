@@ -1,5 +1,5 @@
 # Checks out the OpenCC reference clone into ./OpenCC, where every tool and
-# test expects it (docs/architecture.md §10.3). The checkout itself is the root
+# test expects it (docs/verification/opencc-clone.md). The checkout itself is the root
 # build's fetchOpencc task, the one place that knows how the clone is
 # obtained, so CI and a local checkout cannot drift apart; run setup-build-env
 # first. A fresh clone is a shallow fetch of one commit: the tools read only

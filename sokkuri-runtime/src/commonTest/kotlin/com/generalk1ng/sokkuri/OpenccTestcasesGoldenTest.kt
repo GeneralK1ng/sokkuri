@@ -31,7 +31,7 @@ import kotlin.test.assertTrue
  *
  * Converters are created once per profile and shared across test methods
  * (companion scope): dictionary instances flow through the shared cache
- * (architecture constitution D3), so the 16 profiles decode each dictionary
+ * (docs/architecture/decisions.md, D3), so the 16 profiles decode each dictionary
  * only once per process.
  *
  * Expectations that diverge under default SokkuriOptions (tofu-risk dictionaries

@@ -26,7 +26,7 @@ import kotlin.test.assertTrue
 
 /**
  * Pins the `.sok` fixtures of the independent Rust reader
- * (`tools/sok-rs/fixtures`, docs/design/sok-rs.md §6.3) to this encoder: the
+ * (`tools/sok-rs/fixtures`, docs/verification/sok-reader.md) to this encoder: the
  * Rust side never encodes, so every valid file it reads must be the Kotlin
  * encoder's own output. Each fixture is compared byte for byte with a fresh
  * encoding, and a fixture with no definition here fails the test, so the

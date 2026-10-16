@@ -23,8 +23,8 @@ import com.generalk1ng.sokkuri.engine.Dictionary
  * The process-wide dictionary cache backing every
  * [ResourceDictionaryProvider].
  *
- * A deliberate divergence from OpenCC's `DictCache` (registered deviation,
- * docs/architecture.md §7): upstream caches process-wide `weak_ptr`s keyed
+ * A deliberate divergence from OpenCC's `DictCache` (registered divergence
+ * #1, docs/architecture/divergences.md): upstream caches process-wide `weak_ptr`s keyed
  * by file mtime+size, the semantics of a desktop tool reading mutable
  * files. Sokkuri's dictionaries are packaged, immutable resources, so:
  *
@@ -48,7 +48,7 @@ internal object DictionaryCache {
     // Loader identity registry: reference-equality scan, entries never
     // removed. This list is what keeps a scope stable, so it owns the
     // loader — the bound is "loaders ever seen", not alive ones
-    // (docs/architecture.md §4.3).
+    // (docs/architecture/dictionaries.md).
     private val loaderScopes = ArrayList<Pair<ResourceLoader, Int>>()
     private var nextScope: Int = 0
 

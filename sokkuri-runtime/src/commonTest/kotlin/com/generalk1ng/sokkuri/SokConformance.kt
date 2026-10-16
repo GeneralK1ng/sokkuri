@@ -24,7 +24,7 @@ import kotlin.test.assertEquals
 
 /**
  * The Kotlin half of the conformance contract with the independent Rust
- * reader (`tools/sok-rs`, docs/design/sok-rs.md §5 and §6): the same verdict
+ * reader (`tools/sok-rs`, docs/verification/sok-reader.md): the same verdict
  * and the same canonical digest, computed from the runtime decoder, so that
  * the expectation lines `sokcheck expect` writes can be checked line by line.
  */
@@ -80,7 +80,7 @@ internal object SokConformance {
     /**
      * The canonical digest: FNV-1a 64 over the entry count, maxKeyLength and,
      * per entry, the stored key and candidate bytes with their lengths, all
-     * little-endian (the stream docs/design/sok-rs.md §5 defines).
+     * little-endian (the stream docs/verification/sok-reader.md defines).
      */
     fun digest(dictionary: SokDictionary): ULong {
         var hash = FNV_OFFSET_BASIS
