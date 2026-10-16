@@ -42,7 +42,9 @@ commands:
   dump <file>                list a file's entries: key, then its candidates, tab-separated
   stats <path>...            sizes and shape of each file
   expect --packaged <dir>    one expectation line per .sok in <dir>, for the Kotlin conformance test
-  expect --corpus <file>     one expectation line per input of a conformance corpus, in corpus order
+  expect --corpus <file> [--check <expected>]
+                             one expectation line per input of a conformance corpus, in corpus order;
+                             with --check, compare them with <expected> instead of printing them
   corpus import <dir> <file> add every file of a libFuzzer corpus directory (up to 512 bytes) to a corpus
   corpus export <file> <dir> write a corpus's inputs into a directory, to seed libFuzzer
   help                       this text
@@ -105,11 +107,16 @@ fn run(arguments: &[String]) -> Result<Outcome, Failure> {
             [flag, directory] if flag == "--packaged" => {
                 expect(&files::read_directory(&PathBuf::from(directory))?, &mut out)?
             }
-            [flag, file] if flag == "--corpus" => expect_corpus(&PathBuf::from(file), &mut out)?,
+            [flag, file] if flag == "--corpus" => {
+                write!(out, "{}", corpus_expectations(&PathBuf::from(file))?)?;
+                Outcome::Passed
+            }
+            [flag, file, check, expected] if flag == "--corpus" && check == "--check" => {
+                check_corpus_expectations(&PathBuf::from(file), &PathBuf::from(expected), &mut out)?
+            }
             _ => {
-                return Err(Failure::Error(
-                    "expect takes --packaged <dir> or --corpus <file>".to_owned(),
-                ));
+                let usage = "expect takes --packaged <dir> or --corpus <file> [--check <expected>]";
+                return Err(Failure::Error(usage.to_owned()));
             }
         },
         "corpus" => match rest {
@@ -221,21 +228,54 @@ fn expect(inputs: &[SokInput], out: &mut impl Write) -> Result<Outcome, Failure>
     Ok(Outcome::Passed)
 }
 
-/// The expectations of a conformance corpus, a comment line first, then one
-/// line per input in corpus order, named by its id.
-fn expect_corpus(path: &std::path::Path, out: &mut impl Write) -> Result<Outcome, Failure> {
+/// The expectations of a conformance corpus: a comment line, then one line
+/// per input in corpus order, named by its id.
+fn corpus_expectations(path: &std::path::Path) -> Result<String, Failure> {
     let inputs = corpus::read(path)?;
     if inputs.is_empty() {
         return Err(Failure::Error(format!("{}: no input", path.display())));
     }
+    let mut text =
+        "# Expectations for the conformance corpus beside this file, written by `sokcheck expect --corpus`.\n"
+            .to_owned();
+    for (id, bytes) in &inputs {
+        text.push_str(&report::expectation(id, bytes));
+        text.push('\n');
+    }
+    Ok(text)
+}
+
+/// Whether the committed expectations still say what the reader says of the
+/// corpus: they go stale when either the corpus or the reader changes.
+fn check_corpus_expectations(
+    corpus_file: &std::path::Path,
+    expected_file: &std::path::Path,
+    out: &mut impl Write,
+) -> Result<Outcome, Failure> {
+    let fresh = corpus_expectations(corpus_file)?;
+    let committed = std::fs::read_to_string(expected_file)
+        .map_err(|error| Failure::Error(format!("{}: {error}", expected_file.display())))?;
+    if fresh == committed {
+        writeln!(
+            out,
+            "{} matches the reader on {}",
+            expected_file.display(),
+            corpus_file.display()
+        )?;
+        return Ok(Outcome::Passed);
+    }
+    let first = fresh.lines().zip(committed.lines()).position(|(a, b)| a != b);
+    let line = first.map_or_else(
+        || fresh.lines().count().min(committed.lines().count()) + 1,
+        |index| index + 1,
+    );
     writeln!(
         out,
-        "# Expectations for the conformance corpus beside this file, written by `sokcheck expect --corpus`."
+        "{} is stale from line {line}: regenerate it with `sokcheck expect --corpus {}`",
+        expected_file.display(),
+        corpus_file.display(),
     )?;
-    for (id, bytes) in &inputs {
-        writeln!(out, "{}", report::expectation(id, bytes))?;
-    }
-    Ok(Outcome::Passed)
+    Ok(Outcome::Violations)
 }
 
 /// Merges a libFuzzer corpus directory into the committed corpus file.

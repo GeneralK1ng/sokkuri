@@ -234,6 +234,36 @@ fn a_corpus_imports_exports_and_expects_in_id_order() {
 }
 
 #[test]
+fn stale_corpus_expectations_are_reported() {
+    let base = scratch("stale", "placeholder", b"")
+        .parent()
+        .expect("parent")
+        .to_path_buf();
+    let inputs = base.join("inputs");
+    std::fs::create_dir_all(&inputs).expect("inputs");
+    std::fs::write(inputs.join("a"), b"SOK1").expect("input");
+    let corpus = base.join("corpus.hex");
+    let expected = base.join("expected.txt");
+    let path = |p: &std::path::Path| p.to_str().expect("path").to_owned();
+    sokcheck(&["corpus", "import", &path(&inputs), &path(&corpus)]);
+    std::fs::write(&expected, sokcheck(&["expect", "--corpus", &path(&corpus)]).stdout).expect("expected");
+
+    let fresh = sokcheck(&["expect", "--corpus", &path(&corpus), "--check", &path(&expected)]);
+    assert_eq!(Some(0), fresh.status.code(), "{}", stdout(&fresh));
+
+    std::fs::copy(fixtures().join("prefixes.sok"), inputs.join("b")).expect("a second input");
+    sokcheck(&["corpus", "import", &path(&inputs), &path(&corpus)]);
+    let stale = sokcheck(&["expect", "--corpus", &path(&corpus), "--check", &path(&expected)]);
+    assert_eq!(Some(1), stale.status.code());
+    assert!(stdout(&stale).contains("is stale from line"), "{}", stdout(&stale));
+
+    std::fs::write(&expected, "# a hand-edited file\n").expect("edited");
+    let edited = sokcheck(&["expect", "--corpus", &path(&corpus), "--check", &path(&expected)]);
+    assert_eq!(Some(1), edited.status.code());
+    assert!(stdout(&edited).contains("is stale from line 1"), "{}", stdout(&edited));
+}
+
+#[test]
 fn a_corrupted_corpus_is_refused() {
     let file = scratch("corrupted", "corpus.hex", b"0000000000000000\t534f4b31\n");
     let output = sokcheck(&["expect", "--corpus", file.to_str().expect("path")]);
