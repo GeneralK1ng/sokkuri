@@ -282,6 +282,12 @@ class SokDecoderValidationTest {
             corrupt { "aaa".encodeToByteArray().copyInto(this, keyBlobBase + 3) },
             "key 2 is not above key 1",
         )
+        // As "aac" it sorts before "ab" too, but after key 0 and after the
+        // whole blob before it, "aab": only the key just before it shows it.
+        assertRejected(
+            corrupt { "aac".encodeToByteArray().copyInto(this, keyBlobBase + 3) },
+            "key 2 is not above key 1",
+        )
     }
 
     @Test

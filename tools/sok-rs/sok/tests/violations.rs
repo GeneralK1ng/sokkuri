@@ -138,6 +138,14 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
             Rule::KeyOrder,
         ),
+        // Key 2 as aac sorts below key 1, ab, but above key 0 and above the
+        // whole blob before it, aab: only a comparison with the key just
+        // before it can find it.
+        (
+            "a key out of order against the key before it only",
+            corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aac")),
+            Rule::KeyOrder,
+        ),
         (
             "maxKeyLength below the longest key",
             corrupt(|bytes| common::put_u32(bytes, 16, 2)),
