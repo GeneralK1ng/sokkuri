@@ -1,6 +1,6 @@
 # 设计：`.sok` 的 Rust 独立读取器
 
-**状态：实施中，2026-10-16 起按第 11 节分阶段落地。** 本文提出 `tools/sok-rs`：一个按 `SokFormatLayout` 规范独立实现的 `.sok` 只读读取器，以及围绕它的审计、规范对拍与模糊测试。它是验证工具，不是发布产物；实施时按第 9 节修订 `docs/architecture.md`。
+**状态：实施中，2026-10-16 起按第 11 节分阶段落地：P0、P1、P3 的内容与 P2 的审计已经落地，第 8 节的规范澄清待决，CI 尚待首次运行。** 本文提出 `tools/sok-rs`：一个按 `SokFormatLayout` 规范独立实现的 `.sok` 只读读取器，以及围绕它的审计、规范对拍与模糊测试。它是验证工具，不是发布产物；实施时按第 9 节修订 `docs/architecture.md`。
 
 ## 1. 动机
 
@@ -146,13 +146,13 @@ Kotlin 侧需要拿到每个条目的原始字节区间。为此，`SokDictionar
 ### 6.2 模糊语料：提交后由三端回放
 
 - 语料存于 `sokkuri-runtime/src/commonTest/resources/sok-conformance/corpus.hex`，每行一个输入，格式为“编号、制表符、十六进制字节”，编号取输入字节的 FNV 摘要；文本而非二进制，便于评审 diff，与 `fuzz-corpus.jsonl` 每行一个输入的做法一致；
-- 期望存于同目录的 `expected.txt`，由 `sokcheck expect corpus.hex` 生成并提交。每行为编号与判定，判定是 `reject <规则编号>`，或 `accept <entryCount> <maxKeyLength> <摘要> <审计结果>`；
+- 期望存于同目录的 `expected.txt`，由 `sokcheck expect --corpus corpus.hex` 生成并提交。每行为编号与判定，判定是 `reject <规则编号>`，或 `accept <entryCount> <maxKeyLength> <摘要> <审计结果>`；
 - `sokkuri-runtime` 的 commonTest 新增 `SokConformanceTest`，经 `readTestResource` 读取两个文件，在 JVM、Android host 与 iOS 上逐条回放。断言有四条：
   - 拒绝时只能抛 `SokkuriException.InvalidFormat`，其他任何异常都算失败；
   - 接受与拒绝必须与期望一致；
   - 接受时摘要必须一致；
   - 接受后要遍历全部条目，并对每个键调用 `matchExact` 与 `matchPrefix`，过程中不得抛出任何异常，以此覆盖“解码通过、首次访问越界”这一类缺陷；审计通过时，还要断言每个键都能查回自己的候选。
-- 该测试随 `./gradlew build` 运行，不需要 Rust；改动语料或 Rust 读取器的人负责重新生成 `expected.txt`，CI 的 Rust job 负责发现两者脱节。
+- 该测试随 `./gradlew build` 运行，不需要 Rust；改动语料或 Rust 读取器的人负责重新生成 `expected.txt`，CI 的 Rust job 以 `sokcheck expect --corpus corpus.hex --check expected.txt` 发现两者脱节，即 10.1 的 `checkCorpusExpectations`。
 
 规则编号只写进期望文件供人阅读，Kotlin 侧不比对：它的异常消息以字段命名，与规则编号的对应关系不必固化。
 
@@ -165,10 +165,14 @@ Rust 的测试与模糊种子需要合法的小词典，而 Rust 侧不编码。
 依照 2026-10-15 的决定，模糊测试只在本地运行，CI 只回放已提交的语料，与 `upstream-diff fuzz` 相同。
 
 - 目标 `read`：对任意字节调用 `SokFile::parse`；接受时遍历全部条目与候选、运行审计、计算摘要。不得 panic：安全 Rust 的切片越界会 panic，因此“接受之后的任何访问都在界内”由此得到检验。cargo-fuzz 需要 nightly 工具链，只在这一个目录使用，以 `rustup toolchain install nightly` 与 `cargo install cargo-fuzz` 安装；
-- 种子：`fixtures/` 中的夹具，见 6.3，它们都是 Kotlin 编码器的产物；损坏样本交给变异去生成，Rust 侧不编码；
-- 流程：`cargo fuzz run read -- -max_len=512 -max_total_time=600`，再 `cargo fuzz cmin` 精简，然后 `sokcheck corpus import fuzz/corpus/read` 按编号去重后追加进 `corpus.hex`，最后 `sokcheck expect` 重新生成 `expected.txt`。之后照常运行 `./gradlew build`，Kotlin 与 Rust 的任何分歧都会在三端的回放中报出；
+- 种子：`fixtures/` 中的夹具，见 6.3，它们都是 Kotlin 编码器的产物；另有 `sok/tests/violations.rs` 的手写用例，各在 `prefixes.sok` 或 `empty.sok` 上改动几个字节，恰好违反一条接受规则，或只违反审计规则而仍被接受。Rust 侧仍不编码。手写用例由忽略的测试 `write_corpus_seeds` 写出，`importCorpusSeeds` 把它们并入语料；
+- 流程：`./gradlew :tools:sok-rs:fuzz` 串起全部步骤。先并入手写种子，把 `corpus.hex` 导出为 `build/fuzz/corpus/read` 下的工作语料，再以夹具为额外种子运行 `cargo +nightly fuzz run read -- -max_len=512 -max_total_time=600`，时长可由 `-PfuzzSeconds` 改；然后 `cargo fuzz cmin` 精简，`sokcheck corpus import` 按编号去重后追加进 `corpus.hex`，最后 `sokcheck expect --corpus` 重写 `expected.txt`。之后照常运行 `./gradlew build`，Kotlin 与 Rust 的任何分歧都会在三端的回放中报出；
 - 上限：单个输入不超过 512 字节，语料只增不删，目标在数百条以内；
 - 覆盖率由 Rust 读取器引导。两侧实现的是同一组规则，探索到 Rust 分支的输入，大概率也会走到 Kotlin 对应的分支；这与 `upstream-diff fuzz` 由上游覆盖率引导、再回放给 Sokkuri 的思路相同。
+
+手写用例不可省。模糊输入大多同时违反多条规则，Kotlin 侧又不比对规则编号，所以删掉解码器的某一条检查，只要还有别的检查拒绝同一输入，判定就不变，回放也就证明不了每条检查都在。逐条关掉 Kotlin 解码器的检查来验证：只用首次十分钟运行精简出的 125 条输入，V3 至 V11 的十二处检查只有五处被发现；并入手写用例后，V1 至 V11 的十四处发现了十二处。这一过程也补出两类用例：截在魔数之后、第 28 字节之前的文件，因为解码器不读保留字段，截在其后的文件会先被大小检查拒绝，V1 就无从体现；以及值区段末尾多出一个无人引用的字节，因为原有用例让末项越过区段，同时也破坏了铺满，V9 的末项检查同样无从体现；键区段补了对称的用例。
+
+存活的两处是等价变异，不需要用例：V11 要求每个条目的候选恰好铺满它的值区段，而每个候选至少占两字节的长度前缀，于是在铺满的前提下，V10 的“候选数至少为 1”与 V9 的“值偏移严格递增”互相蕴含。关掉其中一条，另一条照样拒绝同一批文件，接受集合不变。
 
 ## 8. 规范澄清的待决项
 
@@ -212,6 +216,10 @@ P2 结束时逐条决定，决定之后写进 `SokFormatLayout` 的 KDoc，需�
 | `:sokkuri-runtime:sokConformanceTest` | 以 jvm 测试的类与类路径运行 `PackagedSokConformanceTest`，依赖 `expectPackaged` 并设置 `SOKKURI_SOK_EXPECT` | P1 |
 | `:tools:sok-rs:checkCorpusExpectations` | 由已提交的语料重新生成期望，与 `expected.txt` 逐字节比较 | P3 |
 | `sokConformance` | 聚合以上全部；只有 `:tools:sok-rs` 定义它，故在根目录直接运行即可 | P1 起 |
+| `:tools:sok-rs:cargoMutants` | `cargo mutants`；唯一的等价变异登记在 `.cargo/mutants.toml`，其余存活即失败。需另行安装，不在 `sokConformance` 中 | P1 |
+| `:tools:sok-rs:importCorpusSeeds` | 运行忽略的测试 `write_corpus_seeds`，把手写用例并入 `corpus.hex`；之后须运行下一项 | P3 |
+| `:tools:sok-rs:writeCorpusExpectations` | 由 `corpus.hex` 重写 `expected.txt` | P3 |
+| `:tools:sok-rs:fuzz` | 第 7 节的整条流程；需要 nightly 与 cargo-fuzz，只在本地运行，不在 `sokConformance` 中 | P3 |
 
 - cargo 的查找顺序为 `CARGO` 环境变量、`~/.cargo/bin/cargo`、`PATH`，在任务执行时解析；找不到时报错，写明这三处与 rustup 的安装方式。rustup 只把 PATH 写进 `~/.profile`，而 zsh 不读它，所以第二处不能省；
 - 任务类型是脚本内定义的 `CargoTask`，经注入的 `ExecOperations` 调用，与根构建的 `OpenccCloneTask` 同一写法，兼容配置缓存；
