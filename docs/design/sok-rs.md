@@ -1,6 +1,6 @@
 # 设计：`.sok` 的 Rust 独立读取器
 
-**状态：设计稿，2026-10-16，未实施。** 本文提出 `tools/sok-rs`：一个按 `SokFormatLayout` 规范独立实现的 `.sok` 只读读取器，以及围绕它的审计、规范对拍与模糊测试。它是验证工具，不是发布产物；实施时按第 9 节修订 `docs/architecture.md`。
+**状态：实施中，2026-10-16 起按第 11 节分阶段落地。** 本文提出 `tools/sok-rs`：一个按 `SokFormatLayout` 规范独立实现的 `.sok` 只读读取器，以及围绕它的审计、规范对拍与模糊测试。它是验证工具，不是发布产物；实施时按第 9 节修订 `docs/architecture.md`。
 
 ## 1. 动机
 
@@ -39,9 +39,13 @@
 ## 3. 组成与目录
 
 ```
-tools/sok-rs/                 Cargo 工作区，不属于 Gradle 构建
+tools/sok-rs/                 Cargo 工作区；同时是一个不带插件的 Gradle 项目，只放调用 cargo 的任务
+├── build.gradle.kts          Gradle 薄封装，见 10.1
 ├── Cargo.toml                工作区清单
-├── rust-toolchain.toml       锁定 stable 的确切版本，P0 时取 1.99.1
+├── Cargo.lock                提交，所有 cargo 调用加 --locked
+├── rust-toolchain.toml       锁定 stable 的确切版本 1.99.1
+├── rustfmt.toml              行宽 120，与项目一致
+├── fixtures/                 Kotlin 编码器产出的小词典，由 Kotlin 测试钉住，见 6.3
 ├── sok/                      库：读取、校验、审计、规范化摘要
 │   ├── src/
 │   │   ├── lib.rs            #![forbid(unsafe_code)]
@@ -56,6 +60,15 @@ tools/sok-rs/                 Cargo 工作区，不属于 Gradle 构建
 └── fuzz/                     cargo-fuzz 目标，需要 nightly
     └── fuzz_targets/read.rs
 ```
+
+### 3.1 工程要求
+
+- 库不得因任何输入 panic：一切失败以 `Violation` 返回，长度与偏移的算术用 u64 或 checked 运算，release 配置也打开 `overflow-checks`；`#![forbid(unsafe_code)]` 与 `#![deny(missing_docs)]`；公开面只有只读访问；
+- 命令行的退出码固定：0 为通过，1 为发现违规或不一致，2 为用法或 IO 错误；数据写 stdout，诊断写 stderr；输出确定，文件按名排序，格式逐字节可复现；
+- 可复现：提交 `Cargo.lock`，每次调用都带 `--locked`；工具链锁定确切版本；edition 2024；
+- 质量门：`rustfmt`，行宽 120；`clippy --all-targets -D warnings`；`cargo doc` 不得有警告；
+- 测试：每条规则有正反例；摘要有已知答案测试；变异检查用 `cargo mutants`，存活的等价变异逐个说明理由；
+- 语言：rustdoc 与注释用英文，与 KDoc 一致；设计与架构文档用中文。
 
 依赖策略：`sok` 与 `sokcheck` 只用标准库，命令行参数手写解析，输出都是简单的文本格式，不引入 serde 或 clap；`fuzz` 只依赖 `libfuzzer-sys`。依赖越少，复核的对象就越纯粹，供应链与 CI 时长也越小。所有 `.rs` 文件与 Kotlin 源文件一样，以 `.idea/copyright/Sokkuri.xml` 定义的 Apache-2.0 头开篇。
 
@@ -128,7 +141,7 @@ Kotlin 侧需要拿到每个条目的原始字节区间。为此，`SokDictionar
 
 - 用 Rust 生成期望：`sokcheck expect --packaged sokkuri-runtime/src/commonMain/resources/dictionary`，每个文件输出一行：文件名、判定、entryCount、maxKeyLength、摘要、审计结果；
 - `sokkuri-runtime` 的 jvmTest 新增 `PackagedSokConformanceTest`，从环境变量 `SOKKURI_SOK_EXPECT` 指向的文件读期望，对每个打包词典计算 Kotlin 侧的摘要并逐行比对；变量未设置时报告为跳过，与 `OPENCC_DIR` 门控的测试同一做法；
-- 期望文件不提交，在 CI 的同一个 job 里现生成现比对。这样 dictgen 重新生成词典，即 bump pin 时，不需要 Rust。
+- 期望文件不提交，由 Gradle 现生成现比对，见 10.1：`:sokkuri-runtime:sokConformanceTest` 依赖生成期望的任务，并为测试进程设置该变量，所以它从不跳过。这样 dictgen 重新生成词典，即 bump pin 时，不需要 Rust。
 
 ### 6.2 模糊语料：提交后由三端回放
 
@@ -143,12 +156,16 @@ Kotlin 侧需要拿到每个条目的原始字节区间。为此，`SokDictionar
 
 规则编号只写进期望文件供人阅读，Kotlin 侧不比对：它的异常消息以字段命名，与规则编号的对应关系不必固化。
 
+### 6.3 合法样本：Kotlin 编码的夹具
+
+Rust 的测试与模糊种子需要合法的小词典，而 Rust 侧不编码。`tools/sok-rs/fixtures/` 存放 Kotlin 编码器写出的几个小 `.sok`：前缀相互包含的 ASCII 键、多字节与增补平面的键、多候选与 U+FFFD 候选、空词典。`sokkuri-resource` 的 jvmTest 新增 `SokFixtureFilesTest`，把每个夹具与编码器当场的输出逐字节比较，编码器若有改动而夹具未更新即失败；以 `SOKKURI_WRITE_SOK_FIXTURES=1` 加 `--rerun` 运行时改为写出夹具。夹具因此始终是编码器的真实产物。
+
 ## 7. 模糊测试
 
 依照 2026-10-15 的决定，模糊测试只在本地运行，CI 只回放已提交的语料，与 `upstream-diff fuzz` 相同。
 
 - 目标 `read`：对任意字节调用 `SokFile::parse`；接受时遍历全部条目与候选、运行审计、计算摘要。不得 panic：安全 Rust 的切片越界会 panic，因此“接受之后的任何访问都在界内”由此得到检验。cargo-fuzz 需要 nightly 工具链，只在这一个目录使用，以 `rustup toolchain install nightly` 与 `cargo install cargo-fuzz` 安装；
-- 种子：Kotlin 编码器产出的小词典，加上 `SokDecoderValidationTest` 的各类损坏样本。种子由一个 jvmTest 级别的一次性入口写出，Rust 侧不编码；
+- 种子：`fixtures/` 中的夹具，见 6.3，它们都是 Kotlin 编码器的产物；损坏样本交给变异去生成，Rust 侧不编码；
 - 流程：`cargo fuzz run read -- -max_len=512 -max_total_time=600`，再 `cargo fuzz cmin` 精简，然后 `sokcheck corpus import fuzz/corpus/read` 按编号去重后追加进 `corpus.hex`，最后 `sokcheck expect` 重新生成 `expected.txt`。之后照常运行 `./gradlew build`，Kotlin 与 Rust 的任何分歧都会在三端的回放中报出；
 - 上限：单个输入不超过 512 字节，语料只增不删，目标在数百条以内；
 - 覆盖率由 Rust 读取器引导。两侧实现的是同一组规则，探索到 Rust 分支的输入，大概率也会走到 Kotlin 对应的分支；这与 `upstream-diff fuzz` 由上游覆盖率引导、再回放给 Sokkuri 的思路相同。
@@ -172,7 +189,7 @@ P2 结束时逐条决定，决定之后写进 `SokFormatLayout` 的 KDoc，需�
 
 实施的第一个提交先改 `docs/architecture.md`，此后的代码都在修订后的规则之内：
 
-- §2.1 的模块结构图加入 `tools/sok-rs`，注明它是 Cargo 工作区，不是其余 tools 那样的同构建 Gradle 模块；
+- §2.1 的模块结构图加入 `tools/sok-rs`，注明它是 Cargo 工作区，Gradle 只为它注册调用 cargo 的任务，不像其余 tools 那样编译 Kotlin；
 - §2.2 的职责表新增一行。职责：`.sok` 规范的独立读取、审计与对拍语料。允许依赖：Rust 标准库，模糊测试另用 `libfuzzer-sys`。禁止：写 `.sok`、进入发布产物、挂入 Gradle 的 `check`；
 - §5 扩展手册第 1 行，即新词典格式，追加：改动 `.sok` 布局须在同一组提交里同步 `SokFormatLayout`、Kotlin 编解码、Rust 读取器与对拍期望，`SokFormatLayout` 仍是唯一的规范；
 - §9 新增 D19：`.sok` 的独立读取器与对拍，见本文；
@@ -180,19 +197,35 @@ P2 结束时逐条决定，决定之后写进 `SokFormatLayout` 的 KDoc，需�
 
 本地的 CLAUDE.md 同步补上命令与上述规则，并把其中 tools 模块都是同构建 JVM 应用的说法改为只约束 Gradle 模块。
 
-## 10. 持续集成
+## 10. Gradle 封装与持续集成
+
+### 10.1 Gradle 任务
+
+`tools/sok-rs` 在 `settings.gradle.kts` 中以 `:tools:sok-rs` 纳入构建，但不应用任何插件，因此没有 `build`、`check`、`test` 这类生命周期任务，`./gradlew build` 与 `check` 永远不会触及它。它只注册调用 cargo 的任务，Rust 代码仍由 cargo 构建：
+
+| 任务 | 内容 | 阶段 |
+|---|---|---|
+| `:tools:sok-rs:cargoLint` | `cargo fmt --check`，`cargo clippy --all-targets --locked -D warnings`，`cargo doc` 无警告 | P0 |
+| `:tools:sok-rs:cargoTest` | `cargo test --locked` | P0 |
+| `:tools:sok-rs:verifyPackaged` | 对打包词典运行 `sokcheck verify`，P2 起加 `audit` | P1 |
+| `:tools:sok-rs:expectPackaged` | 把打包词典的期望写到 `build/sok/packaged-expect.txt` | P1 |
+| `:sokkuri-runtime:sokConformanceTest` | 以 jvm 测试的类与类路径运行 `PackagedSokConformanceTest`，依赖 `expectPackaged` 并设置 `SOKKURI_SOK_EXPECT` | P1 |
+| `:tools:sok-rs:checkCorpusExpectations` | 由已提交的语料重新生成期望，与 `expected.txt` 逐字节比较 | P3 |
+| `sokConformance` | 聚合以上全部；只有 `:tools:sok-rs` 定义它，故在根目录直接运行即可 | P1 起 |
+
+- cargo 的查找顺序为 `CARGO` 环境变量、`~/.cargo/bin/cargo`、`PATH`，在任务执行时解析；找不到时报错，写明这三处与 rustup 的安装方式。rustup 只把 PATH 写进 `~/.profile`，而 zsh 不读它，所以第二处不能省；
+- 任务类型是脚本内定义的 `CargoTask`，经注入的 `ExecOperations` 调用，与根构建的 `OpenccCloneTask` 同一写法，兼容配置缓存；
+- 只读任务不声明输出，每次都运行，cargo 自身是增量的；写期望的任务声明输出文件，供依赖它的测试任务追踪。
+
+### 10.2 持续集成
 
 在 `ci.yml` 新增 job `sok reader`，与 `Build gate` 并列，初期不设为必需检查，稳定之后再议。
 
-- 运行环境优先用 `ubuntu-latest`，成本低于 macOS。Kotlin 侧的门控测试只跑 `sokkuri-runtime:jvmTest`，需要确认 Linux 上配置这个含 iOS target 的工程不会失败；若失败，退回 macOS；
-- 工具链：用 `rust-toolchain.toml` 锁定版本；Rust 由 `setup-build-env` 新增的可选输入安装，JDK 与 Gradle 沿用现有设置，环境定义仍只有一处（10.2）；
-- 步骤：
-  1. `cargo fmt --check` 与 `cargo clippy -- -D warnings`；
-  2. `cargo test`；
-  3. 对打包词典运行 `sokcheck verify` 与 `sokcheck audit`；
-  4. P3 起，对已提交的语料运行 `sokcheck expect`，结果须与 `expected.txt` 逐字节相同；
-  5. 生成打包词典的期望，以 `SOKKURI_SOK_EXPECT` 运行 `PackagedSokConformanceTest`，并断言它没有被跳过，与 `upstream.yml` 断言门控测试确实运行的做法相同；
-- 不在 CI 里做模糊测试，nightly 工具链也不进 CI。
+- 运行环境为 `macos-latest`：`setup-build-env` 只支持 macOS，构建门禁也在这里跑过，换到 Linux 能省成本，但要另行证明这个含 iOS target 的工程在 Linux 上能配置，留作后续优化；
+- 工具链：`setup-build-env` 新增输入 `rust`，默认关闭。开启时按 `rust-toolchain.toml` 的版本以 rustup 安装，只装 rustfmt 与 clippy 两个组件，并缓存 cargo 的注册表与 `target` 目录；JDK 与 Gradle 沿用现有设置，环境定义仍只有一处；
+- 步骤只有一条：`./gradlew sokConformance`。各项检查都在 Gradle 任务里，本地与 CI 运行的是同一条命令；
+- 不在 CI 里做模糊测试，nightly 工具链也不进 CI；
+- P2 之后，`upstream.yml` 的演练 job 在重新生成词典后加跑 `:tools:sok-rs:verifyPackaged`，让 bump pin 产出的词典同样经过审计。
 
 ## 11. 实施阶段
 
@@ -200,8 +233,8 @@ P2 结束时逐条决定，决定之后写进 `SokFormatLayout` 的 KDoc，需�
 
 | 阶段 | 内容 | 验收 |
 |---|---|---|
-| P0 | 修订架构文档；建立 Cargo 工作区、工具链锁定、许可证头与 `.gitignore` | `cargo test` 在空骨架上通过；`./gradlew build` 不受影响 |
-| P1 | 读取器与 V1 至 V11；`verify`、`dump`、`stats`、`expect --packaged`；Kotlin 的原始访问与 `PackagedSokConformanceTest`；CI job | 每条规则都有正反例；`SokDecoderValidationTest` 的每类损坏在 Rust 侧得到同一判定；22 个打包词典两侧摘要一致；CI 绿 |
+| P0 | 修订架构文档；建立 Cargo 工作区、工具链锁定、许可证头与 `.gitignore`；`:tools:sok-rs` 与 `cargoLint`、`cargoTest` | 两个任务在骨架上通过；`./gradlew build` 不受影响，也不调用 cargo |
+| P1 | 读取器与 V1 至 V11；`verify`、`dump`、`stats`、`expect`；夹具与 `SokFixtureFilesTest`；Kotlin 的原始访问与 `PackagedSokConformanceTest`；10.1 的 P1 任务与 CI job | 每条规则都有正反例；`SokDecoderValidationTest` 的每类损坏在 Rust 侧得到同一判定；22 个打包词典两侧摘要一致；CI 绿 |
 | P2 | 审计规则 A1 至 A5；对第 8 节逐条做出决定，并按决定提交规范与解码器的改动 | 打包词典全部审计通过；每条收紧的规则在两侧都有反例 |
 | P3 | 模糊目标、种子、语料导入；`corpus.hex` 与 `expected.txt`；`SokConformanceTest` 三端回放 | 本地十分钟运行后，语料在三端回放全部一致；对拍发现的任何分歧都已修复或登记 |
 | P4 | 远期，不在本次范围：只读检索 API 与 mmap，作为原生内核的数据层 | 重议内核时单独立项 |
@@ -209,6 +242,6 @@ P2 结束时逐条决定，决定之后写进 `SokFormatLayout` 的 KDoc，需�
 ## 12. 风险与代价
 
 - 维护两份读取器：格式改动必须两边同步。缓解：格式本身极少改动；§5 第 1 行写明同步义务；CI 的对拍会立即报出不同步；
-- 工具链负担：贡献者构建与发布 Sokkuri 都不需要 Rust，只有改动 `tools/sok-rs`、语料或期望的人需要；nightly 只用于本地的模糊测试；
+- 工具链负担：贡献者构建与发布 Sokkuri 都不需要 Rust，只有改动 `tools/sok-rs`、语料或期望的人需要；nightly 只用于本地的模糊测试。`:tools:sok-rs` 虽然纳入了 Gradle 设置，但不应用插件，配置它不调用 cargo，不会拖慢或破坏没有 Rust 的构建；
 - 规则漂移：Rust 读取器若与规范不一致，会让 `expected.txt` 与 Kotlin 一起“错得一致”。缓解：Rust 侧严格按规范写，不参照 Kotlin 源码；每条规则的正反例由人从规范推出，并随规范的 KDoc 一起评审；
 - 摘要碰撞：FNV-1a 64 位不防恶意碰撞。这里只做比对，输入来自本项目自己的语料，可以接受。
