@@ -39,8 +39,9 @@ package com.generalk1ng.sokkuri.resource
  * 32      4×(n+1)   keyOffsets, from 0, strictly increasing, last = keyBlobBytes
  * …       4×(n+1)   valueOffsets, from 0, strictly increasing, last = valueBlobBytes
  * …       n         valueCounts (u8), candidates per entry, ≥ 1
- * …       *         keyBlob: UTF-8 keys in code-point order (invariant I2),
- *                   each well-formed on its own (decoder-enforced)
+ * …       *         keyBlob: UTF-8 keys, each well-formed on its own and
+ *                   strictly increasing in code-point order (invariant
+ *                   I2), so unique (both decoder-enforced)
  * …       *         valueBlob: per candidate u16 byteLen + UTF-8 bytes; the
  *                   candidates of entry i tile [valueOffsets[i],
  *                   valueOffsets[i+1]) exactly (decoder-enforced)

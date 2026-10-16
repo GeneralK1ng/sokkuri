@@ -262,6 +262,37 @@ class SokDecoderValidationTest {
     }
 
     @Test
+    fun keysOutOfCodePointOrderAreRejected() {
+        // Key 2, "abc", becomes "aaa", which sorts before key 1, "ab".
+        assertRejected(
+            corrupt { "aaa".encodeToByteArray().copyInto(this, keyBlobBase + 3) },
+            "key 2 is not above key 1",
+        )
+    }
+
+    @Test
+    fun aRepeatedKeyIsRejected() {
+        // keyOffsets [0, 1, 2, 6] re-cut "aababc" as "a", "a" and "babc", and
+        // maxKeyLength 4 fits "babc", so only the repetition is wrong.
+        assertRejected(corrupt {
+            SokFormatLayout.writeU32(this, SokFormatLayout.HEADER_BYTES + 8, 2)
+            SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, 4)
+        }, "key 1 is not above key 0")
+    }
+
+    @Test
+    fun keysOrderedByCodePointNotByUtf16AreAccepted() {
+        // U+FF61 sorts before U+20000 by code point, but after it by UTF-16
+        // code unit (0xFF61 against the high surrogate 0xD840): the decoder
+        // must follow the code points, as the encoder does.
+        val dictionary = SokDictionaryFormat.decode(
+            SokDictionaryEncoder.encode(listOf("\uFF61" to listOf("a"), "𠀀" to listOf("b"))),
+        )
+        assertEquals(listOf("a"), dictionary.matchExact("\uFF61")?.candidates)
+        assertEquals(listOf("b"), dictionary.matchExact("𠀀")?.candidates)
+    }
+
+    @Test
     fun wellFormedMultiByteKeysAreAccepted() {
         // U+FFFD included: a well-formed replacement character must not be
         // mistaken for the malformed-sequence result.

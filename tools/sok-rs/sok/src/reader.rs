@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! Parsing: the acceptance rules V1 to V11 of docs/design/sok-rs.md §4.1,
+//! Parsing: the acceptance rules V1 to V12 of docs/design/sok-rs.md §4.1,
 //! which must accept exactly the files the runtime decoder accepts, and a
 //! zero-copy view of an accepted file.
 
@@ -54,11 +54,14 @@ pub enum Rule {
     ValueCounts,
     /// V11: the candidates of every entry tile its value region exactly.
     ValueTiling,
+    /// V12: every key sorts strictly after the key before it in code-point
+    /// order (invariant I2), so keys are sorted and unique.
+    KeyOrder,
 }
 
 impl Rule {
-    /// Every rule, in the order the reader checks them.
-    pub const ALL: [Self; 11] = [
+    /// Every rule, by identifier.
+    pub const ALL: [Self; 12] = [
         Self::Header,
         Self::Magic,
         Self::Version,
@@ -70,9 +73,10 @@ impl Rule {
         Self::ValueOffsets,
         Self::ValueCounts,
         Self::ValueTiling,
+        Self::KeyOrder,
     ];
 
-    /// The rule's stable identifier, `V1` to `V11`.
+    /// The rule's stable identifier, `V1` to `V12`.
     #[must_use]
     pub const fn id(self) -> &'static str {
         match self {
@@ -87,6 +91,7 @@ impl Rule {
             Self::ValueOffsets => "V9",
             Self::ValueCounts => "V10",
             Self::ValueTiling => "V11",
+            Self::KeyOrder => "V12",
         }
     }
 }
@@ -153,7 +158,7 @@ pub struct SokFile<'a> {
 }
 
 impl<'a> SokFile<'a> {
-    /// Checks `bytes` against V1 to V11 and returns a view of it, or the first
+    /// Checks `bytes` against V1 to V12 and returns a view of it, or the first
     /// rule it breaks.
     ///
     /// # Errors
@@ -266,8 +271,11 @@ impl<'a> SokFile<'a> {
     }
 
     /// V8: each key is well-formed UTF-8 on its own; a sequence split across
-    /// two keys is valid as a blob but leaves both keys malformed.
+    /// two keys is valid as a blob but leaves both keys malformed. V12: each
+    /// sorts strictly after the one before it; keys being well-formed, the
+    /// byte order is the code-point order.
     fn check_keys(&self) -> Result<(), Violation> {
+        let mut previous: Option<&[u8]> = None;
         for index in 0..self.entries {
             let at = self.key_blob_at + self.offset(HEADER_BYTES, index).unwrap_or_default();
             let key = self
@@ -280,6 +288,14 @@ impl<'a> SokFile<'a> {
                     format!("key {index} is not well-formed UTF-8"),
                 ));
             }
+            if let Some(before) = previous
+                && before >= key
+            {
+                let how = if before == key { "repeats" } else { "sorts before" };
+                let detail = format!("key {index} {how} key {}", index - 1);
+                return Err(Violation::new(Rule::KeyOrder, at, detail));
+            }
+            previous = Some(key);
         }
         Ok(())
     }

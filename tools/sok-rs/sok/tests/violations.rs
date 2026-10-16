@@ -139,6 +139,21 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             Rule::KeyUtf8,
         ),
         (
+            "keys out of code-point order",
+            corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
+            Rule::KeyOrder,
+        ),
+        // Key offsets [0, 1, 2, 6] re-cut the blob "aababc" as a, a and babc;
+        // maxKeyLength 4 fits babc, so only the repetition is wrong.
+        (
+            "a repeated key",
+            corrupt(|bytes| {
+                common::put_u32(bytes, KEY_OFFSETS + 8, 2);
+                common::put_u32(bytes, 16, 4);
+            }),
+            Rule::KeyOrder,
+        ),
+        (
             "value offsets starting above zero",
             with_leading_byte(VALUE_BLOB, VALUE_OFFSETS, 24),
             Rule::ValueOffsets,
@@ -234,6 +249,17 @@ fn violations_point_at_the_offending_bytes() {
         (Rule::ValueOffsets, VALUE_OFFSETS + 12),
         (last_value_offset.rule(), last_value_offset.offset())
     );
+    let unsorted = place(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa"));
+    assert_eq!(
+        "V12 at byte 70: key 2 sorts before key 1",
+        unsorted.to_string(),
+        "key 2 starts at byte 70"
+    );
+    let repeated = place(|bytes| {
+        common::put_u32(bytes, KEY_OFFSETS + 8, 2);
+        common::put_u32(bytes, 16, 4);
+    });
+    assert_eq!("V12 at byte 68: key 1 repeats key 0", repeated.to_string());
     for (bytes, rule, at) in [
         (
             with_leading_byte(KEY_BLOB, KEY_OFFSETS, 20),
@@ -289,14 +315,6 @@ fn violations_name_their_rule_and_place() {
 /// questioned, not the acceptance.
 fn accepted_oddities() -> Vec<(&'static str, Vec<u8>)> {
     vec![
-        (
-            "keys out of code-point order",
-            corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
-        ),
-        (
-            "a repeated key",
-            corrupt(|bytes| common::put_u32(bytes, KEY_OFFSETS + 8, 2)),
-        ),
         (
             "maxKeyLength below the longest key",
             corrupt(|bytes| common::put_u32(bytes, 16, 1)),

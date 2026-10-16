@@ -18,8 +18,9 @@
 //! states and the encoder guarantees, but the runtime decoder does not check.
 //! An accepted file can break them; the audit says which, and never changes
 //! whether the file is accepted. A rule the decoder came to enforce moved to
-//! the acceptance rules, and its identifier is not reused: A3, offset tables
-//! starting at 0, is part of V7 and V9, and A4, the reserved field, of V4.
+//! the acceptance rules, and its identifier is not reused: A1, key order, is
+//! V12; A3, offset tables starting at 0, is part of V7 and V9; and A4, the
+//! reserved field, is part of V4.
 
 use std::fmt;
 
@@ -30,9 +31,6 @@ use crate::utf8;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum AuditRule {
-    /// A1: keys increase strictly in code-point order (invariant I2), so
-    /// they are sorted and unique; retrieval's binary searches rely on it.
-    KeyOrder,
     /// A2: `maxKeyLength` equals the longest key in UTF-16 code units
     /// (invariant I1); retrieval cuts its window to it.
     MaxKeyLength,
@@ -42,13 +40,12 @@ pub enum AuditRule {
 
 impl AuditRule {
     /// Every rule, in the order the audit checks them.
-    pub const ALL: [Self; 3] = [Self::KeyOrder, Self::MaxKeyLength, Self::Candidates];
+    pub const ALL: [Self; 2] = [Self::MaxKeyLength, Self::Candidates];
 
     /// The rule's stable identifier, never reused for another rule.
     #[must_use]
     pub const fn id(self) -> &'static str {
         match self {
-            Self::KeyOrder => "A1",
             Self::MaxKeyLength => "A2",
             Self::Candidates => "A5",
         }
@@ -102,7 +99,6 @@ impl fmt::Display for Finding {
 #[must_use]
 pub fn audit(file: &SokFile<'_>) -> Vec<Finding> {
     let mut findings = Vec::new();
-    check_key_order(file, &mut findings);
     check_max_key_length(file, &mut findings);
     check_candidates(file, &mut findings);
     findings
@@ -124,34 +120,9 @@ pub fn summary(findings: &[Finding]) -> String {
     }
 }
 
-/// Where key `index` starts in the file, for findings about it.
-fn key_at(file: &SokFile<'_>, index: usize) -> usize {
-    file.key_blob_offset() + file.key_offset(index).unwrap_or_default()
-}
-
 /// Where entry `index`'s candidates start in the file.
 fn values_at(file: &SokFile<'_>, index: usize) -> usize {
     file.value_blob_offset() + file.value_offset(index).unwrap_or_default()
-}
-
-/// A1. Keys are well-formed UTF-8 (V8), and for well-formed UTF-8 the byte
-/// order is the code-point order, so comparing bytes is comparing code points.
-fn check_key_order(file: &SokFile<'_>, findings: &mut Vec<Finding>) {
-    let mut previous: Option<&[u8]> = None;
-    for (index, entry) in file.entries().enumerate() {
-        if let Some(before) = previous
-            && before >= entry.key()
-        {
-            let how = if before == entry.key() {
-                "repeats"
-            } else {
-                "sorts before"
-            };
-            let detail = format!("key {index} {how} key {}", index - 1);
-            findings.push(Finding::new(AuditRule::KeyOrder, key_at(file, index), detail));
-        }
-        previous = Some(entry.key());
-    }
 }
 
 /// A2. The longest key in UTF-16 code units, which is the unit of the field.

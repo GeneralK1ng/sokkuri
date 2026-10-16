@@ -23,7 +23,7 @@ mod common;
 
 use std::collections::HashSet;
 
-use common::prefixes::{KEY_BLOB, KEY_OFFSETS, VALUE_BLOB, VALUE_COUNTS, corrupt, valid};
+use common::prefixes::{VALUE_BLOB, VALUE_COUNTS, corrupt, valid};
 use sok::SokFile;
 use sok::audit::{AuditRule, Finding, audit, summary};
 
@@ -49,30 +49,6 @@ fn encoder_written_files_are_audit_clean() {
         let found = findings(&bytes);
         assert!(found.is_empty(), "{name}: {found:?}");
     }
-}
-
-#[test]
-fn a1_keys_out_of_order() {
-    let unsorted = corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa"));
-    assert_eq!(vec![(AuditRule::KeyOrder, KEY_BLOB + 3)], rules(&unsorted));
-    assert!(findings(&unsorted)[0].detail().contains("key 2 sorts before key 1"));
-}
-
-#[test]
-fn a1_a_repeated_key() {
-    // Key offsets [0, 1, 2, 6] re-cut the blob "aababc" as a, a and babc.
-    let repeated = corrupt(|bytes| common::put_u32(bytes, KEY_OFFSETS + 8, 2));
-    let found = findings(&repeated);
-    assert_eq!(
-        (AuditRule::KeyOrder, KEY_BLOB + 1),
-        (found[0].rule(), found[0].offset())
-    );
-    assert!(found[0].detail().contains("key 1 repeats key 0"), "{}", found[0]);
-    assert_eq!(
-        "audit:A1,A2",
-        summary(&found),
-        "babc is also longer than maxKeyLength 3"
-    );
 }
 
 #[test]
@@ -132,23 +108,22 @@ fn a5_empty_and_malformed_candidates() {
 #[test]
 fn findings_come_rule_by_rule_and_the_summary_names_each_rule_once() {
     let several = corrupt(|bytes| {
-        bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa");
+        common::put_u32(bytes, 16, 2);
         bytes[VALUE_BLOB + 2] = 0xFF;
         bytes[VALUE_BLOB + 5] = 0xFF;
     });
     let found = rules(&several);
     let order: Vec<AuditRule> = found.iter().map(|(rule, _)| *rule).collect();
     assert_eq!(
-        vec![AuditRule::KeyOrder, AuditRule::Candidates, AuditRule::Candidates],
+        vec![AuditRule::MaxKeyLength, AuditRule::Candidates, AuditRule::Candidates],
         order
     );
-    assert_eq!("audit:A1,A5", summary(&findings(&several)));
+    assert_eq!("audit:A2,A5", summary(&findings(&several)));
 }
 
 #[test]
 fn every_audit_rule_has_a_case() {
     let cases = [
-        corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
         corrupt(|bytes| common::put_u32(bytes, 16, 1)),
         corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF),
     ];
