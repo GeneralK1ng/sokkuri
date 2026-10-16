@@ -1,2 +1,5 @@
 # Benchmark sample texts are measured byte for byte: never convert their line endings.
 tools/shared-resources/** text eol=lf
+
+# .sok dictionaries are binary: never convert or diff them as text.
+*.sok binary
