@@ -41,6 +41,11 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             corrupt(|bytes| bytes.truncate(31)),
             Rule::Header,
         ),
+        // The Kotlin decoder never reads the reserved field, so a file cut
+        // after byte 28 also fails its size check; these two show that the
+        // length is checked before the first field is read.
+        ("an empty file", Vec::new(), Rule::Header),
+        ("only the magic", corrupt(|bytes| bytes.truncate(4)), Rule::Header),
         (
             "exactly the header and nothing else",
             corrupt(|bytes| bytes.truncate(32)),
@@ -78,6 +83,16 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             corrupt(|bytes| common::put_u32(bytes, KEY_OFFSETS + 12, 1000)),
             Rule::KeyOffsets,
         ),
+        // A byte appended to the key blob that no key reaches: the blob and
+        // the file grow by one, so this breaks only the last offset's rule.
+        (
+            "key offsets ending before the blob end",
+            corrupt(|bytes| {
+                common::put_u32(bytes, 20, 7);
+                bytes.insert(VALUE_BLOB, b'x');
+            }),
+            Rule::KeyOffsets,
+        ),
         (
             "malformed key 0",
             corrupt(|bytes| bytes[KEY_BLOB] = 0x80),
@@ -104,6 +119,16 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
         (
             "value offsets ending past the blob",
             corrupt(|bytes| common::put_u32(bytes, VALUE_OFFSETS + 12, 13)),
+            Rule::ValueOffsets,
+        ),
+        // The same at the end of the value blob, which ends the file: every
+        // region still tiles, so only the last offset's rule is broken.
+        (
+            "value offsets ending before the blob end",
+            corrupt(|bytes| {
+                common::put_u32(bytes, 24, 13);
+                bytes.push(b'x');
+            }),
             Rule::ValueOffsets,
         ),
         (
@@ -211,48 +236,115 @@ fn violations_name_their_rule_and_place() {
     assert!(violation.to_string().starts_with("V8 at byte 68: "), "{violation}");
 }
 
-/// What the runtime decoder accepts, this reader accepts too, however odd:
-/// the audit (P2) is where such files are questioned, not the acceptance.
+/// Edits both readers accept, however odd: each breaks an audit rule, never
+/// an acceptance rule. The audit (A1 to A5) is where such files are
+/// questioned, not the acceptance.
+fn accepted_oddities() -> Vec<(&'static str, Vec<u8>)> {
+    let mut leading = common::fixture("empty.sok");
+    // One byte before the (empty) key region and two before the value region:
+    // offsets need only increase strictly and end at the blob size.
+    common::put_u32(&mut leading, 20, 1);
+    common::put_u32(&mut leading, 24, 2);
+    common::put_u32(&mut leading, 32, 1);
+    common::put_u32(&mut leading, 36, 2);
+    leading.extend_from_slice(&[0xFF, 0xFE, 0xFD]);
+    vec![
+        (
+            "a non-zero reserved field",
+            corrupt(|bytes| common::put_u32(bytes, 28, 7)),
+        ),
+        (
+            "keys out of code-point order",
+            corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
+        ),
+        (
+            "a repeated key",
+            corrupt(|bytes| common::put_u32(bytes, KEY_OFFSETS + 8, 2)),
+        ),
+        (
+            "maxKeyLength below the longest key",
+            corrupt(|bytes| common::put_u32(bytes, 16, 1)),
+        ),
+        (
+            "maxKeyLength above the longest key",
+            corrupt(|bytes| common::put_u32(bytes, 16, 5)),
+        ),
+        // Entry 2's five value bytes re-cut as an empty candidate and "C", and
+        // the other way round, where the empty candidate's prefix ends the region.
+        (
+            "an empty first candidate",
+            corrupt(|bytes| {
+                bytes[VALUE_COUNTS + 2] = 2;
+                bytes[VALUE_BLOB + 7..VALUE_BLOB + 12].copy_from_slice(&[0, 0, 1, 0, b'C']);
+            }),
+        ),
+        (
+            "an empty last candidate",
+            corrupt(|bytes| {
+                bytes[VALUE_COUNTS + 2] = 2;
+                bytes[VALUE_BLOB + 7..VALUE_BLOB + 12].copy_from_slice(&[1, 0, b'C', 0, 0]);
+            }),
+        ),
+        ("a malformed candidate", corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF)),
+        ("bytes no entry refers to", leading),
+    ]
+}
+
+fn oddity(name: &str) -> Vec<u8> {
+    accepted_oddities()
+        .into_iter()
+        .find(|(case, _)| *case == name)
+        .map(|(_, bytes)| bytes)
+        .expect("a named oddity")
+}
+
 #[test]
 fn oddities_the_runtime_accepts_are_accepted() {
-    let reserved = corrupt(|bytes| common::put_u32(bytes, 28, 7));
-    assert_eq!(None, rule_of(&reserved), "a non-zero reserved field");
+    for (name, bytes) in accepted_oddities() {
+        let file = SokFile::parse(&bytes).unwrap_or_else(|violation| panic!("{name}: {violation}"));
+        assert!(!sok::audit::audit(&file).is_empty(), "{name} breaks no audit rule");
+    }
+}
 
-    let unsorted = corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa"));
-    assert_eq!(None, rule_of(&unsorted), "keys out of code-point order");
-
-    let understated = corrupt(|bytes| common::put_u32(bytes, 16, 1));
-    assert_eq!(None, rule_of(&understated), "maxKeyLength below the longest key");
-
-    // Entry 2's five value bytes re-cut as an empty candidate and "C", then
-    // the other way round, where the empty candidate's prefix ends the region.
-    let cuts: [([u8; 5], [&[u8]; 2]); 2] = [([0, 0, 1, 0, b'C'], [b"", b"C"]), ([1, 0, b'C', 0, 0], [b"C", b""])];
-    for (cut, expected) in cuts {
-        let empty_candidate = corrupt(|bytes| {
-            bytes[VALUE_COUNTS + 2] = 2;
-            bytes[VALUE_BLOB + 7..VALUE_BLOB + 12].copy_from_slice(&cut);
-        });
-        let file = SokFile::parse(&empty_candidate).expect("an empty candidate is accepted");
+#[test]
+fn an_empty_candidate_reads_as_empty_wherever_it_stands() {
+    for (name, expected) in [
+        ("an empty first candidate", [&b""[..], b"C"]),
+        ("an empty last candidate", [b"C", b""]),
+    ] {
+        let bytes = oddity(name);
+        let file = SokFile::parse(&bytes).expect("accepted");
         let candidates: Vec<&[u8]> = file.entry(2).expect("entry 2").candidates().collect();
-        assert_eq!(expected.to_vec(), candidates);
+        assert_eq!(expected.to_vec(), candidates, "{name}");
     }
 }
 
 #[test]
 fn unreferenced_leading_blob_bytes_are_accepted() {
-    // The empty dictionary with one byte before its (empty) key region and
-    // two before its value region: offsets need only increase strictly and
-    // end at the blob size, so a first offset above zero passes.
-    let mut bytes = common::fixture("empty.sok");
-    assert_eq!(40, bytes.len());
-    common::put_u32(&mut bytes, 20, 1);
-    common::put_u32(&mut bytes, 24, 2);
-    common::put_u32(&mut bytes, 32, 1);
-    common::put_u32(&mut bytes, 36, 2);
-    bytes.extend_from_slice(&[0xFF, 0xFE, 0xFD]);
+    let bytes = oddity("bytes no entry refers to");
     let file = SokFile::parse(&bytes).expect("accepted, as the runtime decoder accepts it");
     assert_eq!(Some(1), file.key_offset(0));
     assert_eq!(Some(2), file.value_offset(0));
+}
+
+/// Writes every case of this file into the directory `SOKKURI_SOK_SEEDS`
+/// names, for the conformance corpus (docs/design/sok-rs.md §7): each breaks
+/// exactly one acceptance rule, or none, in an otherwise valid file. Fuzzed
+/// inputs mostly break several rules at once, so they cannot show that the
+/// Kotlin decoder still has each check; these can. Run by
+/// `./gradlew :tools:sok-rs:importCorpusSeeds`.
+#[test]
+#[ignore = "a generator, run with --ignored by importCorpusSeeds"]
+fn write_corpus_seeds() {
+    let directory = std::path::PathBuf::from(std::env::var_os("SOKKURI_SOK_SEEDS").expect("SOKKURI_SOK_SEEDS is set"));
+    std::fs::create_dir_all(&directory).expect("seed directory");
+    let named = cases()
+        .into_iter()
+        .map(|(name, bytes, _)| (name, bytes))
+        .chain(accepted_oddities());
+    for (name, bytes) in named {
+        std::fs::write(directory.join(name.replace(' ', "-")), bytes).expect("seed file");
+    }
 }
 
 #[test]
