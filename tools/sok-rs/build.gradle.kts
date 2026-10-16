@@ -139,8 +139,29 @@ val cargoTest by tasks.registering(CargoTask::class) {
     mustRunAfter(cargoLint)
 }
 
+/** The dictionaries the runtime ships, which the Rust reader must read as the Kotlin decoder does. */
+val packagedDictionaries: String =
+    layout.projectDirectory.dir("../../sokkuri-runtime/src/commonMain/resources/dictionary").asFile.normalize().path
+
+val sokcheck = listOf("run", "--quiet", "--locked", "--package", "sokcheck", "--")
+
+val verifyPackaged by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Checks every packaged dictionary against the acceptance rules."
+    arguments = sokcheck + listOf("verify", packagedDictionaries)
+    mustRunAfter(cargoTest)
+}
+
+val expectPackaged by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Writes the Rust reader's expectations for the packaged dictionaries to build/sok."
+    arguments = sokcheck + listOf("expect", "--packaged", packagedDictionaries)
+    standardOutputFile = layout.buildDirectory.file("sok/packaged-expect.txt")
+    mustRunAfter(cargoTest)
+}
+
 tasks.register("sokConformance") {
     group = "sok-rs"
     description = "Every check of the independent .sok reader (docs/architecture.md §10.5)."
-    dependsOn(cargoLint, cargoTest)
+    dependsOn(cargoLint, cargoTest, verifyPackaged, ":sokkuri-runtime:sokConformanceTest")
 }

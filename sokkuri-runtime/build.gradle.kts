@@ -211,3 +211,28 @@ private fun Project.publishDictionariesAsKlibResourceVariants() {
 }
 
 publishDictionariesAsKlibResourceVariants()
+
+// ---------------------------------------------------------------------------
+// Conformance with the independent Rust .sok reader (docs/design/sok-rs.md
+// §6.1). The packaged dictionaries' expectations are written by
+// :tools:sok-rs:expectPackaged and handed to PackagedSokConformanceTest
+// through SOKKURI_SOK_EXPECT, so this task never skips the test. It runs the
+// jvm test classes, but is a task of its own: like everything in
+// :tools:sok-rs it needs cargo, so it stays out of check and build.
+// ---------------------------------------------------------------------------
+val sokConformanceTest by tasks.registering(Test::class) {
+    group = "sok-rs"
+    description = "Checks the packaged dictionaries against the independent Rust reader (needs cargo)."
+    // The jvm test compilation's outputs, not the jvmTest task's: mapping that
+    // task would make this one run the whole jvm test suite first.
+    val jvmTestCompilation = kotlin.jvm().compilations.getByName("test")
+    testClassesDirs = jvmTestCompilation.output.classesDirs
+    classpath = files(jvmTestCompilation.output.allOutputs, jvmTestCompilation.runtimeDependencyFiles)
+    useJUnit()
+    filter.includeTestsMatching("com.generalk1ng.sokkuri.PackagedSokConformanceTest")
+    val expectations = layout.projectDirectory.file("../tools/sok-rs/build/sok/packaged-expect.txt")
+    inputs.file(expectations)
+    environment("SOKKURI_SOK_EXPECT", expectations.asFile.absolutePath)
+    dependsOn(":tools:sok-rs:expectPackaged")
+    doNotTrackState("a conformance check runs whenever it is asked for")
+}
