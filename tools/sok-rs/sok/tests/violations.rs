@@ -61,7 +61,12 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
         (
             "non-zero flags",
             corrupt(|bytes| common::put_u32(bytes, 8, 1)),
-            Rule::Flags,
+            Rule::ReservedFields,
+        ),
+        (
+            "a non-zero reserved field",
+            corrupt(|bytes| common::put_u32(bytes, 28, 7)),
+            Rule::ReservedFields,
         ),
         (
             "entry count disagrees with the size",
@@ -249,10 +254,6 @@ fn accepted_oddities() -> Vec<(&'static str, Vec<u8>)> {
     common::put_u32(&mut leading, 36, 2);
     leading.extend_from_slice(&[0xFF, 0xFE, 0xFD]);
     vec![
-        (
-            "a non-zero reserved field",
-            corrupt(|bytes| common::put_u32(bytes, 28, 7)),
-        ),
         (
             "keys out of code-point order",
             corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),

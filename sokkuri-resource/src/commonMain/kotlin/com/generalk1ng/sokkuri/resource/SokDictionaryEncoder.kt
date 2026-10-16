@@ -113,6 +113,7 @@ public object SokDictionaryEncoder {
         SokFormatLayout.writeU32(buffer, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, maxKeyLength.toLong())
         SokFormatLayout.writeU32(buffer, SokFormatLayout.OFFSET_KEY_BLOB_BYTES, keyBlobBytes)
         SokFormatLayout.writeU32(buffer, SokFormatLayout.OFFSET_VALUE_BLOB_BYTES, valueBlobBytes)
+        SokFormatLayout.writeU32(buffer, SokFormatLayout.OFFSET_RESERVED, 0)
 
         val keyOffsetsBase = SokFormatLayout.HEADER_BYTES
         val valueOffsetsBase = keyOffsetsBase + 4 * (entryCount + 1)

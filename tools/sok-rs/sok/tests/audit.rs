@@ -137,15 +137,12 @@ fn a3_an_unreferenced_byte_before_a_full_value_blob() {
 
 #[test]
 fn findings_read_as_rule_place_and_detail() {
-    let found = findings(&corrupt(|bytes| common::put_u32(bytes, 28, 7)));
-    assert_eq!("A4 at byte 28: the reserved field is 7, not 0", found[0].to_string());
-    assert_eq!("the reserved field is 7, not 0", found[0].detail());
-}
-
-#[test]
-fn a4_reserved_field() {
-    let reserved = corrupt(|bytes| common::put_u32(bytes, 28, 7));
-    assert_eq!(vec![(AuditRule::Reserved, 28)], rules(&reserved));
+    let found = findings(&corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF));
+    assert_eq!(
+        "A5 at byte 73: candidate 0 of entry 0 is not well-formed UTF-8",
+        found[0].to_string()
+    );
+    assert_eq!("candidate 0 of entry 0 is not well-formed UTF-8", found[0].detail());
 }
 
 #[test]
@@ -169,7 +166,6 @@ fn a5_empty_and_malformed_candidates() {
 #[test]
 fn findings_come_rule_by_rule_and_the_summary_names_each_rule_once() {
     let several = corrupt(|bytes| {
-        common::put_u32(bytes, 28, 7);
         bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa");
         bytes[VALUE_BLOB + 2] = 0xFF;
         bytes[VALUE_BLOB + 5] = 0xFF;
@@ -177,15 +173,10 @@ fn findings_come_rule_by_rule_and_the_summary_names_each_rule_once() {
     let found = rules(&several);
     let order: Vec<AuditRule> = found.iter().map(|(rule, _)| *rule).collect();
     assert_eq!(
-        vec![
-            AuditRule::KeyOrder,
-            AuditRule::Reserved,
-            AuditRule::Candidates,
-            AuditRule::Candidates
-        ],
+        vec![AuditRule::KeyOrder, AuditRule::Candidates, AuditRule::Candidates],
         order
     );
-    assert_eq!("audit:A1,A4,A5", summary(&findings(&several)));
+    assert_eq!("audit:A1,A5", summary(&findings(&several)));
 }
 
 #[test]
@@ -193,7 +184,6 @@ fn every_audit_rule_has_a_case() {
     let cases = [
         corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
         corrupt(|bytes| common::put_u32(bytes, 16, 1)),
-        corrupt(|bytes| common::put_u32(bytes, 28, 7)),
         corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF),
         {
             let mut bytes = common::fixture("empty.sok");

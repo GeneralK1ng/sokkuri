@@ -208,7 +208,7 @@ public class SokDictionary internal constructor(
 
         /**
          * Decodes [bytes] into a [SokDictionary], applying the strict
-         * decoder validation: magic/version/flags,
+         * decoder validation: magic, version, flags and the reserved field,
          * entryCount consistency with the file size, monotone offset tables
          * terminating at their blob sizes, `valueCounts ≥ 1`, and each
          * entry's candidates tiling its valueOffsets region exactly. Every
@@ -232,6 +232,10 @@ public class SokDictionary internal constructor(
             val flags = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_FLAGS)
             if (flags != 0L) {
                 throw SokkuriException.InvalidFormat("sok: flags must be 0, was $flags")
+            }
+            val reserved = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_RESERVED)
+            if (reserved != 0L) {
+                throw SokkuriException.InvalidFormat("sok: reserved field must be 0, was $reserved")
             }
             val entryCount = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_ENTRY_COUNT)
             val maxKeyLength = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH)

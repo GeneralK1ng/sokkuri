@@ -14,14 +14,16 @@
  * limitations under the License.
  */
 
-//! The audit rules A1 to A5 of docs/design/sok-rs.md §4.2: what the
-//! specification states and the encoder guarantees, but the runtime decoder
-//! does not check. An accepted file can break them; the audit says which, and
-//! never changes whether the file is accepted.
+//! The audit rules of docs/design/sok-rs.md §4.2: what the specification
+//! states and the encoder guarantees, but the runtime decoder does not check.
+//! An accepted file can break them; the audit says which, and never changes
+//! whether the file is accepted. A rule the decoder came to enforce moved to
+//! the acceptance rules, and its identifier is not reused: A4, the reserved
+//! field, is part of V4.
 
 use std::fmt;
 
-use crate::layout::{HEADER_BYTES, RESERVED_AT};
+use crate::layout::HEADER_BYTES;
 use crate::reader::SokFile;
 use crate::utf8;
 
@@ -38,30 +40,21 @@ pub enum AuditRule {
     /// A3: the first key offset and the first value offset are zero, so
     /// neither blob starts with bytes no entry refers to.
     FirstOffsets,
-    /// A4: the reserved header field is zero.
-    Reserved,
     /// A5: every candidate is non-empty and well-formed UTF-8.
     Candidates,
 }
 
 impl AuditRule {
     /// Every rule, in the order the audit checks them.
-    pub const ALL: [Self; 5] = [
-        Self::KeyOrder,
-        Self::MaxKeyLength,
-        Self::FirstOffsets,
-        Self::Reserved,
-        Self::Candidates,
-    ];
+    pub const ALL: [Self; 4] = [Self::KeyOrder, Self::MaxKeyLength, Self::FirstOffsets, Self::Candidates];
 
-    /// The rule's stable identifier, `A1` to `A5`.
+    /// The rule's stable identifier, never reused for another rule.
     #[must_use]
     pub const fn id(self) -> &'static str {
         match self {
             Self::KeyOrder => "A1",
             Self::MaxKeyLength => "A2",
             Self::FirstOffsets => "A3",
-            Self::Reserved => "A4",
             Self::Candidates => "A5",
         }
     }
@@ -117,7 +110,6 @@ pub fn audit(file: &SokFile<'_>) -> Vec<Finding> {
     check_key_order(file, &mut findings);
     check_max_key_length(file, &mut findings);
     check_first_offsets(file, &mut findings);
-    check_reserved(file, &mut findings);
     check_candidates(file, &mut findings);
     findings
 }
@@ -199,15 +191,6 @@ fn check_first_offsets(file: &SokFile<'_>, findings: &mut Vec<Finding>) {
         let detail = format!("the value blob starts with {first_value} bytes no candidate refers to");
         let value_offsets_at = HEADER_BYTES + 4 * (file.len() + 1);
         findings.push(Finding::new(AuditRule::FirstOffsets, value_offsets_at, detail));
-    }
-}
-
-/// A4.
-fn check_reserved(file: &SokFile<'_>, findings: &mut Vec<Finding>) {
-    let reserved = file.header().reserved;
-    if reserved != 0 {
-        let detail = format!("the reserved field is {reserved}, not 0");
-        findings.push(Finding::new(AuditRule::Reserved, RESERVED_AT, detail));
     }
 }
 

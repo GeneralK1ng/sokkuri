@@ -35,8 +35,9 @@ pub enum Rule {
     Magic,
     /// V3: the format version is 1.
     Version,
-    /// V4: the flags are zero.
-    Flags,
+    /// V4: the two fields kept for later versions, `flags` and the reserved
+    /// field at offset 28, are zero.
+    ReservedFields,
     /// V5: `maxKeyLength` does not exceed `keyBlobBytes`.
     MaxKeyLength,
     /// V6: the size implied by the header equals the file size.
@@ -59,7 +60,7 @@ impl Rule {
         Self::Header,
         Self::Magic,
         Self::Version,
-        Self::Flags,
+        Self::ReservedFields,
         Self::MaxKeyLength,
         Self::Size,
         Self::KeyOffsets,
@@ -76,7 +77,7 @@ impl Rule {
             Self::Header => "V1",
             Self::Magic => "V2",
             Self::Version => "V3",
-            Self::Flags => "V4",
+            Self::ReservedFields => "V4",
             Self::MaxKeyLength => "V5",
             Self::Size => "V6",
             Self::KeyOffsets => "V7",
@@ -175,7 +176,11 @@ impl<'a> SokFile<'a> {
         }
         if header.flags != 0 {
             let detail = format!("flags are {}, not 0", header.flags);
-            return Err(Violation::new(Rule::Flags, crate::layout::FLAGS_AT, detail));
+            return Err(Violation::new(Rule::ReservedFields, crate::layout::FLAGS_AT, detail));
+        }
+        if header.reserved != 0 {
+            let detail = format!("the reserved field is {}, not 0", header.reserved);
+            return Err(Violation::new(Rule::ReservedFields, crate::layout::RESERVED_AT, detail));
         }
         if header.max_key_length > header.key_blob_bytes {
             let detail = format!(

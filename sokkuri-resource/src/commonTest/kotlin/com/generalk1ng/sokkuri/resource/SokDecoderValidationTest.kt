@@ -104,6 +104,13 @@ class SokDecoderValidationTest {
     }
 
     @Test
+    fun nonZeroReservedFieldIsRejected() {
+        assertRejected(corrupt {
+            SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_RESERVED, 7)
+        }, "reserved")
+    }
+
+    @Test
     fun entryCountInconsistentWithFileSizeIsRejected() {
         assertRejected(corrupt {
             SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_ENTRY_COUNT, 4)

@@ -35,7 +35,7 @@ package com.generalk1ng.sokkuri.resource
  * 16      4         maxKeyLength (UTF-16 code units, invariant I1)
  * 20      4         keyBlobBytes
  * 24      4         valueBlobBytes
- * 28      4         reserved = 0
+ * 28      4         reserved = 0 (decoders must reject non-zero)
  * 32      4×(n+1)   keyOffsets, strictly increasing, last = keyBlobBytes
  * …       4×(n+1)   valueOffsets, strictly increasing, last = valueBlobBytes
  * …       n         valueCounts (u8), candidates per entry, ≥ 1
@@ -61,6 +61,7 @@ internal object SokFormatLayout {
     internal const val OFFSET_MAX_KEY_LENGTH: Int = 16
     internal const val OFFSET_KEY_BLOB_BYTES: Int = 20
     internal const val OFFSET_VALUE_BLOB_BYTES: Int = 24
+    internal const val OFFSET_RESERVED: Int = 28
 
     /** u8 cap on candidates per entry (the valueCounts column). */
     internal const val MAX_CANDIDATES_PER_ENTRY: Int = 0xFF

@@ -103,9 +103,11 @@ fn a_directory_contributes_only_its_sok_files() {
 
 #[test]
 fn audit_reports_every_finding_and_exits_one() {
+    // prefixes.sok with malformed bytes in the candidates of entries 0 and 1,
+    // whose value regions start at bytes 73 and 76.
     let mut bytes = std::fs::read(fixtures().join("prefixes.sok")).expect("fixture");
-    bytes[28] = 7;
-    bytes[67 + 3..67 + 6].copy_from_slice(b"aaa");
+    bytes[73 + 2] = 0xFF;
+    bytes[76 + 2] = 0xFF;
     let odd = scratch("audit", "odd.sok", &bytes);
     let short = odd.with_file_name("short.sok");
     std::fs::write(&short, b"SOK1").expect("short.sok");
@@ -123,8 +125,8 @@ fn audit_reports_every_finding_and_exits_one() {
     assert_eq!(
         vec![
             "ok\twidths.sok\taudit clean",
-            "finding\todd.sok\tA1 at byte 70",
-            "finding\todd.sok\tA4 at byte 28",
+            "finding\todd.sok\tA5 at byte 73",
+            "finding\todd.sok\tA5 at byte 76",
             "violation\tshort.sok\tV1 at byte 0",
         ],
         lines,
@@ -139,7 +141,7 @@ fn audit_reports_every_finding_and_exits_one() {
         "{}",
         stdout(&expect)
     );
-    assert!(stdout(&expect).contains("\taudit:A1,A4\n"), "{}", stdout(&expect));
+    assert!(stdout(&expect).contains("\taudit:A5\n"), "{}", stdout(&expect));
 }
 
 #[test]
