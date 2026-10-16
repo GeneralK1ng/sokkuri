@@ -198,6 +198,10 @@ mod tests {
         assert!(parse("0000000000000000\tzz\n").unwrap_err().contains("not hexadecimal"));
         assert!(parse("no tab here\n").unwrap_err().contains("no tab"));
         assert!(parse(&format!("{good}{good}")).unwrap_err().contains("repeats"));
+        assert_eq!(
+            Err("line 2: not hexadecimal bytes".to_owned()),
+            parse("# lines count from 1, comments too\n0000000000000000\t5\n")
+        );
     }
 
     #[test]

@@ -167,6 +167,9 @@ fn a_corpus_imports_exports_and_expects_in_id_order() {
     std::fs::create_dir_all(&directory).expect("inputs directory");
     std::fs::write(directory.join("a"), b"SOK1").expect("an input");
     std::fs::copy(fixtures().join("prefixes.sok"), directory.join("b")).expect("seed");
+    // The input at the limit has the magic and so breaks V3, the one over it
+    // V2: the expectations show which of the two was kept.
+    std::fs::write(directory.join("limit"), [&b"SOK1"[..], &[0u8; 508]].concat()).expect("an input at the limit");
     std::fs::write(directory.join("large"), vec![0u8; 513]).expect("an input over the limit");
     let file = base.join("corpus.hex");
     let path = |p: &std::path::Path| p.to_str().expect("path").to_owned();
@@ -179,13 +182,13 @@ fn a_corpus_imports_exports_and_expects_in_id_order() {
         String::from_utf8_lossy(&imported.stderr)
     );
     assert!(
-        stdout(&imported).starts_with("2 new, 0 already known, 1 over 512 bytes skipped; 2 inputs"),
+        stdout(&imported).starts_with("3 new, 0 already known, 1 over 512 bytes skipped; 3 inputs"),
         "{}",
         stdout(&imported)
     );
     let again = sokcheck(&["corpus", "import", &path(&directory), &path(&file)]);
     assert!(
-        stdout(&again).starts_with("0 new, 2 already known"),
+        stdout(&again).starts_with("0 new, 3 already known"),
         "{}",
         stdout(&again)
     );
@@ -193,7 +196,7 @@ fn a_corpus_imports_exports_and_expects_in_id_order() {
     let expected = sokcheck(&["expect", "--corpus", &path(&file)]);
     assert_eq!(Some(0), expected.status.code());
     let lines: Vec<String> = stdout(&expected).lines().skip(1).map(str::to_owned).collect();
-    assert_eq!(2, lines.len(), "{lines:?}");
+    assert_eq!(3, lines.len(), "{lines:?}");
     let mut ids: Vec<&str> = lines.iter().map(|line| &line[..16]).collect();
     let sorted = {
         let mut copy = ids.clone();
@@ -202,6 +205,8 @@ fn a_corpus_imports_exports_and_expects_in_id_order() {
     };
     assert_eq!(sorted, ids);
     assert!(lines.iter().any(|line| line.ends_with("\treject\tV1")), "{lines:?}");
+    assert!(lines.iter().any(|line| line.ends_with("\treject\tV3")), "{lines:?}");
+    assert!(!lines.iter().any(|line| line.ends_with("\treject\tV2")), "{lines:?}");
     assert!(
         lines
             .iter()
@@ -260,7 +265,62 @@ fn stale_corpus_expectations_are_reported() {
     std::fs::write(&expected, "# a hand-edited file\n").expect("edited");
     let edited = sokcheck(&["expect", "--corpus", &path(&corpus), "--check", &path(&expected)]);
     assert_eq!(Some(1), edited.status.code());
-    assert!(stdout(&edited).contains("is stale from line 1"), "{}", stdout(&edited));
+    assert!(stdout(&edited).contains("is stale from line 1:"), "{}", stdout(&edited));
+
+    // Where one side is the other cut short, the first line only the longer
+    // one has is where they part.
+    let fresh = stdout(&sokcheck(&["expect", "--corpus", &path(&corpus)]));
+    let count = fresh.lines().count();
+    let short: String = fresh.lines().take(count - 1).map(|line| format!("{line}\n")).collect();
+    for (committed, line) in [(short, count), (format!("{fresh}extra\n"), count + 1)] {
+        std::fs::write(&expected, committed).expect("committed");
+        let output = sokcheck(&["expect", "--corpus", &path(&corpus), "--check", &path(&expected)]);
+        assert_eq!(Some(1), output.status.code());
+        let wanted = format!("is stale from line {line}:");
+        assert!(stdout(&output).contains(&wanted), "{wanted} in {}", stdout(&output));
+    }
+}
+
+#[test]
+fn misspelled_flags_and_actions_are_usage_errors_even_where_the_files_exist() {
+    // Every path here names a file or directory that reads, so only the
+    // argument matching can make these runs fail.
+    let base = scratch("misspelled", "placeholder", b"")
+        .parent()
+        .expect("parent")
+        .to_path_buf();
+    let inputs = base.join("inputs");
+    std::fs::create_dir_all(&inputs).expect("inputs");
+    std::fs::write(inputs.join("a"), b"SOK1").expect("input");
+    let corpus = base.join("corpus.hex");
+    let exported = base.join("exported");
+    let path = |p: &std::path::Path| p.to_str().expect("path").to_owned();
+    let (corpus, expected, inputs_path, exported_path) = (
+        path(&corpus),
+        path(&base.join("expected.txt")),
+        path(&inputs),
+        path(&exported),
+    );
+    assert_eq!(
+        Some(0),
+        sokcheck(&["corpus", "import", &inputs_path, &corpus]).status.code()
+    );
+    std::fs::write(&expected, sokcheck(&["expect", "--corpus", &corpus]).stdout).expect("expected");
+    let check = sokcheck(&["expect", "--corpus", &corpus, "--check", &expected]);
+    assert_eq!(Some(0), check.status.code(), "spelled right, the check passes");
+
+    for arguments in [
+        &["expect", "--corpse", &corpus][..],
+        &["expect", "--corpus", &corpus, "--chek", &expected],
+        &["expect", "--corpse", &corpus, "--check", &expected],
+        &["corpus", "sideways", &inputs_path, &corpus],
+        &["corpus", "sideways", &corpus, &exported_path],
+    ] {
+        let output = sokcheck(arguments);
+        assert_eq!(Some(2), output.status.code(), "{arguments:?}");
+        assert!(output.stdout.is_empty(), "{arguments:?}");
+    }
+    assert!(!exported.exists(), "nothing was exported");
 }
 
 #[test]
