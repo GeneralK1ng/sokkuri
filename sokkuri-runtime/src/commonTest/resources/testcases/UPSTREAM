@@ -1,13 +1,13 @@
 Source: https://github.com/BYVoid/OpenCC
 Path:    test/testcases/testcases.json
-Commit:  2939943bd6f4d459b46d7fdcf07a885ab3f01761
-Date:    2026-09-26 (Add 况況, 擧舉 and 衛衞 to staging Allographs and re-sort it)
+Commit:  8cf737a4e193db27d675b2ce9867d84aace33745
+Date:    2026-10-09 (Preserve preferred Hong Kong TV station names (#1506))
 
-Copied verbatim (JSONC: comments + trailing commas). 262 cases, 583
+Copied verbatim (JSONC: comments + trailing commas). 263 cases, 584
 stem expectations across 19 stems; the three `*seal*` stems (15
 expectations) are excluded because the seal profiles are deliberately
 not ported (docs/architecture/divergences.md #4). Golden coverage: 16 ported stems,
-583 - 15 = 568 expectations; see OpenccTestcasesGoldenTest.
+584 - 15 = 569 expectations; see OpenccTestcasesGoldenTest.
 
 The Commit line is also the repository's pin of the OpenCC reference
 clone: ./gradlew fetchOpencc checks the clone out at it, and the tools
