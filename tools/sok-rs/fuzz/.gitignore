@@ -1,0 +1,6 @@
+# cargo-fuzz's working directories; the corpus that matters is the committed
+# sokkuri-runtime/src/commonTest/resources/sok-conformance/corpus.hex
+target/
+corpus/
+artifacts/
+coverage/
