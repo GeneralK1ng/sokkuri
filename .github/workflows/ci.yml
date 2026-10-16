@@ -50,3 +50,36 @@ jobs:
             **/build/test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+  sok-reader:
+    name: sok reader
+    # The independent Rust .sok reader and its conformance with the Kotlin
+    # decoder (docs/architecture.md §10.5). Not a required check yet; the
+    # Build gate never needs Rust.
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/setup-build-env
+        with:
+          kotlin-native: "false"
+          rust: "true"
+
+      - name: Rust reader, packaged-dictionary conformance
+        # One Gradle entry point: fmt, clippy, rustdoc, cargo test, sokcheck
+        # verify, and the Kotlin conformance test fed by sokcheck expect.
+        run: ./gradlew sokConformance
+
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: sok-reader-test-reports
+          path: |
+            sokkuri-runtime/build/reports/tests/
+            sokkuri-runtime/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 14
