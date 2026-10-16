@@ -7,7 +7,7 @@ Sokkuri 是 [OpenCC](https://github.com/BYVoid/OpenCC) 的 Kotlin Multiplatform 
 ## 特性
 
 - **纯 Kotlin，没有原生依赖**：三端共用同一套实现与词典，不经过 JNI。
-- **与上游一致**：上游测试用例的 568 条期望在三端运行，默认选项下只有 3 条因 tofu 设置而有意不同（见下文）；与 OpenCC 参考构建逐条比对 16 档、近 1.9 万条输入，转换结果与 inspect 结构都没有差异。
+- **与上游一致**：上游测试用例的 569 条期望在三端运行，默认选项下只有 3 条因 tofu 设置而有意不同（见下文）；与 OpenCC 参考构建逐条比对 16 档、近 1.9 万条输入，转换结果与 inspect 结构都没有差异。
 - **`inspect()`**：除了最终结果，还返回分词与转换链各级的输出，结构与上游 `Converter::Inspect` 一致。上游只在 C++ 与命令行中提供这项能力。
 - **16 种转换配置**，包括香港词汇档 `s2hkp` 与 `hk2sp`。
 - **零拷贝的词典格式 `.sok`**：词典共约 1.7 MiB，加载时不复制。s2t 转换 48 个字约 1.8 µs（JVM）。详见[性能](docs/performance/README.md)。
