@@ -141,10 +141,11 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             Rule::ValueTiling,
         ),
         // The regression the Kotlin decoder once had: offsets that pass every
-        // monotonicity check while entry 1's region no longer fits its candidate.
+        // monotonicity check while entry 2 starts at the last byte of the file,
+        // where its length prefix cannot fit; entry 1's region is stretched.
         (
-            "a region one byte too long",
-            corrupt(|bytes| common::put_u32(bytes, VALUE_OFFSETS + 8, 8)),
+            "a candidate header in the last byte",
+            corrupt(|bytes| common::put_u32(bytes, VALUE_OFFSETS + 8, 11)),
             Rule::ValueTiling,
         ),
     ]
@@ -155,6 +156,11 @@ fn every_corruption_breaks_its_rule() {
     for (name, bytes, rule) in cases() {
         assert_eq!(Some(rule), rule_of(&bytes), "{name}");
     }
+}
+
+#[test]
+fn the_last_byte_case_puts_entry_2_at_the_last_byte() {
+    assert_eq!(valid().len() - 1, VALUE_BLOB + 11);
 }
 
 #[test]
