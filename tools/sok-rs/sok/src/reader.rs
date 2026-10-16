@@ -20,6 +20,7 @@
 
 use std::error::Error;
 use std::fmt;
+use std::iter::Take;
 
 use crate::layout::{CANDIDATE_HEADER_BYTES, HEADER_BYTES, Header, MAGIC, VERSION, u16_at, u32_at};
 use crate::utf8;
@@ -156,17 +157,18 @@ impl<'a> SokFile<'a> {
     ///
     /// A [`Violation`] naming the rule, the byte offset and the detail.
     pub fn parse(bytes: &'a [u8]) -> Result<Self, Violation> {
-        if bytes.len() < HEADER_BYTES {
+        // Reading the header is the length check: it fails exactly when the
+        // file is shorter than the 32 bytes the header occupies.
+        let header = Header::read(bytes).ok_or_else(|| {
             let detail = format!(
                 "the file is {} bytes, shorter than the {HEADER_BYTES}-byte header",
                 bytes.len()
             );
-            return Err(Violation::new(Rule::Header, 0, detail));
-        }
+            Violation::new(Rule::Header, 0, detail)
+        })?;
         if bytes.get(..MAGIC.len()) != Some(&MAGIC[..]) {
             return Err(Violation::new(Rule::Magic, 0, "the magic is not SOK1"));
         }
-        let header = Header::read(bytes).ok_or_else(|| Violation::new(Rule::Header, 0, "unreadable header"))?;
         if header.version != VERSION {
             let detail = format!("formatVersion is {}, not {VERSION}", header.version);
             return Err(Violation::new(Rule::Version, crate::layout::VERSION_AT, detail));
@@ -419,34 +421,28 @@ impl<'a> Entry<'a> {
     }
 
     /// The candidates in order, the default first, as stored: their bytes
-    /// are not checked for well-formed UTF-8 (the audit does that).
-    #[must_use]
-    pub const fn candidates(&self) -> Candidates<'a> {
-        Candidates {
-            rest: self.values,
-            remaining: self.count,
-        }
+    /// are not checked for well-formed UTF-8 (the audit does that). The walk
+    /// is bounded by the stored count here, in one place, so no consumer can
+    /// run past it.
+    pub fn candidates(&self) -> Take<Candidates<'a>> {
+        Candidates { rest: self.values }.take(usize::from(self.count))
     }
 }
 
-/// The candidates of an [`Entry`], each without its length prefix.
+/// A walk over length-prefixed candidates until their region ends, each
+/// yielded without its prefix; [`Entry::candidates`] bounds it by the count.
 #[derive(Debug, Clone)]
 pub struct Candidates<'a> {
     rest: &'a [u8],
-    remaining: u8,
 }
 
 impl<'a> Iterator for Candidates<'a> {
     type Item = &'a [u8];
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.remaining == 0 {
-            return None;
-        }
         let length = usize::from(u16_at(self.rest, 0)?);
         let candidate = self.rest.get(CANDIDATE_HEADER_BYTES..CANDIDATE_HEADER_BYTES + length)?;
         self.rest = self.rest.get(CANDIDATE_HEADER_BYTES + length..)?;
-        self.remaining -= 1;
         Some(candidate)
     }
 }

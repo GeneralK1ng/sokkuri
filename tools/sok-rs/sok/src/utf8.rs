@@ -18,16 +18,18 @@
 //! (the Unicode Standard's Table 3-7). Written from the table, not from the
 //! Kotlin `Utf8` object, so the two readers do not share a misreading.
 
+use std::num::NonZeroUsize;
 use std::ops::RangeInclusive;
 
 const CONTINUATION: RangeInclusive<u8> = 0x80..=0xBF;
 
 /// Length of the well-formed sequence that starts `bytes`, or `None` when
-/// the sequence is malformed or truncated by the end of `bytes`.
-fn sequence_length(bytes: &[u8]) -> Option<usize> {
+/// the sequence is malformed or truncated by the end of `bytes`. Never zero,
+/// by type: every caller advances by it.
+fn sequence_length(bytes: &[u8]) -> Option<NonZeroUsize> {
     let (&lead, rest) = bytes.split_first()?;
     let (length, second) = match lead {
-        0x00..=0x7F => return Some(1),
+        0x00..=0x7F => return NonZeroUsize::new(1),
         0xC2..=0xDF => (2, CONTINUATION),
         0xE0 => (3, 0xA0..=0xBF),
         0xE1..=0xEC | 0xEE..=0xEF => (3, CONTINUATION),
@@ -38,7 +40,8 @@ fn sequence_length(bytes: &[u8]) -> Option<usize> {
         _ => return None,
     };
     let (first, others) = rest.get(..length - 1)?.split_first()?;
-    (second.contains(first) && others.iter().all(|byte| CONTINUATION.contains(byte))).then_some(length)
+    let valid = second.contains(first) && others.iter().all(|byte| CONTINUATION.contains(byte));
+    if valid { NonZeroUsize::new(length) } else { None }
 }
 
 /// Whether `bytes` is well-formed UTF-8: no overlong form, no encoded
@@ -46,7 +49,7 @@ fn sequence_length(bytes: &[u8]) -> Option<usize> {
 #[must_use]
 pub fn is_well_formed(mut bytes: &[u8]) -> bool {
     while !bytes.is_empty() {
-        match sequence_length(bytes).and_then(|length| bytes.get(length..)) {
+        match sequence_length(bytes).and_then(|length| bytes.get(length.get()..)) {
             Some(rest) => bytes = rest,
             None => return false,
         }
@@ -58,7 +61,7 @@ pub fn is_well_formed(mut bytes: &[u8]) -> bool {
 /// `None` when `bytes` is empty or does not start with a well-formed sequence.
 #[must_use]
 pub fn decode_first(bytes: &[u8]) -> Option<(char, usize)> {
-    let length = sequence_length(bytes)?;
+    let length = sequence_length(bytes)?.get();
     let encoded = bytes.get(..length)?;
     let mut value = match length {
         1 => u32::from(*encoded.first()?),
