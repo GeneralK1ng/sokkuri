@@ -18,7 +18,7 @@ Sokkuri 是 [OpenCC](https://github.com/BYVoid/OpenCC) 的 Kotlin Multiplatform 
 repositories { mavenCentral() }
 
 dependencies {
-  implementation("com.generalk1ng.sokkuri:sokkuri-runtime:0.2.0")
+  implementation("com.generalk1ng.sokkuri:sokkuri-runtime:0.2.1")
 }
 ```
 
