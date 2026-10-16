@@ -32,7 +32,8 @@ package com.generalk1ng.sokkuri.resource
  * 4       4         formatVersion = 1
  * 8       4         flags = 0 (reserved; decoders must reject non-zero)
  * 12      4         entryCount
- * 16      4         maxKeyLength (UTF-16 code units, invariant I1)
+ * 16      4         maxKeyLength: the longest key in UTF-16 code units
+ *                   (invariant I1, decoder-enforced)
  * 20      4         keyBlobBytes
  * 24      4         valueBlobBytes
  * 28      4         reserved = 0 (decoders must reject non-zero)

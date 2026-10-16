@@ -211,7 +211,8 @@ public class SokDictionary internal constructor(
          * decoder validation: magic, version, flags and the reserved field,
          * entryCount consistency with the file size, offset tables rising
          * strictly from 0 to their blob sizes, well-formed keys in strictly
-         * increasing code-point order, `valueCounts ≥ 1`, and each
+         * increasing code-point order, maxKeyLength equal to the longest
+         * key, `valueCounts ≥ 1`, and each
          * entry's candidates tiling its valueOffsets region exactly. Every
          * failure is an [SokkuriException.InvalidFormat] naming the field.
          */
@@ -242,14 +243,6 @@ public class SokDictionary internal constructor(
             val maxKeyLength = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH)
             val keyBlobBytes = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_KEY_BLOB_BYTES)
             val valueBlobBytes = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_VALUE_BLOB_BYTES)
-
-            // Every key holds at least one UTF-16 code unit per byte, so a
-            // maxKeyLength beyond the blob can only come from a corrupt file.
-            if (maxKeyLength > keyBlobBytes) {
-                throw SokkuriException.InvalidFormat(
-                    "sok: maxKeyLength $maxKeyLength exceeds keyBlobBytes $keyBlobBytes",
-                )
-            }
 
             // Region layout derived from entryCount; the declared total must
             // match the actual file size exactly (Long math: no overflow).
@@ -302,6 +295,7 @@ public class SokDictionary internal constructor(
             // and strictness rules out a repeated key. For well-formed UTF-8
             // the unsigned byte order is the code-point order, and the key
             // before this one is the region that ends where it starts.
+            var longestKey = 0
             for (i in 0 until n) {
                 val start = SokFormatLayout.readU32(bytes, keyOffsetsBase + i * 4).toInt()
                 val end = SokFormatLayout.readU32(bytes, keyOffsetsBase + (i + 1) * 4).toInt()
@@ -316,6 +310,20 @@ public class SokDictionary internal constructor(
                         )
                     }
                 }
+                // A key never has more UTF-16 code units than UTF-8 bytes, so
+                // only one longer in bytes than the longest so far can be
+                // longer in code units; most keys skip the count.
+                if (end - start > longestKey) {
+                    longestKey = maxOf(longestKey, utf16Length(bytes, keyBlobBase + start, keyBlobBase + end))
+                }
+            }
+            // maxKeyLength is the longest key in UTF-16 code units (invariant
+            // I1): retrieval cuts its window to it, so a smaller value would
+            // silently lose the matches of longer keys.
+            if (maxKeyLength != longestKey.toLong()) {
+                throw SokkuriException.InvalidFormat(
+                    "sok: maxKeyLength is $maxKeyLength, but the longest key has $longestKey UTF-16 code units",
+                )
             }
             val firstValueOffset = SokFormatLayout.readU32(bytes, valueOffsetsBase)
             if (firstValueOffset != 0L) {
@@ -399,6 +407,20 @@ public class SokDictionary internal constructor(
                 if (difference != 0) return difference
             }
             return firstLength - secondLength
+        }
+
+        /**
+         * UTF-16 code units of the well-formed UTF-8 in `[start, end)`: one
+         * for every sequence, two for a four-byte one. Counts lead bytes
+         * rather than decoding, which only well-formedness makes correct.
+         */
+        private fun utf16Length(bytes: ByteArray, start: Int, end: Int): Int {
+            var units = 0
+            for (k in start until end) {
+                val byte = bytes[k].toInt() and 0xFF
+                if (byte < 0x80 || byte >= 0xC0) units += if (byte >= 0xF0) 2 else 1
+            }
+            return units
         }
     }
 }

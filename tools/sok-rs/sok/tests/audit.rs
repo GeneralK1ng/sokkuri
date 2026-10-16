@@ -52,32 +52,6 @@ fn encoder_written_files_are_audit_clean() {
 }
 
 #[test]
-fn a2_max_key_length_understated_or_overstated() {
-    for stated in [1, 2, 4, 5] {
-        let edited = corrupt(|bytes| common::put_u32(bytes, 16, stated));
-        assert_eq!(
-            vec![(AuditRule::MaxKeyLength, 16)],
-            rules(&edited),
-            "maxKeyLength {stated}"
-        );
-    }
-}
-
-#[test]
-fn a2_counts_utf16_code_units_not_bytes() {
-    // widths.sok's longest key "𠀀中" is 7 bytes but 3 code units: a surrogate pair and one more.
-    let mut stated_in_bytes = common::fixture("widths.sok");
-    common::put_u32(&mut stated_in_bytes, 16, 7);
-    let found = findings(&stated_in_bytes);
-    assert_eq!(1, found.len(), "{found:?}");
-    assert!(
-        found[0].detail().contains("the longest key has 3 UTF-16 code units"),
-        "{}",
-        found[0]
-    );
-}
-
-#[test]
 fn findings_read_as_rule_place_and_detail() {
     let found = findings(&corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF));
     assert_eq!(
@@ -106,27 +80,25 @@ fn a5_empty_and_malformed_candidates() {
 }
 
 #[test]
-fn findings_come_rule_by_rule_and_the_summary_names_each_rule_once() {
+fn findings_come_in_table_order_and_the_summary_names_each_rule_once() {
+    // Malformed candidates in entries 1 and 0, whose regions start 3 bytes apart.
     let several = corrupt(|bytes| {
-        common::put_u32(bytes, 16, 2);
-        bytes[VALUE_BLOB + 2] = 0xFF;
         bytes[VALUE_BLOB + 5] = 0xFF;
+        bytes[VALUE_BLOB + 2] = 0xFF;
     });
-    let found = rules(&several);
-    let order: Vec<AuditRule> = found.iter().map(|(rule, _)| *rule).collect();
     assert_eq!(
-        vec![AuditRule::MaxKeyLength, AuditRule::Candidates, AuditRule::Candidates],
-        order
+        vec![
+            (AuditRule::Candidates, VALUE_BLOB),
+            (AuditRule::Candidates, VALUE_BLOB + 3)
+        ],
+        rules(&several)
     );
-    assert_eq!("audit:A2,A5", summary(&findings(&several)));
+    assert_eq!("audit:A5", summary(&findings(&several)));
 }
 
 #[test]
 fn every_audit_rule_has_a_case() {
-    let cases = [
-        corrupt(|bytes| common::put_u32(bytes, 16, 1)),
-        corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF),
-    ];
+    let cases = [corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF)];
     let covered: HashSet<AuditRule> = cases
         .iter()
         .flat_map(|bytes| rules(bytes))

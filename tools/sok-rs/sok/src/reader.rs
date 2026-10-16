@@ -38,7 +38,8 @@ pub enum Rule {
     /// V4: the two fields kept for later versions, `flags` and the reserved
     /// field at offset 28, are zero.
     ReservedFields,
-    /// V5: `maxKeyLength` does not exceed `keyBlobBytes`.
+    /// V5: `maxKeyLength` is the length of the longest key in UTF-16 code
+    /// units (invariant I1).
     MaxKeyLength,
     /// V6: the size implied by the header equals the file size.
     Size,
@@ -189,17 +190,6 @@ impl<'a> SokFile<'a> {
             let detail = format!("the reserved field is {}, not 0", header.reserved);
             return Err(Violation::new(Rule::ReservedFields, crate::layout::RESERVED_AT, detail));
         }
-        if header.max_key_length > header.key_blob_bytes {
-            let detail = format!(
-                "maxKeyLength {} exceeds keyBlobBytes {}: a key has at least one UTF-16 unit per byte",
-                header.max_key_length, header.key_blob_bytes,
-            );
-            return Err(Violation::new(
-                Rule::MaxKeyLength,
-                crate::layout::MAX_KEY_LENGTH_AT,
-                detail,
-            ));
-        }
 
         // The header's sizes imply the file size; u64 arithmetic cannot
         // overflow on any u32 inputs. Once they agree, every region below
@@ -273,9 +263,11 @@ impl<'a> SokFile<'a> {
     /// V8: each key is well-formed UTF-8 on its own; a sequence split across
     /// two keys is valid as a blob but leaves both keys malformed. V12: each
     /// sorts strictly after the one before it; keys being well-formed, the
-    /// byte order is the code-point order.
+    /// byte order is the code-point order. V5, once every key has been read:
+    /// `maxKeyLength` is the longest of them in UTF-16 code units.
     fn check_keys(&self) -> Result<(), Violation> {
         let mut previous: Option<&[u8]> = None;
+        let mut longest = 0usize;
         for index in 0..self.entries {
             let at = self.key_blob_at + self.offset(HEADER_BYTES, index).unwrap_or_default();
             let key = self
@@ -296,6 +288,16 @@ impl<'a> SokFile<'a> {
                 return Err(Violation::new(Rule::KeyOrder, at, detail));
             }
             previous = Some(key);
+            longest = longest.max(utf8::utf16_length(key).unwrap_or_default());
+        }
+        let stated = self.header.max_key_length;
+        if u32::try_from(longest).ok() != Some(stated) {
+            let detail = format!("maxKeyLength is {stated}, but the longest key has {longest} UTF-16 code units");
+            return Err(Violation::new(
+                Rule::MaxKeyLength,
+                crate::layout::MAX_KEY_LENGTH_AT,
+                detail,
+            ));
         }
         Ok(())
     }

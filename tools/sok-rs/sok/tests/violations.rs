@@ -91,11 +91,6 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             Rule::Size,
         ),
         (
-            "maxKeyLength beyond the key blob",
-            corrupt(|bytes| common::put_u32(bytes, 16, 1000)),
-            Rule::MaxKeyLength,
-        ),
-        (
             "key offsets starting above zero",
             with_leading_byte(KEY_BLOB, KEY_OFFSETS, 20),
             Rule::KeyOffsets,
@@ -142,6 +137,21 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             "keys out of code-point order",
             corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
             Rule::KeyOrder,
+        ),
+        (
+            "maxKeyLength below the longest key",
+            corrupt(|bytes| common::put_u32(bytes, 16, 2)),
+            Rule::MaxKeyLength,
+        ),
+        (
+            "maxKeyLength above the longest key",
+            corrupt(|bytes| common::put_u32(bytes, 16, 4)),
+            Rule::MaxKeyLength,
+        ),
+        (
+            "maxKeyLength beyond the key blob",
+            corrupt(|bytes| common::put_u32(bytes, 16, 1000)),
+            Rule::MaxKeyLength,
         ),
         // Key offsets [0, 1, 2, 6] re-cut the blob "aababc" as a, a and babc;
         // maxKeyLength 4 fits babc, so only the repetition is wrong.
@@ -260,6 +270,11 @@ fn violations_point_at_the_offending_bytes() {
         common::put_u32(bytes, 16, 4);
     });
     assert_eq!("V12 at byte 68: key 1 repeats key 0", repeated.to_string());
+    let understated = place(|bytes| common::put_u32(bytes, 16, 2));
+    assert_eq!(
+        "V5 at byte 16: maxKeyLength is 2, but the longest key has 3 UTF-16 code units",
+        understated.to_string()
+    );
     for (bytes, rule, at) in [
         (
             with_leading_byte(KEY_BLOB, KEY_OFFSETS, 20),
@@ -310,19 +325,31 @@ fn violations_name_their_rule_and_place() {
     assert!(violation.to_string().starts_with("V8 at byte 68: "), "{violation}");
 }
 
+#[test]
+fn max_key_length_counts_utf16_code_units_not_bytes() {
+    // widths.sok's longest key "𠀀中" is 7 bytes but 3 code units: a surrogate pair and one more.
+    let mut stated_in_bytes = common::fixture("widths.sok");
+    common::put_u32(&mut stated_in_bytes, 16, 7);
+    let violation = SokFile::parse(&stated_in_bytes).expect_err("rejected");
+    assert_eq!(Rule::MaxKeyLength, violation.rule());
+    assert!(
+        violation.detail().ends_with("the longest key has 3 UTF-16 code units"),
+        "{violation}"
+    );
+    assert_eq!(
+        3,
+        SokFile::parse(&common::fixture("widths.sok"))
+            .expect("valid")
+            .header()
+            .max_key_length
+    );
+}
+
 /// Edits both readers accept, however odd: each breaks an audit rule, never
 /// an acceptance rule. The audit (A1 to A5) is where such files are
 /// questioned, not the acceptance.
 fn accepted_oddities() -> Vec<(&'static str, Vec<u8>)> {
     vec![
-        (
-            "maxKeyLength below the longest key",
-            corrupt(|bytes| common::put_u32(bytes, 16, 1)),
-        ),
-        (
-            "maxKeyLength above the longest key",
-            corrupt(|bytes| common::put_u32(bytes, 16, 5)),
-        ),
         // Entry 2's five value bytes re-cut as an empty candidate and "C", and
         // the other way round, where the empty candidate's prefix ends the region.
         (

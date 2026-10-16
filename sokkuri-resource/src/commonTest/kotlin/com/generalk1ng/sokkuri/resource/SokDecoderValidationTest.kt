@@ -134,10 +134,24 @@ class SokDecoderValidationTest {
     }
 
     @Test
-    fun maxKeyLengthBeyondTheKeyBlobIsRejected() {
-        assertRejected(corrupt {
-            SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, 1000)
-        }, "maxKeyLength")
+    fun maxKeyLengthOtherThanTheLongestKeyIsRejected() {
+        // The longest key, "abc", has 3 code units: one fewer would lose its
+        // matches, one more is still not the length the format states.
+        for (stated in listOf(2L, 4L)) {
+            assertRejected(corrupt {
+                SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, stated)
+            }, "maxKeyLength is $stated, but the longest key has 3")
+        }
+    }
+
+    @Test
+    fun maxKeyLengthCountsUtf16CodeUnitsNotBytes() {
+        // "𠀀中" is 7 bytes of UTF-8 but 3 UTF-16 code units: a surrogate pair and one more.
+        val bytes = SokDictionaryEncoder.encode(listOf("𠀀中" to listOf("x"), "a" to listOf("y")))
+        assertEquals(3L, SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH))
+        assertEquals(3, SokDictionaryFormat.decode(bytes).maxKeyLength)
+        SokFormatLayout.writeU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, 7)
+        assertRejected(bytes, "the longest key has 3 UTF-16 code units")
     }
 
     @Test

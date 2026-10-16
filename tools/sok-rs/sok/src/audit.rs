@@ -19,8 +19,8 @@
 //! An accepted file can break them; the audit says which, and never changes
 //! whether the file is accepted. A rule the decoder came to enforce moved to
 //! the acceptance rules, and its identifier is not reused: A1, key order, is
-//! V12; A3, offset tables starting at 0, is part of V7 and V9; and A4, the
-//! reserved field, is part of V4.
+//! V12; A2, an exact `maxKeyLength`, is V5; A3, offset tables starting at 0,
+//! is part of V7 and V9; and A4, the reserved field, is part of V4.
 
 use std::fmt;
 
@@ -31,22 +31,18 @@ use crate::utf8;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[non_exhaustive]
 pub enum AuditRule {
-    /// A2: `maxKeyLength` equals the longest key in UTF-16 code units
-    /// (invariant I1); retrieval cuts its window to it.
-    MaxKeyLength,
     /// A5: every candidate is non-empty and well-formed UTF-8.
     Candidates,
 }
 
 impl AuditRule {
     /// Every rule, in the order the audit checks them.
-    pub const ALL: [Self; 2] = [Self::MaxKeyLength, Self::Candidates];
+    pub const ALL: [Self; 1] = [Self::Candidates];
 
     /// The rule's stable identifier, never reused for another rule.
     #[must_use]
     pub const fn id(self) -> &'static str {
         match self {
-            Self::MaxKeyLength => "A2",
             Self::Candidates => "A5",
         }
     }
@@ -99,7 +95,6 @@ impl fmt::Display for Finding {
 #[must_use]
 pub fn audit(file: &SokFile<'_>) -> Vec<Finding> {
     let mut findings = Vec::new();
-    check_max_key_length(file, &mut findings);
     check_candidates(file, &mut findings);
     findings
 }
@@ -123,24 +118,6 @@ pub fn summary(findings: &[Finding]) -> String {
 /// Where entry `index`'s candidates start in the file.
 fn values_at(file: &SokFile<'_>, index: usize) -> usize {
     file.value_blob_offset() + file.value_offset(index).unwrap_or_default()
-}
-
-/// A2. The longest key in UTF-16 code units, which is the unit of the field.
-fn check_max_key_length(file: &SokFile<'_>, findings: &mut Vec<Finding>) {
-    let longest = file
-        .entries()
-        .filter_map(|entry| utf8::utf16_length(entry.key()))
-        .max()
-        .unwrap_or(0);
-    let stored = file.header().max_key_length;
-    if u32::try_from(longest).ok() != Some(stored) {
-        let detail = format!("maxKeyLength is {stored}, but the longest key has {longest} UTF-16 code units");
-        findings.push(Finding::new(
-            AuditRule::MaxKeyLength,
-            crate::layout::MAX_KEY_LENGTH_AT,
-            detail,
-        ));
-    }
 }
 
 /// A5. Values decode leniently at run time, so neither an empty nor a
