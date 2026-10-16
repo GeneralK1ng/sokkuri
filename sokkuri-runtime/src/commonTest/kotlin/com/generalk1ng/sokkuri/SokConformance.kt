@@ -134,19 +134,22 @@ internal object SokConformance {
 
     /**
      * Looks every entry up the way the runtime does, which must not throw for
-     * any accepted file. When [auditClean], the file also meets the invariants
-     * retrieval relies on (keys ordered and unique, maxKeyLength exact), so
-     * every key must be found again with its own candidates.
+     * any accepted file. Acceptance includes what retrieval relies on (keys
+     * ordered and unique, V12; maxKeyLength exact, V5), so every key must be
+     * found again, as the whole of the longest prefix of itself. When
+     * [auditClean], every candidate is also non-empty and well-formed (A5),
+     * so the candidates found must be the stored ones.
      */
     fun exercise(dictionary: SokDictionary, auditClean: Boolean, where: String) {
         for (index in 0..<dictionary.entryCount) {
             val key = dictionary.rawKey(index).decodeToString()
             val exact = dictionary.matchExact(key)
             val prefix = dictionary.matchPrefix(key.toCharArray(), 0, key.length)
+            assertEquals(key, exact?.key, "$where: matchExact of entry $index")
+            assertEquals(key.length, prefix?.length, "$where: matchPrefix length of entry $index")
             if (auditClean) {
                 val candidates = dictionary.rawCandidates(index).map { it.decodeToString() }
-                assertEquals(candidates, exact?.candidates, "$where: matchExact of entry $index")
-                assertEquals(key.length, prefix?.length, "$where: matchPrefix length of entry $index")
+                assertEquals(candidates, exact?.candidates, "$where: matchExact candidates of entry $index")
                 assertEquals(candidates.first(), prefix?.value, "$where: matchPrefix value of entry $index")
             }
         }

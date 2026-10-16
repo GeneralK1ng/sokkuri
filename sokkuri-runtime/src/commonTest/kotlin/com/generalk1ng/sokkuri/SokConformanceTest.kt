@@ -34,9 +34,9 @@ import kotlin.test.assertTrue
  * For every input the decoder must reach the same verdict, rejecting only by
  * [SokkuriException.InvalidFormat]; for every accepted one, the same digest,
  * and every key must survive the runtime lookups without an exception, which
- * is what an "accepted, then out of bounds on first access" defect breaks.
- * Where the Rust audit found the file clean, every key must also be found
- * again with its own candidates.
+ * is what an "accepted, then out of bounds on first access" defect breaks,
+ * and be found again. Where the Rust audit found the candidates clean, each
+ * key must also come back with its own candidates.
  *
  * The corpus grows with `./gradlew :tools:sok-rs:fuzz` (fuzzed inputs and
  * the seeds) or `importCorpusSeeds writeCorpusExpectations` (the seeds only),
