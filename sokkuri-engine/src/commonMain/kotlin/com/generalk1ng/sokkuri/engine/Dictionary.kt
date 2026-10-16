@@ -86,22 +86,26 @@ public interface Dictionary {
      * Whether [codePoint] can begin any key of this dictionary. Powers the
      * conversion loop's bulk-skip optimization (OpenCC's `Utf8SkipTable`):
      * text runs made of characters that cannot start a key are copied out
-     * without per-character prefix queries. Never consult this directly in a
-     * skip loop — use [stopsBulkSkip], which adds the IDS-operator rule.
+     * without per-character prefix queries. Skip loops never consult this
+     * directly: they go through [BulkSkip], which adds the IDS-operator rule
+     * ([stopsBulkSkip]) and answers from [keyStarts] when it can.
      */
     public fun mayStartKey(codePoint: Int): Boolean
 
     /**
-     * The code points [mayStartKey] accepts, distinct and ascending, or
-     * `null` when this dictionary cannot enumerate them. A fresh array the
-     * caller owns; [DictGroup] merges its children's sets once, so this is
-     * never on a hot path.
+     * The exact set of code points [mayStartKey] accepts, or `null` when this
+     * dictionary cannot enumerate it. Immutable, so callers may keep it: each
+     * conversion stage and segmentation takes it once, when it is built, and
+     * answers its bulk skip with one bitmap test per character instead of a
+     * [mayStartKey] call. The default `null` keeps a backend correct, only
+     * slower.
      */
-    public fun firstCodePoints(): IntArray? = null
+    public fun keyStarts(): CodePointSet? = null
 }
 
 /**
- * Whether a bulk skip must stop at [codePoint].
+ * Whether a bulk skip must stop at [codePoint]: the definition [BulkSkip]
+ * implements.
  *
  * OpenCC's single skip implementation (`PrefixMatch::SkipUnmatchable`, whose
  * candidate table `Utf8SkipScan::Finalize` fills) stops at a key-starting
@@ -110,9 +114,10 @@ public interface Dictionary {
  * IDS sequences without consulting the dictionary, so skipping over an
  * operator would emit its operands as ordinary text and convert them.
  *
- * The port splits upstream's one skip into two loops ([Conversion] and
- * [MaxMatchSegmentation]); both consult this predicate so they cannot drift
- * apart — the drift that let operators be skipped in the first place.
+ * The port runs upstream's one skip from two loops ([Conversion] and
+ * [MaxMatchSegmentation]); both go through [BulkSkip], which answers exactly
+ * this predicate, so they cannot drift apart: the drift that let operators be
+ * skipped in the first place.
  */
 @OptIn(SokkuriInternalApi::class)
 internal fun Dictionary.stopsBulkSkip(codePoint: Int): Boolean =

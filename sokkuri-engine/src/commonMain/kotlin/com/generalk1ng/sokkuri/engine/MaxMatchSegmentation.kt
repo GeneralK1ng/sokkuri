@@ -26,13 +26,15 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  *   segments (flush the pending plain-text run first), protecting phrase
  *   boundaries for later conversion stages;
  * - unmatched text accumulates into runs, extended by the same
- *   cannot-start-a-key bulk skip as [Conversion], and by ideographic
- *   description sequences kept atomic.
+ *   cannot-start-a-key bulk skip as [Conversion] ([BulkSkip]), and by
+ *   ideographic description sequences kept atomic.
  */
 @SokkuriInternalApi
 public class MaxMatchSegmentation public constructor(
     private val dict: Dictionary,
 ) : Segmentation {
+
+    private val bulkSkip = BulkSkip(dict)
 
     override fun segment(chars: CharArray): List<IntRange> {
         val segments = ArrayList<IntRange>()
@@ -52,16 +54,7 @@ public class MaxMatchSegmentation public constructor(
                 continue
             }
 
-            var width = Utf.ideographicDescriptionSequenceLength(chars, i, end)
-            if (width == 0) width = Utf.charCount(Utf.codePointAt(chars, i, end))
-
-            var j = i + width
-            while (j < end) {
-                val codePoint = Utf.codePointAt(chars, j, end)
-                if (dict.stopsBulkSkip(codePoint)) break
-                j += Utf.charCount(codePoint)
-            }
-            i = j
+            i = bulkSkip.unmatchedRunEnd(chars, i, end)
         }
         if (runStart < end) segments.add(runStart..<end)
         return segments

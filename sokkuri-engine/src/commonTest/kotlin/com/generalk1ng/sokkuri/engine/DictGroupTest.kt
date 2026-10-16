@@ -132,7 +132,7 @@ class DictGroupTest {
     }
 
     @Test
-    fun mayStartKey_mergedSetEqualsAskingEveryChild() {
+    fun keyStarts_unionsTheChildrenAndAgreesWithMayStartKey() {
         val random = Random(20261016)
         val probes = (alphabet + listOf("z", "\uD800", "\uFFFF")).map { Utf.codePointAt(it, 0) }
         repeat(150) { round ->
@@ -141,22 +141,24 @@ class DictGroupTest {
             }
             val group = DictGroup(children, GroupMatchPolicy.entries.random(random))
             val expected = probes.filter { probe -> children.any { it.mayStartKey(probe) } }
-            assertEquals(expected, probes.filter { group.mayStartKey(it) }, "round $round")
+            val keyStarts = group.keyStarts()!!
+            assertEquals(expected, probes.filter { group.mayStartKey(it) }, "mayStartKey, round $round")
+            assertEquals(expected, probes.filter { it in keyStarts }, "keyStarts membership, round $round")
             assertEquals(
-                children.flatMap { it.firstCodePoints()!!.asList() }.distinct().sorted(),
-                group.firstCodePoints()!!.toList(),
-                "round $round",
+                children.flatMap { it.keyStarts()!!.toIntArray().asList() }.distinct().sorted(),
+                keyStarts.toIntArray().toList(),
+                "keyStarts members, round $round",
             )
         }
     }
 
     @Test
-    fun mayStartKey_fallsBackToTheChildrenWhenOneCannotEnumerate() {
+    fun keyStarts_isUnknownWhenOneChildCannotEnumerate() {
         val opaque = object : Dictionary by dict("狗" to listOf("dog")) {
-            override fun firstCodePoints(): IntArray? = null
+            override fun keyStarts(): CodePointSet? = null
         }
         val group = DictGroup(listOf(dict("猫" to listOf("cat")), opaque), GroupMatchPolicy.UNION)
-        assertEquals(null, group.firstCodePoints())
+        assertEquals(null, group.keyStarts())
         assertEquals(true, group.mayStartKey('猫'.code))
         assertEquals(true, group.mayStartKey('狗'.code))
         assertEquals(false, group.mayStartKey('x'.code))

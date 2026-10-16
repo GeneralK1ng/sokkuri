@@ -230,20 +230,20 @@ abstract class DictionaryContractSuite {
                 }
             }
             // Enumerating is optional (null), but an enumerated set must be exact.
-            d.firstCodePoints()?.let { enumerated ->
+            val keyStarts = d.keyStarts()
+            keyStarts?.let { enumerated ->
                 assertEquals(
                     sorted.map { Utf.codePointAt(it, 0) }.distinct().sorted(),
-                    enumerated.toList(),
-                    "firstCodePoints, round $round, keys $sorted",
+                    enumerated.toIntArray().toList(),
+                    "keyStarts, round $round, keys $sorted",
                 )
             }
             for (symbol in inputAlphabet) {
                 val codePoint = Utf.codePointAt(symbol, 0)
-                assertEquals(
-                    sorted.any { Utf.codePointAt(it, 0) == codePoint },
-                    d.mayStartKey(codePoint),
-                    "mayStartKey(${symbol.toList()}), round $round, keys $sorted",
-                )
+                val expected = sorted.any { Utf.codePointAt(it, 0) == codePoint }
+                val where = "(${symbol.toList()}), round $round, keys $sorted"
+                assertEquals(expected, d.mayStartKey(codePoint), "mayStartKey$where")
+                if (keyStarts != null) assertEquals(expected, codePoint in keyStarts, "keyStarts$where")
             }
         }
     }

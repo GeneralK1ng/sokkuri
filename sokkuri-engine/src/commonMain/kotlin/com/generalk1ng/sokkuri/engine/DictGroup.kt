@@ -108,60 +108,24 @@ public class DictGroup public constructor(
     }
 
     /**
-     * The union of the children's first code points, merged on first use,
-     * so [mayStartKey], which a conversion runs for every character it
-     * bulk-skips, costs one bitmap test instead of one per child (three
-     * on s2t's first stage, nested union included). `null` when a child
-     * cannot enumerate its set; [mayStartKey] then asks the children.
-     * Read into a local once per call, as the `lazy` delegate's field is
-     * volatile.
-     *
-     * Only a group whose [mayStartKey] is queried keeps a set: one that is
-     * merely a child, such as s2t's nested union, merges afresh for its
-     * parent in [firstCodePoints] and retains nothing. Each converter owns
-     * its groups, so a kept set costs every converter instance: s2t keeps
-     * one set of 6,204 code points, about 10 KiB.
+     * The union of the children's key starts, or `null` when a child cannot
+     * enumerate its own. Computed on each call and kept by no one here: the
+     * stage that bulk-skips over this group takes it once, when it is built,
+     * so a group nested in another, such as s2t's union inside its
+     * short-circuit group, costs nothing per converter.
      */
-    private val firstCodePointSet: CodePointSet? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        mergeFirstCodePoints()?.let { CodePointSet.of(*it) }
+    override fun keyStarts(): CodePointSet? {
+        var union = CodePointSet.EMPTY
+        for (index in members.indices) {
+            union = union.union(members[index].keyStarts() ?: return null)
+        }
+        return union
     }
-
-    override fun firstCodePoints(): IntArray? = mergeFirstCodePoints()
 
     /**
-     * Merges the children's sets, each ascending and distinct by the
-     * [Dictionary.firstCodePoints] contract, pairwise in linear time:
-     * merging runs on a converter's first conversion, where a sort was
-     * measurable in a fresh JVM.
+     * Whether any child has a key starting with [codePoint]. Asks each child
+     * in turn: a conversion stage answers its bulk skip from [keyStarts]
+     * instead, so this is not asked per character.
      */
-    private fun mergeFirstCodePoints(): IntArray? {
-        var merged = IntArray(0)
-        for (index in members.indices) {
-            val set = members[index].firstCodePoints() ?: return null
-            merged = mergeAscending(merged, set)
-        }
-        return merged
-    }
-
-    private fun mergeAscending(a: IntArray, b: IntArray): IntArray {
-        val out = IntArray(a.size + b.size)
-        var i = 0
-        var j = 0
-        var size = 0
-        while (i < a.size && j < b.size) {
-            val x = a[i]
-            val y = b[j]
-            out[size++] = if (x <= y) x else y
-            if (x <= y) i++
-            if (y <= x) j++
-        }
-        while (i < a.size) out[size++] = a[i++]
-        while (j < b.size) out[size++] = b[j++]
-        return if (size == out.size) out else out.copyOf(size)
-    }
-
-    override fun mayStartKey(codePoint: Int): Boolean {
-        val codePoints = firstCodePointSet ?: return members.any { it.mayStartKey(codePoint) }
-        return codePoint in codePoints
-    }
+    override fun mayStartKey(codePoint: Int): Boolean = members.any { it.mayStartKey(codePoint) }
 }

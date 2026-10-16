@@ -141,11 +141,8 @@ public class SortedTableRetrieval private constructor(
         FirstCodePointIndex(CodePointSet.of(*codePoints.copyOf(groups)), groupStarts.copyOf(groups + 1))
     }
 
-    /**
-     * The distinct first code points of the table's keys, ascending: a
-     * copy of the index, for [Dictionary.firstCodePoints].
-     */
-    public fun firstCodePoints(): IntArray = firstCodePointIndex.codePoints.toIntArray()
+    /** The distinct first code points of the table's keys, for [Dictionary.keyStarts]. */
+    public fun keyStarts(): CodePointSet = firstCodePointIndex.codePoints
 
     /** Whether [codePoint] begins any key of the table. */
     public fun mayStartKey(codePoint: Int): Boolean = codePoint in firstCodePointIndex.codePoints

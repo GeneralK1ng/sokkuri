@@ -28,13 +28,15 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  * 2. on a miss, consume one ideographic description sequence (kept atomic,
  *    never split), or one code point when the text is not a complete IDS;
  * 3. extend the emitted run over characters that cannot begin any key
- *    ([Dictionary.mayStartKey]), so long non-CJK stretches cost one prefix
- *    probe per run instead of per character.
+ *    ([BulkSkip]), so long non-CJK stretches cost one prefix probe per run
+ *    instead of per character.
  */
 @SokkuriInternalApi
 public class Conversion public constructor(
     public val dict: Dictionary,
 ) {
+
+    private val bulkSkip = BulkSkip(dict)
 
     public fun appendConverted(
         chars: CharArray,
@@ -53,15 +55,7 @@ public class Conversion public constructor(
                 continue
             }
 
-            var width = Utf.ideographicDescriptionSequenceLength(chars, i, end)
-            if (width == 0) width = Utf.charCount(Utf.codePointAt(chars, i, end))
-
-            var j = i + width
-            while (j < end) {
-                val codePoint = Utf.codePointAt(chars, j, end)
-                if (dict.stopsBulkSkip(codePoint)) break
-                j += Utf.charCount(codePoint)
-            }
+            val j = bulkSkip.unmatchedRunEnd(chars, i, end)
             out.append(chars.concatToString(i, j))
             i = j
         }
