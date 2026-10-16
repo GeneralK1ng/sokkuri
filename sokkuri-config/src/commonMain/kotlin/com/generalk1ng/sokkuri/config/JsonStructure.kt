@@ -275,7 +275,12 @@ internal object DictPath {
     const val CONVERSION_CHAIN = "conversion_chain"
     const val NORMALIZATION = "normalization"
 
-    fun stage(list: String, index: Int): String = "$list[$index].dict"
+    // StringBuilder rather than string templates: on the JVM a template is an
+    // invokedynamic concatenation, and its first call generates method-handle
+    // classes, a cold-start cost every config paid here.
+    fun stage(list: String, index: Int): String =
+        StringBuilder(list.length + 12).append(list).append('[').append(index).append("].dict").toString()
 
-    fun groupMember(group: String, index: Int): String = "$group.dicts[$index]"
+    fun groupMember(group: String, index: Int): String =
+        StringBuilder(group.length + 12).append(group).append(".dicts[").append(index).append(']').toString()
 }

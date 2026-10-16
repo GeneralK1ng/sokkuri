@@ -3,7 +3,7 @@
 ## 现状
 
 - **内存**：`.sok` 解码不复制词典字节，16 档的 22 个词典共约 1.7 MiB。每个词典另有一个首码点索引（STPhrases 约 8 KiB）；每个转换器另占几 KiB 到二十余 KiB（s2t 10.5 KiB，s2tw 22.1 KiB）。
-- **冷启动**：新进程中建档加首次转换，JVM 上 s2t 约 66 ms，iOS 上约 70 ms。
+- **冷启动**：新进程中建档加首次转换，JVM 上 s2t 约 66 ms、t2s 约 55 ms，与 0.2.0 相当（见 [config-cold-start.md](config-cold-start.md)）；iOS 上 s2t 约 70 ms（热点修复时测得）。
 - **转换**：见下表。
 
 ## 与上游的对照
@@ -60,3 +60,4 @@
 | 2026-10-15 | [stage-overhead.md](stage-overhead.md) | 削减每级转换的固定开销；其余各档在 JVM 上快 1.4–2.5 倍 |
 | 2026-10-16 | [hot-paths.md](hot-paths.md) | 剖析三种实现后的八项修复；JVM 快 1.6–3.6 倍，iOS 快 2.2–6.0 倍 |
 | 2026-10-16 | [sok-reader.md](../verification/sok-reader.md) | `.sok` 规范收紧的代价：STPhrases 首次解码 15.4 → 16.3 ms |
+| 2026-10-16 | [config-cold-start.md](config-cold-start.md) | 修复 0.2.1 配置解析带来的 JVM 冷启动开销：s2t 73.6 → 65.6 ms |
