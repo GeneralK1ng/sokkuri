@@ -43,7 +43,7 @@ public class ConversionChain public constructor(
         out: StringBuilder,
     ) {
         if (conversions.isEmpty()) {
-            out.append(chars.concatToString(start, end))
+            out.appendRange(chars, start, end)
             return
         }
         if (conversions.size == 1) {

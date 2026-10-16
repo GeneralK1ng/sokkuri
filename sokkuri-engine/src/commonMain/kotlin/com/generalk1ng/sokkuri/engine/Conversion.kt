@@ -56,7 +56,7 @@ public class Conversion public constructor(
             }
 
             val j = bulkSkip.unmatchedRunEnd(chars, i, end)
-            out.append(chars.concatToString(i, j))
+            out.appendRange(chars, i, j)
             i = j
         }
     }
