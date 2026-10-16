@@ -110,7 +110,7 @@ public class DictGroup public constructor(
     /**
      * The union of the children's first code points, merged on first use,
      * so [mayStartKey], which a conversion runs for every character it
-     * bulk-skips, costs one binary search instead of one per child (three
+     * bulk-skips, costs one bitmap test instead of one per child (three
      * on s2t's first stage, nested union included). `null` when a child
      * cannot enumerate its set; [mayStartKey] then asks the children.
      * Read into a local once per call, as the `lazy` delegate's field is
@@ -120,10 +120,10 @@ public class DictGroup public constructor(
      * merely a child, such as s2t's nested union, merges afresh for its
      * parent in [firstCodePoints] and retains nothing. Each converter owns
      * its groups, so a kept set costs every converter instance: s2t keeps
-     * one set of 6,204 code points, about 24 KiB.
+     * one set of 6,204 code points, about 10 KiB.
      */
-    private val firstCodePointSet: IntArray? by lazy(LazyThreadSafetyMode.PUBLICATION) {
-        mergeFirstCodePoints()
+    private val firstCodePointSet: CodePointSet? by lazy(LazyThreadSafetyMode.PUBLICATION) {
+        mergeFirstCodePoints()?.let { CodePointSet.of(*it) }
     }
 
     override fun firstCodePoints(): IntArray? = mergeFirstCodePoints()
@@ -162,6 +162,6 @@ public class DictGroup public constructor(
 
     override fun mayStartKey(codePoint: Int): Boolean {
         val codePoints = firstCodePointSet ?: return members.any { it.mayStartKey(codePoint) }
-        return indexOfCodePoint(codePoints, codePoint) >= 0
+        return codePoint in codePoints
     }
 }
