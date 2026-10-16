@@ -151,6 +151,102 @@ class Utf8Test {
     }
 
     /**
+     * [Utf8.isWellFormed] against an independent reading of RFC 3629's table
+     * of well-formed byte sequences (the Unicode Standard's Table 3-7):
+     * exhaustively over every one- and two-byte input, over every lead byte
+     * crossed with the boundary values of each continuation position, and
+     * over random byte strings.
+     */
+    @Test
+    fun isWellFormedAgreesWithTheRfc3629Table() {
+        val boundaries = intArrayOf(0x00, 0x7F, 0x80, 0x8F, 0x90, 0x9F, 0xA0, 0xBF, 0xC0, 0xFF)
+        for (b0 in 0..0xFF) {
+            assertWellFormedness(byteArrayOf(b0.toByte()))
+            for (b1 in 0..0xFF) {
+                assertWellFormedness(byteArrayOf(b0.toByte(), b1.toByte()))
+            }
+            for (b1 in boundaries) {
+                for (b2 in boundaries) {
+                    assertWellFormedness(byteArrayOf(b0.toByte(), b1.toByte(), b2.toByte()))
+                    for (b3 in boundaries) {
+                        assertWellFormedness(byteArrayOf(b0.toByte(), b1.toByte(), b2.toByte(), b3.toByte()))
+                    }
+                }
+            }
+        }
+        val random = Random(20261016)
+        repeat(20_000) {
+            assertWellFormedness(ByteArray(random.nextInt(0, 9)) { random.nextInt(0x100).toByte() })
+        }
+    }
+
+    /** A region inside a larger buffer is judged by its own bytes only. */
+    @Test
+    fun isWellFormedJudgesOnlyTheRegion() {
+        val bytes = byteArrayOf(0xE4.toByte(), 0xB8.toByte(), 0x80.toByte(), 0x61)
+        assertTrue(Utf8.isWellFormed(bytes, 0, 3))
+        assertTrue(Utf8.isWellFormed(bytes, 3, 1))
+        assertTrue(Utf8.isWellFormed(bytes, 0, 0))
+        assertEquals(false, Utf8.isWellFormed(bytes, 0, 2), "a sequence truncated by the region end")
+        assertEquals(false, Utf8.isWellFormed(bytes, 1, 3), "a region starting mid-sequence")
+    }
+
+    /**
+     * On well-formed input, [Utf8.wellFormedCodePointAt] decodes every
+     * scalar value: the whole BMP outside the surrogates, every 61st
+     * supplementary code point, and the plane edges.
+     */
+    @Test
+    fun wellFormedCodePointAtDecodesEveryScalarValue() {
+        val codePoints = (0 until 0xD800) + (0xE000 until 0x10000) +
+            (0x10000..0x10FFFF step 61) + listOf(0x10000, 0x1FFFF, 0x20000, 0x10FFFF)
+        for (codePoint in codePoints) {
+            val bytes = stringOf(intArrayOf(codePoint, 'z'.code)).encodeToByteArray()
+            assertTrue(Utf8.isWellFormed(bytes, 0, bytes.size), "isWellFormed U+${codePoint.toString(16)}")
+            assertEquals(codePoint, Utf8.wellFormedCodePointAt(bytes, 0), "decode U+${codePoint.toString(16)}")
+            assertEquals(
+                Utf8.firstCodePointAt(bytes, 0, bytes.size),
+                Utf8.wellFormedCodePointAt(bytes, 0),
+                "agrees with firstCodePointAt at U+${codePoint.toString(16)}",
+            )
+            assertEquals('z'.code, Utf8.wellFormedCodePointAt(bytes, bytes.size - 1), "next sequence")
+        }
+    }
+
+    private fun assertWellFormedness(bytes: ByteArray) {
+        assertEquals(
+            isWellFormedReference(bytes),
+            Utf8.isWellFormed(bytes, 0, bytes.size),
+            "isWellFormed(${bytes.joinToString(" ") { (it.toInt() and 0xFF).toString(16).padStart(2, '0') }})",
+        )
+    }
+
+    /** Well-formed UTF-8, read straight off RFC 3629's byte-range table. */
+    private fun isWellFormedReference(bytes: ByteArray): Boolean {
+        val b = bytes.map { it.toInt() and 0xFF }
+        var i = 0
+        while (i < b.size) {
+            val ranges: List<IntRange> = when (b[i]) {
+                in 0x00..0x7F -> emptyList()
+                in 0xC2..0xDF -> listOf(0x80..0xBF)
+                0xE0 -> listOf(0xA0..0xBF, 0x80..0xBF)
+                in 0xE1..0xEC, 0xEE, 0xEF -> listOf(0x80..0xBF, 0x80..0xBF)
+                0xED -> listOf(0x80..0x9F, 0x80..0xBF)
+                0xF0 -> listOf(0x90..0xBF, 0x80..0xBF, 0x80..0xBF)
+                in 0xF1..0xF3 -> listOf(0x80..0xBF, 0x80..0xBF, 0x80..0xBF)
+                0xF4 -> listOf(0x80..0x8F, 0x80..0xBF, 0x80..0xBF)
+                else -> return false
+            }
+            for ((k, range) in ranges.withIndex()) {
+                val at = i + 1 + k
+                if (at >= b.size || b[at] !in range) return false
+            }
+            i += 1 + ranges.size
+        }
+        return true
+    }
+
+    /**
      * An empty region behaves exactly like the empty string against the
      * reference functions: compares by the window's remaining length,
      * decodes to nothing.

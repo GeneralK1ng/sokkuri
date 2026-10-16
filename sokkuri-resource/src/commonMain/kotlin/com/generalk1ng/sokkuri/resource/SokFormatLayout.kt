@@ -39,7 +39,8 @@ package com.generalk1ng.sokkuri.resource
  * 32      4×(n+1)   keyOffsets, strictly increasing, last = keyBlobBytes
  * …       4×(n+1)   valueOffsets, strictly increasing, last = valueBlobBytes
  * …       n         valueCounts (u8), candidates per entry, ≥ 1
- * …       *         keyBlob: UTF-8 keys in code-point order (invariant I2)
+ * …       *         keyBlob: UTF-8 keys in code-point order (invariant I2),
+ *                   each well-formed on its own (decoder-enforced)
  * …       *         valueBlob: per candidate u16 byteLen + UTF-8 bytes; the
  *                   candidates of entry i tile [valueOffsets[i],
  *                   valueOffsets[i+1]) exactly (decoder-enforced)
@@ -79,6 +80,19 @@ internal object SokFormatLayout {
             ((bytes[offset + 1].toLong() and 0xFF) shl 8) or
             ((bytes[offset + 2].toLong() and 0xFF) shl 16) or
             ((bytes[offset + 3].toLong() and 0xFF) shl 24)
+
+    /**
+     * Reads an unsigned little-endian u32 as an [Int], for the offset fields
+     * the decoder has accepted: each is bounded by a blob inside a
+     * [ByteArray], so it is below 2^31 and this equals `readU32(...).toInt()`.
+     * Int arithmetic keeps the offset reads of every key probe off the Long
+     * path; a value of 2^31 or more would come back negative.
+     */
+    internal fun readOffset(bytes: ByteArray, offset: Int): Int =
+        (bytes[offset].toInt() and 0xFF) or
+            ((bytes[offset + 1].toInt() and 0xFF) shl 8) or
+            ((bytes[offset + 2].toInt() and 0xFF) shl 16) or
+            (bytes[offset + 3].toInt() shl 24)
 
     /** Writes [value] (treated as unsigned) as a little-endian u16. */
     internal fun writeU16(buffer: ByteArray, offset: Int, value: Int) {

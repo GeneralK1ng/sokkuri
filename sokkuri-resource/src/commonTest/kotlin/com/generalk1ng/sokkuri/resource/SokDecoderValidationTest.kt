@@ -19,7 +19,10 @@
 package com.generalk1ng.sokkuri.resource
 
 import com.generalk1ng.sokkuri.SokkuriException
+import com.generalk1ng.sokkuri.engine.Utf
+import com.generalk1ng.sokkuri.engine.Utf8
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
@@ -55,6 +58,9 @@ class SokDecoderValidationTest {
      */
     private val valueBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount +
         SokFormatLayout.readU32(valid, SokFormatLayout.OFFSET_KEY_BLOB_BYTES).toInt()
+
+    /** Start of the key blob, `"a" "ab" "abc"` back to back, so keyOffsets is [0, 1, 3, 6]. */
+    private val keyBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount
 
     private fun assertRejected(bytes: ByteArray, field: String) {
         val error = assertFailsWith<SokkuriException.InvalidFormat> {
@@ -197,5 +203,47 @@ class SokDecoderValidationTest {
             corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 2 * 4, 8) },
             "valueBlob",
         )
+    }
+
+    @Test
+    fun malformedKeyIsRejected() {
+        // A continuation byte where key 0's only byte, 'a', was.
+        assertRejected(corrupt { this[keyBlobBase] = 0x80.toByte() }, "key 0")
+        // Key 1, "ab", turned into an encoded surrogate prefix and 'b'.
+        assertRejected(corrupt { this[keyBlobBase + 1] = 0xED.toByte() }, "key 1")
+    }
+
+    @Test
+    fun sequenceSplitAcrossTwoKeysIsRejected() {
+        // C3 A9 is "é" as a blob, but it straddles keys 0 and 1: key 0 ends in
+        // a truncated lead byte and key 1 starts with a stray continuation.
+        val bytes = corrupt {
+            this[keyBlobBase] = 0xC3.toByte()
+            this[keyBlobBase + 1] = 0xA9.toByte()
+        }
+        assertTrue(Utf8.isWellFormed(bytes, keyBlobBase, 6), "the blob as a whole is well-formed")
+        assertRejected(bytes, "key 0")
+    }
+
+    @Test
+    fun wellFormedMultiByteKeysAreAccepted() {
+        // U+FFFD included: a well-formed replacement character must not be
+        // mistaken for the malformed-sequence result.
+        val keys = listOf("é", "中", "\uFFFD", "𠀀").sortedWith { a, b -> Utf.compareByCodePoint(a, b) }
+        val dictionary = SokDictionaryFormat.decode(SokDictionaryEncoder.encode(keys.map { it to listOf("<$it>") }))
+        for (key in keys) {
+            assertEquals(listOf("<$key>"), dictionary.matchExact(key)?.candidates, "key $key")
+            assertEquals("<$key>", dictionary.matchPrefix(key.toCharArray(), 0, key.length)?.value, "prefix $key")
+        }
+    }
+
+    @Test
+    fun offsetsReadAsIntEqualTheUnsignedValue() {
+        val buffer = ByteArray(4)
+        for (value in listOf(0L, 1L, 0x7FL, 0x80L, 0xFFL, 0x100L, 0xFFFFL, 0x10000L, 0x1234567L, 0x7FFFFFFFL)) {
+            SokFormatLayout.writeU32(buffer, 0, value)
+            assertEquals(SokFormatLayout.readU32(buffer, 0).toInt(), SokFormatLayout.readOffset(buffer, 0), "$value")
+            assertEquals(value.toInt(), SokFormatLayout.readOffset(buffer, 0), "$value")
+        }
     }
 }

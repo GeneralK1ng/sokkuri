@@ -27,12 +27,12 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  * `Utf8Test`), so retrieval over byte storage cannot drift from retrieval
  * over string storage (invariant I2 by construction, not by review).
  *
- * Trust boundary (same as the `.sok` decoder):
- * dictionary blobs are encoder-produced and always valid UTF-8; validity is
- * deliberately not re-validated per access. Malformed input nonetheless
- * stays total — the sequence decodes as U+FFFD advancing exactly one byte —
- * so a corrupt file degrades to replacement characters instead of crashing
- * the engine, never worse than today's `decodeToString` path.
+ * Trust boundary (same as the `.sok` decoder): keys are checked once, when
+ * the file is loaded ([isWellFormed]), and retrieval then probes them with
+ * [wellFormedCodePointAt], which does not re-validate. Every other function
+ * here stays total on malformed input: a malformed sequence decodes as
+ * U+FFFD advancing exactly one byte, so a corrupt value degrades to
+ * replacement characters instead of crashing the engine.
  */
 @SokkuriInternalApi
 public object Utf8 {
@@ -128,6 +128,53 @@ public object Utf8 {
             }
 
             else -> malformed() // 0x80..0xC1 (continuation/overlong lead), 0xF5..0xFF
+        }
+    }
+
+    /**
+     * Whether the region `[offset, offset + length)` is well-formed UTF-8
+     * (RFC 3629): no overlong form, no encoded surrogate, nothing above
+     * U+10FFFF, no truncated sequence. The `.sok` decoder checks every key
+     * with it once, at load, so retrieval can probe keys with
+     * [wellFormedCodePointAt] instead of validating on every probe.
+     * Equivalence: `true` exactly when the region is the UTF-8 encoding of a
+     * string of Unicode scalar values.
+     */
+    public fun isWellFormed(bytes: ByteArray, offset: Int, length: Int): Boolean {
+        val limit = offset + length
+        var i = offset
+        while (i < limit) {
+            val width = decodedWidth(decode(bytes, i, limit))
+            // A valid one-byte sequence is ASCII; one byte of anything else
+            // is how decode reports a malformed sequence.
+            if (width == 1 && bytes[i] < 0) return false
+            i += width
+        }
+        return true
+    }
+
+    /**
+     * Code point of the sequence starting at [index], decoded without any
+     * check. The caller guarantees that [index] starts a sequence inside a
+     * region [isWellFormed] accepted, as every `.sok` key is once its file is
+     * loaded; on any other input the result is unspecified and the read may
+     * pass the end of [bytes]. Equivalence on accepted regions: equal to
+     * [firstCodePointAt] at the same position.
+     */
+    public fun wellFormedCodePointAt(bytes: ByteArray, index: Int): Int {
+        val b0 = bytes[index].toInt() and 0xFF
+        return when {
+            b0 < 0x80 -> b0
+            b0 < 0xE0 -> ((b0 and 0x1F) shl 6) or (bytes[index + 1].toInt() and 0x3F)
+            b0 < 0xF0 ->
+                ((b0 and 0x0F) shl 12) or
+                    ((bytes[index + 1].toInt() and 0x3F) shl 6) or
+                    (bytes[index + 2].toInt() and 0x3F)
+            else ->
+                ((b0 and 0x07) shl 18) or
+                    ((bytes[index + 1].toInt() and 0x3F) shl 12) or
+                    ((bytes[index + 2].toInt() and 0x3F) shl 6) or
+                    (bytes[index + 3].toInt() and 0x3F)
         }
     }
 

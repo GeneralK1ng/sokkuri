@@ -61,9 +61,10 @@ public class SokDictionary internal constructor(
 
     /**
      * [SortedKeyTable] over this dictionary's byte blobs: probes read the
-     * offset table and compare raw UTF-8 regions against input windows
-     * ([Utf8]), so the binary-search and narrowing hot paths decode
-     * nothing — probe elimination. No decoded-key
+     * offset table and the key's UTF-8 bytes in place ([Utf8]), so the
+     * binary-search and narrowing hot paths materialize nothing. Keys were
+     * checked well-formed when the file was decoded, so a probe decodes the
+     * code point it needs without validating it again. No decoded-key
      * caching anywhere (zero-copy invariant): every access recomputes from
      * the immutable `bytes`, keeping the dictionary thread-safe (I3) at
      * raw-file memory.
@@ -74,15 +75,11 @@ public class SokDictionary internal constructor(
 
         override val maxKeyLength: Int get() = this@SokDictionary.maxKeyLength
 
-        override fun keyFirstCodePointAt(index: Int): Int {
-            val start = keyStart(index)
-            return Utf8.firstCodePointAt(bytes, start, keyEnd(index) - start)
-        }
+        override fun keyFirstCodePointAt(index: Int): Int = Utf8.wellFormedCodePointAt(bytes, keyStart(index))
 
         override fun keyCodePointAt(index: Int, offset: Int): Int {
             val position = keyStart(index) + offset
-            val end = keyEnd(index)
-            return if (position >= end) -1 else Utf8.firstCodePointAt(bytes, position, end - position)
+            return if (position >= keyEnd(index)) -1 else Utf8.wellFormedCodePointAt(bytes, position)
         }
 
         override fun encodedWidth(codePoint: Int): Int = when {
@@ -113,14 +110,14 @@ public class SokDictionary internal constructor(
 
     /** Cursor of the first candidate of the entry at [index]: a u16 byte length at [cursor], UTF-8 payload after it. */
     private fun valueCursor(index: Int): Int =
-        valueBlobBase + SokFormatLayout.readU32(bytes, valueOffsetsBase + index * 4).toInt()
+        valueBlobBase + SokFormatLayout.readOffset(bytes, valueOffsetsBase + index * 4)
 
     /** Byte range `[start, end)` of the key at [index] inside [bytes]. */
     private fun keyStart(index: Int): Int =
-        keyBlobBase + SokFormatLayout.readU32(bytes, keyOffsetsBase + index * 4).toInt()
+        keyBlobBase + SokFormatLayout.readOffset(bytes, keyOffsetsBase + index * 4)
 
     private fun keyEnd(index: Int): Int =
-        keyBlobBase + SokFormatLayout.readU32(bytes, keyOffsetsBase + (index + 1) * 4).toInt()
+        keyBlobBase + SokFormatLayout.readOffset(bytes, keyOffsetsBase + (index + 1) * 4)
 
     override fun matchExact(key: String): DictionaryEntry? =
         retrieval.indexOf(key).let { if (it < 0) null else entryAt(it) }
@@ -138,15 +135,7 @@ public class SokDictionary internal constructor(
 
     override fun keyStarts(): CodePointSet = retrieval.keyStarts()
 
-    private fun keyAt(index: Int): String {
-        val start = keyBlobBase +
-            SokFormatLayout.readU32(bytes, keyOffsetsBase + index * 4).toInt()
-        val end = keyBlobBase +
-            SokFormatLayout.readU32(bytes, keyOffsetsBase + (index + 1) * 4).toInt()
-        // Known tradeoff: UTF-8 validity is the encoder's invariant and
-        // deliberately not re-validated per access.
-        return bytes.decodeToString(start, end)
-    }
+    private fun keyAt(index: Int): String = bytes.decodeToString(keyStart(index), keyEnd(index))
 
     private fun defaultValueAt(index: Int): String {
         val cursor = valueCursor(index)
@@ -157,8 +146,7 @@ public class SokDictionary internal constructor(
     private fun entryAt(index: Int): DictionaryEntry {
         val count = bytes[valueCountsBase + index].toInt() and 0xFF
         val candidates = ArrayList<String>(count)
-        var cursor = valueBlobBase +
-            SokFormatLayout.readU32(bytes, valueOffsetsBase + index * 4).toInt()
+        var cursor = valueCursor(index)
         repeat(count) {
             val length = SokFormatLayout.readU16(bytes, cursor)
             candidates.add(
@@ -254,6 +242,18 @@ public class SokDictionary internal constructor(
                 throw SokkuriException.InvalidFormat(
                     "sok: keyOffsets[$n] must equal keyBlobBytes $keyBlobBytes",
                 )
+            }
+            // Each key must be well-formed UTF-8 on its own: retrieval probes
+            // keys without validating them (Utf8.wellFormedCodePointAt), so a
+            // malformed key is rejected here, once, rather than tolerated on
+            // every probe. Per key, not per blob: a sequence split across two
+            // keys is valid as a blob but leaves both keys malformed.
+            for (i in 0 until n) {
+                val start = SokFormatLayout.readU32(bytes, keyOffsetsBase + i * 4).toInt()
+                val end = SokFormatLayout.readU32(bytes, keyOffsetsBase + (i + 1) * 4).toInt()
+                if (!Utf8.isWellFormed(bytes, keyBlobBase + start, end - start)) {
+                    throw SokkuriException.InvalidFormat("sok: key $i is not well-formed UTF-8")
+                }
             }
             var previousValueOffset = -1L
             for (i in 0..n) {
