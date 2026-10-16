@@ -132,6 +132,53 @@ class DictGroupTest {
     }
 
     @Test
+    fun matchAppend_writesWhatMatchPrefixFindsUnderBothPolicies() {
+        val random = Random(20261017)
+        repeat(150) { round ->
+            val group = randomGroup(random, depth = 2)
+            repeat(15) {
+                val text = randomText(random)
+                val chars = text.toCharArray()
+                for (start in 0..chars.size) {
+                    for (end in start..chars.size) {
+                        val expected = group.matchPrefix(chars, start, end)
+                        val out = StringBuilder("|")
+                        val where = "round $round, window [$start, $end) of ${text.toList()}"
+                        assertEquals(expected?.length ?: -1, group.matchAppend(chars, start, end, out), where)
+                        assertEquals("|" + (expected?.value ?: ""), out.toString(), where)
+                    }
+                }
+            }
+        }
+    }
+
+    @Test
+    fun shortCircuit_matchAppendStopsAtTheFirstChildThatMatches() {
+        val asked = ArrayList<String>()
+        fun recording(name: String, key: String, value: String): Dictionary {
+            val backing = dict(key to listOf(value))
+            return object : Dictionary by backing {
+                override fun matchAppend(text: CharArray, start: Int, end: Int, out: StringBuilder): Int {
+                    asked += name
+                    return backing.matchAppend(text, start, end, out)
+                }
+            }
+        }
+        val group = DictGroup(
+            listOf(
+                recording("first", "x", "X"),
+                recording("second", "ab", "AB"),
+                recording("third", "abc", "ABC"),
+            ),
+            GroupMatchPolicy.SHORT_CIRCUIT,
+        )
+        val out = StringBuilder()
+        assertEquals(2, group.matchAppend("abcd".toCharArray(), 0, 4, out))
+        assertEquals("AB", out.toString())
+        assertEquals(listOf("first", "second"), asked)
+    }
+
+    @Test
     fun keyStarts_unionsTheChildrenAndAgreesWithMayStartKey() {
         val random = Random(20261016)
         val probes = (alphabet + listOf("z", "\uD800", "\uFFFF")).map { Utf.codePointAt(it, 0) }

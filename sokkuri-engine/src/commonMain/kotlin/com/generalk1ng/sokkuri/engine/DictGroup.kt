@@ -93,6 +93,29 @@ public class DictGroup public constructor(
     }
 
     /**
+     * [matchPrefix] with the winning value written straight into [out].
+     * Under SHORT_CIRCUIT the first child that matches is the winner, so its
+     * own [Dictionary.matchAppend] decides and writes in one retrieval, and a
+     * `.sok` child decodes its value directly into [out] without an
+     * intermediate string. Under UNION the winner is known only once every
+     * child has answered, and asking it again to write cost more than
+     * materializing its value once, so UNION stays on [matchPrefix].
+     */
+    override fun matchAppend(text: CharArray, start: Int, end: Int, out: StringBuilder): Int {
+        if (policy == GroupMatchPolicy.UNION) {
+            val match = matchPrefix(text, start, end) ?: return -1
+            out.append(match.value)
+            return match.length
+        }
+        for (index in members.indices) {
+            // A child that misses writes nothing (the matchAppend contract).
+            val length = members[index].matchAppend(text, start, end, out)
+            if (length >= 0) return length
+        }
+        return -1
+    }
+
+    /**
      * [matchPrefix]'s length without materializing any child's value:
      * the first child that matches under SHORT_CIRCUIT, the longest match
      * under UNION (ties have one length, so child order cannot change it).
