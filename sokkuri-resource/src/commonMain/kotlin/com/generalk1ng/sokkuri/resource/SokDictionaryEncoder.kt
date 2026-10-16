@@ -24,10 +24,15 @@ import com.generalk1ng.sokkuri.engine.Utf
  * Encodes lexicon entries into the `.sok` container ([SokFormatLayout] is
  * the normative definition of the byte layout).
  *
- * Encoder-side validation: keys and values must be non-empty, keys
- * unique (the error message carries the offending key), at most
- * [SokFormatLayout.MAX_CANDIDATES_PER_ENTRY] candidates per entry, and each
- * candidate at most [SokFormatLayout.MAX_CANDIDATE_BYTES] UTF-8 bytes. Input
+ * Encoder-side validation: keys and values must be non-empty and free of
+ * unpaired surrogates, keys unique (the error message carries the offending
+ * key), at most [SokFormatLayout.MAX_CANDIDATES_PER_ENTRY] candidates per
+ * entry, and each candidate at most [SokFormatLayout.MAX_CANDIDATE_BYTES]
+ * UTF-8 bytes. UTF-8 cannot encode an unpaired surrogate, and the lenient
+ * `encodeToByteArray()` substitutes bytes that depend on the platform (`?` on
+ * the JVM, U+FFFD on Kotlin/Native), so it would write different files from
+ * the same entries and could merge two keys into one; such text is rejected
+ * instead. Input
  * may be unordered — entries are sorted by code-point order (invariant I2)
  * before writing.
  *
@@ -60,6 +65,13 @@ public object SokDictionaryEncoder {
             if (key.isEmpty()) {
                 throw SokkuriException.InvalidFormat("sok: dictionary key must not be empty")
             }
+            val unpairedInKey = unpairedSurrogateAt(key)
+            if (unpairedInKey >= 0) {
+                throw SokkuriException.InvalidFormat(
+                    "sok: key ${quoted(key)} has an unpaired surrogate at index $unpairedInKey, " +
+                        "which UTF-8 cannot encode",
+                )
+            }
             if (candidates.isEmpty()) {
                 throw SokkuriException.InvalidFormat("sok: entry '$key' has no values")
             }
@@ -78,6 +90,13 @@ public object SokDictionaryEncoder {
             for (candidate in candidates) {
                 if (candidate.isEmpty()) {
                     throw SokkuriException.InvalidFormat("sok: entry '$key' has an empty value")
+                }
+                val unpairedInValue = unpairedSurrogateAt(candidate)
+                if (unpairedInValue >= 0) {
+                    throw SokkuriException.InvalidFormat(
+                        "sok: value ${quoted(candidate)} of '$key' has an unpaired surrogate at index " +
+                            "$unpairedInValue, which UTF-8 cannot encode",
+                    )
                 }
                 val bytes = candidate.encodeToByteArray()
                 if (bytes.size > SokFormatLayout.MAX_CANDIDATE_BYTES) {
@@ -149,5 +168,30 @@ public object SokDictionaryEncoder {
             }
         }
         return buffer
+    }
+
+    /** The index of the first surrogate in [text] that is not half of a pair, or -1. */
+    private fun unpairedSurrogateAt(text: String): Int {
+        var index = 0
+        while (index < text.length) {
+            val char = text[index]
+            if (char.isHighSurrogate() && index + 1 < text.length && text[index + 1].isLowSurrogate()) {
+                index += 2
+            } else if (char.isSurrogate()) {
+                return index
+            } else {
+                index += 1
+            }
+        }
+        return -1
+    }
+
+    /** [text] in quotes with every surrogate written `\uXXXX`, so a message never holds an unpaired one. */
+    private fun quoted(text: String): String = buildString {
+        append('\'')
+        for (char in text) {
+            if (char.isSurrogate()) append("\\u").append(char.code.toString(16).uppercase()) else append(char)
+        }
+        append('\'')
     }
 }
