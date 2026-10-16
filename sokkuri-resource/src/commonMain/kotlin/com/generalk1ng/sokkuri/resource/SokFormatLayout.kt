@@ -36,8 +36,8 @@ package com.generalk1ng.sokkuri.resource
  * 20      4         keyBlobBytes
  * 24      4         valueBlobBytes
  * 28      4         reserved = 0 (decoders must reject non-zero)
- * 32      4×(n+1)   keyOffsets, strictly increasing, last = keyBlobBytes
- * …       4×(n+1)   valueOffsets, strictly increasing, last = valueBlobBytes
+ * 32      4×(n+1)   keyOffsets, from 0, strictly increasing, last = keyBlobBytes
+ * …       4×(n+1)   valueOffsets, from 0, strictly increasing, last = valueBlobBytes
  * …       n         valueCounts (u8), candidates per entry, ≥ 1
  * …       *         keyBlob: UTF-8 keys in code-point order (invariant I2),
  *                   each well-formed on its own (decoder-enforced)

@@ -18,12 +18,11 @@
 //! states and the encoder guarantees, but the runtime decoder does not check.
 //! An accepted file can break them; the audit says which, and never changes
 //! whether the file is accepted. A rule the decoder came to enforce moved to
-//! the acceptance rules, and its identifier is not reused: A4, the reserved
-//! field, is part of V4.
+//! the acceptance rules, and its identifier is not reused: A3, offset tables
+//! starting at 0, is part of V7 and V9, and A4, the reserved field, of V4.
 
 use std::fmt;
 
-use crate::layout::HEADER_BYTES;
 use crate::reader::SokFile;
 use crate::utf8;
 
@@ -37,16 +36,13 @@ pub enum AuditRule {
     /// A2: `maxKeyLength` equals the longest key in UTF-16 code units
     /// (invariant I1); retrieval cuts its window to it.
     MaxKeyLength,
-    /// A3: the first key offset and the first value offset are zero, so
-    /// neither blob starts with bytes no entry refers to.
-    FirstOffsets,
     /// A5: every candidate is non-empty and well-formed UTF-8.
     Candidates,
 }
 
 impl AuditRule {
     /// Every rule, in the order the audit checks them.
-    pub const ALL: [Self; 4] = [Self::KeyOrder, Self::MaxKeyLength, Self::FirstOffsets, Self::Candidates];
+    pub const ALL: [Self; 3] = [Self::KeyOrder, Self::MaxKeyLength, Self::Candidates];
 
     /// The rule's stable identifier, never reused for another rule.
     #[must_use]
@@ -54,7 +50,6 @@ impl AuditRule {
         match self {
             Self::KeyOrder => "A1",
             Self::MaxKeyLength => "A2",
-            Self::FirstOffsets => "A3",
             Self::Candidates => "A5",
         }
     }
@@ -109,7 +104,6 @@ pub fn audit(file: &SokFile<'_>) -> Vec<Finding> {
     let mut findings = Vec::new();
     check_key_order(file, &mut findings);
     check_max_key_length(file, &mut findings);
-    check_first_offsets(file, &mut findings);
     check_candidates(file, &mut findings);
     findings
 }
@@ -175,22 +169,6 @@ fn check_max_key_length(file: &SokFile<'_>, findings: &mut Vec<Finding>) {
             crate::layout::MAX_KEY_LENGTH_AT,
             detail,
         ));
-    }
-}
-
-/// A3. Offsets need only increase strictly (V7, V9), so a first offset above
-/// zero passes the acceptance rules while leaving bytes nobody refers to.
-fn check_first_offsets(file: &SokFile<'_>, findings: &mut Vec<Finding>) {
-    let first_key = file.key_offset(0).unwrap_or_default();
-    if first_key != 0 {
-        let detail = format!("the key blob starts with {first_key} bytes no key refers to");
-        findings.push(Finding::new(AuditRule::FirstOffsets, HEADER_BYTES, detail));
-    }
-    let first_value = file.value_offset(0).unwrap_or_default();
-    if first_value != 0 {
-        let detail = format!("the value blob starts with {first_value} bytes no candidate refers to");
-        let value_offsets_at = HEADER_BYTES + 4 * (file.len() + 1);
-        findings.push(Finding::new(AuditRule::FirstOffsets, value_offsets_at, detail));
     }
 }
 

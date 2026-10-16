@@ -102,40 +102,6 @@ fn a2_counts_utf16_code_units_not_bytes() {
 }
 
 #[test]
-fn a3_unreferenced_leading_bytes() {
-    let mut bytes = common::fixture("empty.sok");
-    common::put_u32(&mut bytes, 20, 1);
-    common::put_u32(&mut bytes, 24, 2);
-    common::put_u32(&mut bytes, 32, 1);
-    common::put_u32(&mut bytes, 36, 2);
-    bytes.extend_from_slice(&[0xFF, 0xFE, 0xFD]);
-    assert_eq!(
-        vec![(AuditRule::FirstOffsets, 32), (AuditRule::FirstOffsets, 36)],
-        rules(&bytes)
-    );
-}
-
-#[test]
-fn a3_an_unreferenced_byte_before_a_full_value_blob() {
-    // prefixes.sok with one byte inserted at the start of its value blob:
-    // every value offset moves up by one and the blob grows by one, so the
-    // acceptance rules still hold, and the finding points at the value
-    // offsets, which follow the n + 1 key offsets.
-    let mut bytes = valid();
-    for index in 0..4 {
-        let at = common::prefixes::VALUE_OFFSETS + 4 * index;
-        let moved = common::get_u32(&bytes, at) + 1;
-        common::put_u32(&mut bytes, at, moved);
-    }
-    common::put_u32(&mut bytes, 24, 13);
-    bytes.insert(VALUE_BLOB, 0);
-    assert_eq!(
-        vec![(AuditRule::FirstOffsets, common::prefixes::VALUE_OFFSETS)],
-        rules(&bytes)
-    );
-}
-
-#[test]
 fn findings_read_as_rule_place_and_detail() {
     let found = findings(&corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF));
     assert_eq!(
@@ -185,13 +151,6 @@ fn every_audit_rule_has_a_case() {
         corrupt(|bytes| bytes[KEY_BLOB + 3..KEY_BLOB + 6].copy_from_slice(b"aaa")),
         corrupt(|bytes| common::put_u32(bytes, 16, 1)),
         corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF),
-        {
-            let mut bytes = common::fixture("empty.sok");
-            common::put_u32(&mut bytes, 20, 1);
-            common::put_u32(&mut bytes, 32, 1);
-            bytes.push(0);
-            bytes
-        },
     ];
     let covered: HashSet<AuditRule> = cases
         .iter()

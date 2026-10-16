@@ -42,11 +42,13 @@ pub enum Rule {
     MaxKeyLength,
     /// V6: the size implied by the header equals the file size.
     Size,
-    /// V7: the key offsets increase strictly and end at `keyBlobBytes`.
+    /// V7: the key offsets start at 0, increase strictly and end at
+    /// `keyBlobBytes`.
     KeyOffsets,
     /// V8: every key is well-formed UTF-8 on its own.
     KeyUtf8,
-    /// V9: the value offsets increase strictly and end at `valueBlobBytes`.
+    /// V9: the value offsets start at 0, increase strictly and end at
+    /// `valueBlobBytes`.
     ValueOffsets,
     /// V10: every entry has at least one candidate.
     ValueCounts,
@@ -234,19 +236,24 @@ impl<'a> SokFile<'a> {
         Ok(file)
     }
 
-    /// V7 and V9: `n + 1` offsets, strictly increasing, the last equal to the
-    /// blob size. Strictness also makes every key and every value region
-    /// non-empty.
+    /// V7 and V9: `n + 1` offsets, the first 0, strictly increasing, the last
+    /// equal to the blob size. Strictness also makes every key and every value
+    /// region non-empty; starting at 0 leaves no bytes before the first entry.
     fn check_offsets(&self, rule: Rule, table_at: usize, blob_bytes: u32) -> Result<(), Violation> {
         let mut previous: Option<u32> = None;
         for index in 0..=self.entries {
             let at = table_at + 4 * index;
             let offset = u32_at(self.bytes, at).ok_or_else(|| Violation::new(rule, at, "offset past the file"))?;
-            if let Some(before) = previous
-                && offset <= before
-            {
-                let detail = format!("offset {index} is {offset}, not above offset {} ({before})", index - 1);
-                return Err(Violation::new(rule, at, detail));
+            match previous {
+                None if offset != 0 => {
+                    let detail = format!("the first offset is {offset}, not 0");
+                    return Err(Violation::new(rule, at, detail));
+                }
+                Some(before) if offset <= before => {
+                    let detail = format!("offset {index} is {offset}, not above offset {} ({before})", index - 1);
+                    return Err(Violation::new(rule, at, detail));
+                }
+                _ => {}
             }
             previous = Some(offset);
         }

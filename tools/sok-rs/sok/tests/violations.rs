@@ -33,6 +33,23 @@ fn rule_of(bytes: &[u8]) -> Option<Rule> {
     SokFile::parse(bytes).err().map(|violation| violation.rule())
 }
 
+/// The fixture with one byte no entry refers to inserted at `blob_at`, the
+/// start of a blob: the blob's size field at `size_at` and every offset of the
+/// table at `offsets_at` grow by one, so only the rule that the table starts
+/// at 0 is broken.
+fn with_leading_byte(blob_at: usize, offsets_at: usize, size_at: usize) -> Vec<u8> {
+    corrupt(|bytes| {
+        for index in 0..4 {
+            let at = offsets_at + 4 * index;
+            let moved = common::get_u32(bytes, at) + 1;
+            common::put_u32(bytes, at, moved);
+        }
+        let size = common::get_u32(bytes, size_at) + 1;
+        common::put_u32(bytes, size_at, size);
+        bytes.insert(blob_at, 0);
+    })
+}
+
 /// Each case: a name, the edited file, and the rule it must break.
 fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
     vec![
@@ -79,6 +96,11 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             Rule::MaxKeyLength,
         ),
         (
+            "key offsets starting above zero",
+            with_leading_byte(KEY_BLOB, KEY_OFFSETS, 20),
+            Rule::KeyOffsets,
+        ),
+        (
             "key offsets not increasing",
             corrupt(|bytes| common::put_u32(bytes, KEY_OFFSETS + 4, 0)),
             Rule::KeyOffsets,
@@ -115,6 +137,11 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
                 bytes[KEY_BLOB + 1] = 0xA9;
             }),
             Rule::KeyUtf8,
+        ),
+        (
+            "value offsets starting above zero",
+            with_leading_byte(VALUE_BLOB, VALUE_OFFSETS, 24),
+            Rule::ValueOffsets,
         ),
         (
             "value offsets not increasing",
@@ -207,6 +234,22 @@ fn violations_point_at_the_offending_bytes() {
         (Rule::ValueOffsets, VALUE_OFFSETS + 12),
         (last_value_offset.rule(), last_value_offset.offset())
     );
+    for (bytes, rule, at) in [
+        (
+            with_leading_byte(KEY_BLOB, KEY_OFFSETS, 20),
+            Rule::KeyOffsets,
+            KEY_OFFSETS,
+        ),
+        (
+            with_leading_byte(VALUE_BLOB, VALUE_OFFSETS, 24),
+            Rule::ValueOffsets,
+            VALUE_OFFSETS,
+        ),
+    ] {
+        let first = SokFile::parse(&bytes).expect_err("rejected");
+        assert_eq!((rule, at), (first.rule(), first.offset()));
+        assert_eq!("the first offset is 1, not 0", first.detail());
+    }
 
     // Entry 1's region [3, 7) cut to [3, 4): its candidate's length prefix
     // cannot fit, reported where the prefix would start.
@@ -245,14 +288,6 @@ fn violations_name_their_rule_and_place() {
 /// an acceptance rule. The audit (A1 to A5) is where such files are
 /// questioned, not the acceptance.
 fn accepted_oddities() -> Vec<(&'static str, Vec<u8>)> {
-    let mut leading = common::fixture("empty.sok");
-    // One byte before the (empty) key region and two before the value region:
-    // offsets need only increase strictly and end at the blob size.
-    common::put_u32(&mut leading, 20, 1);
-    common::put_u32(&mut leading, 24, 2);
-    common::put_u32(&mut leading, 32, 1);
-    common::put_u32(&mut leading, 36, 2);
-    leading.extend_from_slice(&[0xFF, 0xFE, 0xFD]);
     vec![
         (
             "keys out of code-point order",
@@ -287,7 +322,6 @@ fn accepted_oddities() -> Vec<(&'static str, Vec<u8>)> {
             }),
         ),
         ("a malformed candidate", corrupt(|bytes| bytes[VALUE_BLOB + 2] = 0xFF)),
-        ("bytes no entry refers to", leading),
     ]
 }
 
@@ -318,14 +352,6 @@ fn an_empty_candidate_reads_as_empty_wherever_it_stands() {
         let candidates: Vec<&[u8]> = file.entry(2).expect("entry 2").candidates().collect();
         assert_eq!(expected.to_vec(), candidates, "{name}");
     }
-}
-
-#[test]
-fn unreferenced_leading_blob_bytes_are_accepted() {
-    let bytes = oddity("bytes no entry refers to");
-    let file = SokFile::parse(&bytes).expect("accepted, as the runtime decoder accepts it");
-    assert_eq!(Some(1), file.key_offset(0));
-    assert_eq!(Some(2), file.value_offset(0));
 }
 
 /// Writes every case of this file into the directory `SOKKURI_SOK_SEEDS`

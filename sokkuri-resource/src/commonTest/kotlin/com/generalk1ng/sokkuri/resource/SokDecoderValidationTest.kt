@@ -62,6 +62,22 @@ class SokDecoderValidationTest {
     /** Start of the key blob, `"a" "ab" "abc"` back to back, so keyOffsets is [0, 1, 3, 6]. */
     private val keyBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount
 
+    /**
+     * [valid] with one byte no entry refers to inserted at [blobBase], the
+     * start of a blob: the blob's size field at [sizeField] and every offset
+     * of the table at [offsetsBase] grow by one, so the file breaks nothing
+     * but the rule that the table starts at 0.
+     */
+    private fun withLeadingByte(blobBase: Int, offsetsBase: Int, sizeField: Int): ByteArray {
+        val bytes = valid.copyOfRange(0, blobBase) + byteArrayOf(0) + valid.copyOfRange(blobBase, valid.size)
+        for (i in 0..entryCount) {
+            val at = offsetsBase + i * 4
+            SokFormatLayout.writeU32(bytes, at, SokFormatLayout.readU32(bytes, at) + 1)
+        }
+        SokFormatLayout.writeU32(bytes, sizeField, SokFormatLayout.readU32(bytes, sizeField) + 1)
+        return bytes
+    }
+
     private fun assertRejected(bytes: ByteArray, field: String) {
         val error = assertFailsWith<SokkuriException.InvalidFormat> {
             SokDictionaryFormat.decode(bytes)
@@ -139,6 +155,18 @@ class SokDecoderValidationTest {
         assertRejected(corrupt {
             SokFormatLayout.writeU32(this, keyOffsetsBase + n * 4, 1000)
         }, "keyOffsets")
+    }
+
+    @Test
+    fun keyOffsetsNotStartingAtZeroAreRejected() {
+        val bytes = withLeadingByte(keyBlobBase, SokFormatLayout.HEADER_BYTES, SokFormatLayout.OFFSET_KEY_BLOB_BYTES)
+        assertRejected(bytes, "keyOffsets[0]")
+    }
+
+    @Test
+    fun valueOffsetsNotStartingAtZeroAreRejected() {
+        val bytes = withLeadingByte(valueBlobBase, valueOffsetsBase, SokFormatLayout.OFFSET_VALUE_BLOB_BYTES)
+        assertRejected(bytes, "valueOffsets[0]")
     }
 
     @Test

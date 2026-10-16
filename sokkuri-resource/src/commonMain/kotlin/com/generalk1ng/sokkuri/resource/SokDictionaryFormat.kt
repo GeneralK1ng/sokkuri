@@ -209,8 +209,8 @@ public class SokDictionary internal constructor(
         /**
          * Decodes [bytes] into a [SokDictionary], applying the strict
          * decoder validation: magic, version, flags and the reserved field,
-         * entryCount consistency with the file size, monotone offset tables
-         * terminating at their blob sizes, `valueCounts ≥ 1`, and each
+         * entryCount consistency with the file size, offset tables rising
+         * strictly from 0 to their blob sizes, `valueCounts ≥ 1`, and each
          * entry's candidates tiling its valueOffsets region exactly. Every
          * failure is an [SokkuriException.InvalidFormat] naming the field.
          */
@@ -270,7 +270,12 @@ public class SokDictionary internal constructor(
             val valueBlobBase = keyBlobBase + keyBlobBytes.toInt()
 
             // Offset tables: strictly increasing from 0, terminating exactly
-            // at their blob size (strictness also excludes empty keys).
+            // at their blob size (strictness also excludes empty keys). From
+            // 0, so that no blob starts with bytes no entry refers to.
+            val firstKeyOffset = SokFormatLayout.readU32(bytes, keyOffsetsBase)
+            if (firstKeyOffset != 0L) {
+                throw SokkuriException.InvalidFormat("sok: keyOffsets[0] must be 0, was $firstKeyOffset")
+            }
             var previousKeyOffset = -1L
             for (i in 0..n) {
                 val offset = SokFormatLayout.readU32(bytes, keyOffsetsBase + i * 4)
@@ -297,6 +302,10 @@ public class SokDictionary internal constructor(
                 if (!Utf8.isWellFormed(bytes, keyBlobBase + start, end - start)) {
                     throw SokkuriException.InvalidFormat("sok: key $i is not well-formed UTF-8")
                 }
+            }
+            val firstValueOffset = SokFormatLayout.readU32(bytes, valueOffsetsBase)
+            if (firstValueOffset != 0L) {
+                throw SokkuriException.InvalidFormat("sok: valueOffsets[0] must be 0, was $firstValueOffset")
             }
             var previousValueOffset = -1L
             for (i in 0..n) {
