@@ -54,7 +54,7 @@ class SokDecoderValidationTest {
      * Start of the value blob: past the header, both offset tables, the
      * valueCounts column, and the key blob. `valid` encodes keys a/ab/abc
      * with candidates A/AB/ABC, so its value blob is
-     * `[u16 1]"A" [u16 2]"AB" [u16 3]"ABC"` and valueOffsets is [0, 3, 6, 9].
+     * `[u16 1]"A" [u16 2]"AB" [u16 3]"ABC"` and valueOffsets is [0, 3, 7, 12].
      */
     private val valueBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount +
         SokFormatLayout.readU32(valid, SokFormatLayout.OFFSET_KEY_BLOB_BYTES).toInt()
@@ -191,7 +191,7 @@ class SokDecoderValidationTest {
 
     @Test
     fun candidateHeaderInTheLastByteIsRejected() {
-        // Regression: valueOffsets [0,3,8,9] is strictly increasing and
+        // Regression: valueOffsets [0,3,11,12] is strictly increasing and
         // terminates at the blob size, so it satisfied every pre-existing
         // check and decode() returned a usable dictionary — yet entry 2's
         // cursor sits at bytes.size - 1, so its first access read the u16
@@ -199,8 +199,9 @@ class SokDecoderValidationTest {
         // from the production matchAppend path). The structural walk now
         // rejects the file at decode time; the same edit over-stretches
         // entry 1's region, so that is the entry reported.
+        assertTrue(valueBlobBase + 11 == valid.size - 1, "entry 2 must start at the last byte")
         assertRejected(
-            corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 2 * 4, 8) },
+            corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 2 * 4, 11) },
             "valueBlob",
         )
     }
