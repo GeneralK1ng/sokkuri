@@ -27,26 +27,7 @@ use std::collections::HashSet;
 
 use sok::{Rule, SokFile};
 
-/// `prefixes.sok` holds a, ab and abc with candidates A, AB and ABC: n = 3,
-/// key offsets [0, 1, 3, 6] at 32, value offsets [0, 3, 7, 12] at 48, value
-/// counts at 64, the key blob at 67 and the value blob at 73, 85 bytes in all.
-const KEY_OFFSETS: usize = 32;
-const VALUE_OFFSETS: usize = 48;
-const VALUE_COUNTS: usize = 64;
-const KEY_BLOB: usize = 67;
-const VALUE_BLOB: usize = 73;
-
-fn valid() -> Vec<u8> {
-    let bytes = common::fixture("prefixes.sok");
-    assert_eq!(85, bytes.len(), "the layout constants above describe prefixes.sok");
-    bytes
-}
-
-fn corrupt(edit: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
-    let mut bytes = valid();
-    edit(&mut bytes);
-    bytes
-}
+use common::prefixes::{KEY_BLOB, KEY_OFFSETS, VALUE_BLOB, VALUE_COUNTS, VALUE_OFFSETS, corrupt, valid};
 
 fn rule_of(bytes: &[u8]) -> Option<Rule> {
     SokFile::parse(bytes).err().map(|violation| violation.rule())

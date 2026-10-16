@@ -70,3 +70,29 @@ pub fn put_u16(bytes: &mut [u8], at: usize, value: u16) {
 pub fn get_u32(bytes: &[u8], at: usize) -> u32 {
     u32::from_le_bytes(bytes[at..at + 4].try_into().expect("four bytes"))
 }
+
+/// The layout of `prefixes.sok`, the fixture most corruptions edit: a, ab and
+/// abc with candidates A, AB and ABC; n = 3, key offsets [0, 1, 3, 6] at 32,
+/// value offsets [0, 3, 7, 12] at 48, value counts at 64, the key blob at 67
+/// and the value blob at 73, 85 bytes in all.
+pub mod prefixes {
+    pub const KEY_OFFSETS: usize = 32;
+    pub const VALUE_OFFSETS: usize = 48;
+    pub const VALUE_COUNTS: usize = 64;
+    pub const KEY_BLOB: usize = 67;
+    pub const VALUE_BLOB: usize = 73;
+
+    /// The fixture as written by the encoder.
+    pub fn valid() -> Vec<u8> {
+        let bytes = super::fixture("prefixes.sok");
+        assert_eq!(85, bytes.len(), "the layout constants describe prefixes.sok");
+        bytes
+    }
+
+    /// The fixture with one edit applied.
+    pub fn corrupt(edit: impl FnOnce(&mut Vec<u8>)) -> Vec<u8> {
+        let mut bytes = valid();
+        edit(&mut bytes);
+        bytes
+    }
+}
