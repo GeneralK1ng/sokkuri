@@ -359,6 +359,18 @@ impl<'a> SokFile<'a> {
         self.bytes
     }
 
+    /// Where the key blob starts in the file.
+    #[must_use]
+    pub const fn key_blob_offset(&self) -> usize {
+        self.key_blob_at
+    }
+
+    /// Where the value blob starts in the file.
+    #[must_use]
+    pub const fn value_blob_offset(&self) -> usize {
+        self.value_blob_at
+    }
+
     /// The offset of key `index` in the key blob, as stored.
     #[must_use]
     pub fn key_offset(&self, index: usize) -> Option<usize> {
