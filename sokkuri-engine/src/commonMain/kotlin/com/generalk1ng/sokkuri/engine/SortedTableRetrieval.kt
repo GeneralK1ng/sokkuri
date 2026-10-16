@@ -120,12 +120,15 @@ public class SortedTableRetrieval private constructor(
     private class FirstCodePointIndex(val codePoints: CodePointSet, val groupStarts: IntArray)
 
     /**
-     * Built once per dictionary, on first use. Callers read it into a
-     * local once per call: the `lazy` delegate publishes through a
-     * volatile field, and a volatile read cannot be hoisted out of a loop
-     * (measured ~15% on s2t when read inside the loop).
+     * Built with the retrieval, which every backend builds once per
+     * dictionary (a `.sok` dictionary once per process, through the
+     * dictionary cache). A lazy index cost every lookup a read through the
+     * delegate, a volatile read on the JVM and a call into the runtime on
+     * Kotlin/Native, which skip-dominated conversions paid once per character.
      */
-    private val firstCodePointIndex: FirstCodePointIndex by lazy(LazyThreadSafetyMode.PUBLICATION) {
+    private val firstCodePointIndex: FirstCodePointIndex = indexFirstCodePoints(table)
+
+    private fun indexFirstCodePoints(table: SortedKeyTable): FirstCodePointIndex {
         val codePoints = IntArray(table.entryCount)
         val groupStarts = IntArray(table.entryCount + 1)
         var groups = 0
@@ -138,7 +141,7 @@ public class SortedTableRetrieval private constructor(
             }
         }
         groupStarts[groups] = table.entryCount
-        FirstCodePointIndex(CodePointSet.of(*codePoints.copyOf(groups)), groupStarts.copyOf(groups + 1))
+        return FirstCodePointIndex(CodePointSet.of(*codePoints.copyOf(groups)), groupStarts.copyOf(groups + 1))
     }
 
     /** The distinct first code points of the table's keys, for [Dictionary.keyStarts]. */
