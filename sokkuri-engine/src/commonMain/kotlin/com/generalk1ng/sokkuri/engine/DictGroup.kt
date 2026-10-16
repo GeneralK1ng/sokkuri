@@ -44,7 +44,7 @@ public enum class GroupMatchPolicy {
  */
 @SokkuriInternalApi
 public class DictGroup public constructor(
-    private val children: List<Dictionary>,
+    children: List<Dictionary>,
     private val policy: GroupMatchPolicy,
 ) : Dictionary {
 
@@ -54,9 +54,17 @@ public class DictGroup public constructor(
 
     override val maxKeyLength: Int = children.maxOf { it.maxKeyLength }
 
+    /**
+     * The children, walked by index on every lookup: a `for` over a [List]
+     * allocates an iterator per call, which the JVM's escape analysis removes
+     * but Kotlin/Native does not; on s2t that allocation was about a tenth of
+     * the Native conversion time.
+     */
+    private val members: Array<Dictionary> = children.toTypedArray()
+
     override fun matchExact(key: String): DictionaryEntry? {
-        for (child in children) {
-            val hit = child.matchExact(key)
+        for (index in members.indices) {
+            val hit = members[index].matchExact(key)
             if (hit != null) return hit
         }
         return null
@@ -65,16 +73,16 @@ public class DictGroup public constructor(
     override fun matchPrefix(text: CharArray, start: Int, end: Int): PrefixMatch? {
         return when (policy) {
             GroupMatchPolicy.SHORT_CIRCUIT -> {
-                for (child in children) {
-                    val hit = child.matchPrefix(text, start, end)
+                for (index in members.indices) {
+                    val hit = members[index].matchPrefix(text, start, end)
                     if (hit != null) return hit
                 }
                 null
             }
             GroupMatchPolicy.UNION -> {
                 var best: PrefixMatch? = null
-                for (child in children) {
-                    val hit = child.matchPrefix(text, start, end)
+                for (index in members.indices) {
+                    val hit = members[index].matchPrefix(text, start, end)
                     if (hit != null && (best == null || hit.length > best.length)) {
                         best = hit
                     }
@@ -91,8 +99,8 @@ public class DictGroup public constructor(
      */
     override fun matchLength(text: CharArray, start: Int, end: Int): Int {
         var best = -1
-        for (child in children) {
-            val length = child.matchLength(text, start, end)
+        for (index in members.indices) {
+            val length = members[index].matchLength(text, start, end)
             if (policy == GroupMatchPolicy.SHORT_CIRCUIT && length >= 0) return length
             if (length > best) best = length
         }
@@ -128,8 +136,8 @@ public class DictGroup public constructor(
      */
     private fun mergeFirstCodePoints(): IntArray? {
         var merged = IntArray(0)
-        for (child in children) {
-            val set = child.firstCodePoints() ?: return null
+        for (index in members.indices) {
+            val set = members[index].firstCodePoints() ?: return null
             merged = mergeAscending(merged, set)
         }
         return merged
@@ -153,7 +161,7 @@ public class DictGroup public constructor(
     }
 
     override fun mayStartKey(codePoint: Int): Boolean {
-        val codePoints = firstCodePointSet ?: return children.any { it.mayStartKey(codePoint) }
+        val codePoints = firstCodePointSet ?: return members.any { it.mayStartKey(codePoint) }
         return indexOfCodePoint(codePoints, codePoint) >= 0
     }
 }
