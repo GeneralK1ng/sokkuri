@@ -47,7 +47,7 @@ class PackagedSokConformanceTest {
             ?: throw AssumptionViolatedException("$VARIABLE is not set; run :sokkuri-runtime:sokConformanceTest")
         val file = File(path)
         assertTrue(file.isFile, "$VARIABLE names $path, which is not a file")
-        val expected = file.readLines().filter { it.isNotBlank() }.associate(SokConformance::parseExpectation)
+        val expected = SokConformance.parseExpectations(file.readText()).associateBy { it.name }
 
         val packaged = File(PACKAGED).listFiles { candidate -> candidate.name.endsWith(".sok") }
             .orEmpty().map { it.name }.sorted()
@@ -56,7 +56,9 @@ class PackagedSokConformanceTest {
 
         for (name in packaged) {
             val bytes = assertNotNull(readTestResource("dictionary/$name"), "dictionary/$name")
-            assertEquals(expected.getValue(name), SokConformance.judge(bytes), name)
+            val expectation = expected.getValue(name)
+            assertEquals(expectation.verdict, SokConformance.judge(bytes), name)
+            assertTrue(expectation.auditClean, "$name: the Rust reader's audit found the packaged dictionary unclean")
             val dictionary = SokDictionaryFormat.decode(bytes) as SokDictionary
             SokConformance.exercise(dictionary, auditClean = true, where = name)
         }

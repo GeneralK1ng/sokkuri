@@ -52,22 +52,29 @@ internal object SokConformance {
     }
 
     /**
-     * One line of an expectation file: the name, then `accept` with the entry
-     * count, maxKeyLength and digest, or `reject` with a rule id; fields are
-     * tab-separated and trailing fields are ignored, so later phases can
-     * append some. The rule id is for people and is not compared.
+     * One line of an expectation file, as `sokcheck expect` writes it: the
+     * name, then `accept` with the entry count, maxKeyLength, digest and
+     * audit verdict, or `reject` with a rule id. Fields are tab-separated and
+     * further trailing fields are ignored. The rule id is for people and is
+     * not compared.
      */
-    fun parseExpectation(line: String): Pair<String, Verdict> {
+    class Expectation(val name: String, val verdict: Verdict, val auditClean: Boolean)
+
+    /** The expectation lines of [text]; blank lines and `#` comments are skipped. */
+    fun parseExpectations(text: String): List<Expectation> =
+        text.lines().filter { it.isNotBlank() && !it.startsWith("#") }.map(::parseExpectation)
+
+    fun parseExpectation(line: String): Expectation {
         val fields = line.split('\t')
-        val verdict = when (fields.getOrNull(1)) {
+        return when (fields.getOrNull(1)) {
             "accept" -> {
-                require(fields.size >= 5) { "an accept line has five fields: $line" }
-                Verdict.Accept(fields[2].toInt(), fields[3].toInt(), fields[4])
+                require(fields.size >= 6) { "an accept line has six fields: $line" }
+                val verdict = Verdict.Accept(fields[2].toInt(), fields[3].toInt(), fields[4])
+                Expectation(fields[0], verdict, auditClean = fields[5] == "audit-ok")
             }
-            "reject" -> Verdict.Reject
+            "reject" -> Expectation(fields[0], Verdict.Reject, auditClean = false)
             else -> throw IllegalArgumentException("not an expectation line: $line")
         }
-        return fields[0] to verdict
     }
 
     /**
@@ -78,7 +85,7 @@ internal object SokConformance {
     fun digest(dictionary: SokDictionary): ULong {
         var hash = FNV_OFFSET_BASIS
         fun write(bytes: ByteArray) {
-            for (byte in bytes) hash = (hash xor (byte.toInt() and 0xFF).toULong()) * FNV_PRIME
+            hash = fnv(hash, bytes)
         }
         fun writeLittleEndian(value: Int, width: Int) = write(ByteArray(width) { (value ushr (8 * it)).toByte() })
         writeLittleEndian(dictionary.entryCount, 4)
@@ -98,6 +105,32 @@ internal object SokConformance {
     }
 
     fun hex(digest: ULong): String = digest.toString(16).padStart(16, '0')
+
+    /**
+     * The inputs of a corpus file as `sokcheck corpus import` writes it: one
+     * per line, the id, a tab and the bytes in hex, `#` lines being comments.
+     * Each id is the FNV-1a 64 of its bytes, checked here, so a line edited
+     * by hand fails instead of silently testing something else.
+     */
+    fun parseCorpus(text: String): Map<String, ByteArray> {
+        val inputs = LinkedHashMap<String, ByteArray>()
+        for (line in text.lines()) {
+            if (line.isEmpty() || line.startsWith("#")) continue
+            val fields = line.split('\t')
+            require(fields.size == 2 && fields[1].length % 2 == 0) { "not a corpus line: $line" }
+            val encoded = fields[1]
+            val bytes = ByteArray(encoded.length / 2) { encoded.substring(2 * it, 2 * it + 2).toInt(16).toByte() }
+            require(hex(fnv(FNV_OFFSET_BASIS, bytes)) == fields[0]) { "id ${fields[0]} does not match its bytes" }
+            require(inputs.put(fields[0], bytes) == null) { "id ${fields[0]} repeats" }
+        }
+        return inputs
+    }
+
+    private fun fnv(start: ULong, bytes: ByteArray): ULong {
+        var hash = start
+        for (byte in bytes) hash = (hash xor (byte.toInt() and 0xFF).toULong()) * FNV_PRIME
+        return hash
+    }
 
     /**
      * Looks every entry up the way the runtime does, which must not throw for
