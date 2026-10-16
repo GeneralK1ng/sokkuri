@@ -21,23 +21,26 @@ use std::fmt::Write as _;
 use std::io::{self, Write};
 
 use sok::SokFile;
+use sok::audit::{audit, summary};
 use sok::digest::{digest, hex};
 use sok::utf8::decode_first;
 
 /// One line of an expectation file (docs/design/sok-rs.md §6):
-/// `<name> accept <entryCount> <maxKeyLength> <digest>` or `<name> reject <rule>`,
-/// tab-separated. Readers ignore trailing fields, so later phases may append
-/// some without breaking them.
+/// `<name> accept <entryCount> <maxKeyLength> <digest> <audit>` or
+/// `<name> reject <rule>`, tab-separated, where `<audit>` is `audit-ok` or
+/// `audit:` and the broken audit rules. Readers ignore trailing fields, so
+/// later phases may append some without breaking them.
 pub fn expectation(name: &str, bytes: &[u8]) -> String {
     let name = escape(name.as_bytes());
     match SokFile::parse(bytes) {
         Ok(file) => {
             let header = file.header();
             format!(
-                "{name}\taccept\t{}\t{}\t{}",
+                "{name}\taccept\t{}\t{}\t{}\t{}",
                 header.entry_count,
                 header.max_key_length,
-                hex(digest(&file))
+                hex(digest(&file)),
+                summary(&audit(&file)),
             )
         }
         Err(violation) => format!("{name}\treject\t{}", violation.rule().id()),

@@ -36,12 +36,14 @@ usage: sokcheck <command> [arguments]
 
 commands:
   verify <path>...           check .sok files, or every .sok in a directory, against the acceptance rules
+  audit <path>...            verify, then check the invariants the runtime does not: order, maxKeyLength,
+                             first offsets, the reserved field and candidates (A1 to A5)
   dump <file>                list a file's entries: key, then its candidates, tab-separated
   stats <path>...            sizes and shape of each file
   expect --packaged <dir>    one expectation line per .sok in <dir>, for the Kotlin conformance test
   help                       this text
 
-exit status: 0 when every check passes, 1 when a file violates the format, 2 on a usage or I/O error";
+exit status: 0 when every check passes, 1 when a file violates the format or the audit, 2 on a usage or I/O error";
 
 /// How a command ended, before it becomes an exit status.
 enum Outcome {
@@ -89,6 +91,7 @@ fn run(arguments: &[String]) -> Result<Outcome, Failure> {
     let mut out = stdout.lock();
     let outcome = match command.as_str() {
         "verify" => verify(&inputs(rest)?, &mut out)?,
+        "audit" => audit(&inputs(rest)?, &mut out)?,
         "dump" => match rest {
             [file] => dump(&files::read_file(&PathBuf::from(file))?, &mut out)?,
             _ => return Err(Failure::Error("dump takes exactly one file".to_owned())),
@@ -120,6 +123,30 @@ fn inputs(paths: &[String]) -> Result<Vec<SokInput>, Failure> {
         inputs.extend(files::read_path(&PathBuf::from(path))?);
     }
     Ok(inputs)
+}
+
+/// Acceptance first: a file that breaks an acceptance rule has nothing to audit.
+fn audit(inputs: &[SokInput], out: &mut impl Write) -> Result<Outcome, Failure> {
+    let mut outcome = Outcome::Passed;
+    for input in inputs {
+        match sok::SokFile::parse(&input.bytes) {
+            Ok(file) => {
+                let findings = sok::audit::audit(&file);
+                if findings.is_empty() {
+                    writeln!(out, "ok\t{}\taudit clean", input.name)?;
+                }
+                for finding in &findings {
+                    writeln!(out, "finding\t{}\t{finding}", input.name)?;
+                    outcome = Outcome::Violations;
+                }
+            }
+            Err(violation) => {
+                writeln!(out, "violation\t{}\t{violation}", input.name)?;
+                outcome = Outcome::Violations;
+            }
+        }
+    }
+    Ok(outcome)
 }
 
 fn verify(inputs: &[SokInput], out: &mut impl Write) -> Result<Outcome, Failure> {

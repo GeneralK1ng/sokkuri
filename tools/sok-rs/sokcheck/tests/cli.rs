@@ -16,6 +16,8 @@
 
 //! The command line end to end: outputs, formats and exit statuses.
 
+#![allow(clippy::indexing_slicing)]
+
 use std::path::PathBuf;
 use std::process::{Command, Output, Stdio};
 
@@ -50,10 +52,10 @@ fn expect_lists_every_file_in_name_order_with_its_digest() {
     assert_eq!(Some(0), output.status.code());
     // The digests were computed by an independent Python reading of the stream.
     let expected = "\
-empty.sok\taccept\t0\t0\ta8c7f832281a39c5
-many-candidates.sok\taccept\t1\t1\t485b319d0ddcff85
-prefixes.sok\taccept\t3\t3\td48af38172a39280
-widths.sok\taccept\t7\t3\t257f553a9f91686e
+empty.sok\taccept\t0\t0\ta8c7f832281a39c5\taudit-ok
+many-candidates.sok\taccept\t1\t1\t485b319d0ddcff85\taudit-ok
+prefixes.sok\taccept\t3\t3\td48af38172a39280\taudit-ok
+widths.sok\taccept\t7\t3\t257f553a9f91686e\taudit-ok
 ";
     assert_eq!(expected, stdout(&output));
 }
@@ -100,6 +102,60 @@ fn a_directory_contributes_only_its_sok_files() {
 }
 
 #[test]
+fn audit_reports_every_finding_and_exits_one() {
+    let mut bytes = std::fs::read(fixtures().join("prefixes.sok")).expect("fixture");
+    bytes[28] = 7;
+    bytes[67 + 3..67 + 6].copy_from_slice(b"aaa");
+    let odd = scratch("audit", "odd.sok", &bytes);
+    let short = odd.with_file_name("short.sok");
+    std::fs::write(&short, b"SOK1").expect("short.sok");
+    let clean = fixtures().join("widths.sok");
+    let output = sokcheck(&[
+        "audit",
+        clean.to_str().expect("path"),
+        odd.parent().and_then(|p| p.to_str()).expect("path"),
+    ]);
+    assert_eq!(Some(1), output.status.code());
+    let lines: Vec<String> = stdout(&output)
+        .lines()
+        .map(|line| line.split(": ").next().unwrap_or(line).to_owned())
+        .collect();
+    assert_eq!(
+        vec![
+            "ok\twidths.sok\taudit clean",
+            "finding\todd.sok\tA1 at byte 70",
+            "finding\todd.sok\tA4 at byte 28",
+            "violation\tshort.sok\tV1 at byte 0",
+        ],
+        lines,
+    );
+    let expect = sokcheck(&[
+        "expect",
+        "--packaged",
+        odd.parent().and_then(|p| p.to_str()).expect("path"),
+    ]);
+    assert!(
+        stdout(&expect).starts_with("odd.sok\taccept\t3\t3\t"),
+        "{}",
+        stdout(&expect)
+    );
+    assert!(stdout(&expect).contains("\taudit:A1,A4\n"), "{}", stdout(&expect));
+}
+
+#[test]
+fn audit_passes_on_the_fixtures() {
+    let output = sokcheck(&["audit", fixtures().to_str().expect("path")]);
+    assert_eq!(Some(0), output.status.code());
+    assert_eq!(
+        4,
+        stdout(&output)
+            .lines()
+            .filter(|line| line.ends_with("\taudit clean"))
+            .count()
+    );
+}
+
+#[test]
 fn verify_of_a_directory_passes_on_the_fixtures() {
     let output = sokcheck(&["verify", fixtures().to_str().expect("path")]);
     assert_eq!(Some(0), output.status.code());
@@ -143,6 +199,7 @@ fn usage_and_io_errors_exit_two() {
         &[][..],
         &["nope"],
         &["verify"],
+        &["audit"],
         &["dump"],
         &["dump", fixtures, fixtures],
         &["expect", "corpus.hex"],
