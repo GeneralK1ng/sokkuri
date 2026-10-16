@@ -21,8 +21,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.descriptors.PrimitiveKind
-import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
@@ -47,8 +46,12 @@ import kotlinx.serialization.json.JsonPrimitive
  */
 internal object NameSerializer : KSerializer<String?> {
 
-    override val descriptor: SerialDescriptor =
-        PrimitiveSerialDescriptor("com.generalk1ng.sokkuri.config.Name", PrimitiveKind.STRING)
+    // String's own descriptor rather than a named PrimitiveSerialDescriptor:
+    // naming a primitive makes kotlinx-serialization check the name against
+    // its table of built-in serializers, which loads some seventy classes the
+    // first time, about 7 ms of every JVM cold start. JSON never reads a
+    // primitive's serial name.
+    override val descriptor: SerialDescriptor = String.serializer().descriptor
 
     override fun deserialize(decoder: Decoder): String? {
         if (decoder !is JsonDecoder) return decoder.decodeString()
