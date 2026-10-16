@@ -139,6 +139,19 @@ val cargoTest by tasks.registering(CargoTask::class) {
     mustRunAfter(cargoLint)
 }
 
+// Mutation testing, by hand: it needs `cargo install cargo-mutants` and takes
+// a minute or two, so sokConformance does not run it. cargo-mutants tests a
+// copy of this workspace, which holds no packaged dictionaries:
+// SOKKURI_REPOSITORY points the tests back at the repository.
+tasks.register<CargoTask>("cargoMutants") {
+    cargoTask()
+    description = "Runs cargo mutants on tools/sok-rs; every survivor must be listed in .cargo/mutants.toml."
+    arguments = listOf(
+        "mutants", "--workspace", "--no-shuffle", "--jobs", "4", "--output", layout.buildDirectory.get().asFile.path,
+    )
+    extraEnvironment = mapOf("SOKKURI_REPOSITORY" to layout.projectDirectory.dir("../..").asFile.normalize().path)
+}
+
 /** The dictionaries the runtime ships, which the Rust reader must read as the Kotlin decoder does. */
 val packagedDictionaries: String =
     layout.projectDirectory.dir("../../sokkuri-runtime/src/commonMain/resources/dictionary").asFile.normalize().path
