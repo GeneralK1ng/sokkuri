@@ -1,0 +1,46 @@
+# Copyright 2026 The Sokkuri Authors and contributors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# The independent .sok reader (docs/design/sok-rs.md): a verification tool,
+# never published. The fuzz crate is its own workspace (cargo-fuzz needs
+# nightly), so it is excluded here.
+
+[workspace]
+resolver = "3"
+members = ["sok", "sokcheck"]
+exclude = ["fuzz"]
+
+[workspace.package]
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.99"
+license = "Apache-2.0"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "deny"
+
+[workspace.lints.clippy]
+# The default set, plus the pedantic lints that guard the arithmetic and
+# conversions a byte-format reader is made of.
+cast_possible_truncation = "deny"
+cast_possible_wrap = "deny"
+cast_sign_loss = "deny"
+checked_conversions = "deny"
+indexing_slicing = "warn"
+
+[profile.release]
+# A reader of untrusted bytes must not wrap silently in any build.
+overflow-checks = true

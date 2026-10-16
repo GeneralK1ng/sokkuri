@@ -146,6 +146,7 @@ jobs:
       - uses: ./.github/actions/setup-build-env
         with:
           kotlin-native: "false"
+          rust: "true"
 
       - id: opencc
         uses: ./.github/actions/checkout-opencc
@@ -169,6 +170,13 @@ jobs:
       - name: Regenerate the packaged configs and dictionaries
         if: steps.moved.outputs.moved == 'true'
         run: ./gradlew :tools:dictgen:run
+
+      # The regenerated dictionaries through the independent Rust reader:
+      # acceptance and audit, then the Kotlin decoder's verdicts and digests
+      # against its expectations (docs/architecture.md §10.5).
+      - name: Rust reader on the regenerated dictionaries
+        if: steps.moved.outputs.moved == 'true'
+        run: ./gradlew :tools:sok-rs:verifyPackaged :sokkuri-runtime:sokConformanceTest
 
       - name: Swap in the upstream golden corpus
         if: steps.moved.outputs.moved == 'true'

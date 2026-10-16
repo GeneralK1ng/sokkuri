@@ -54,13 +54,29 @@ class SokDecoderValidationTest {
      * Start of the value blob: past the header, both offset tables, the
      * valueCounts column, and the key blob. `valid` encodes keys a/ab/abc
      * with candidates A/AB/ABC, so its value blob is
-     * `[u16 1]"A" [u16 2]"AB" [u16 3]"ABC"` and valueOffsets is [0, 3, 6, 9].
+     * `[u16 1]"A" [u16 2]"AB" [u16 3]"ABC"` and valueOffsets is [0, 3, 7, 12].
      */
     private val valueBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount +
         SokFormatLayout.readU32(valid, SokFormatLayout.OFFSET_KEY_BLOB_BYTES).toInt()
 
     /** Start of the key blob, `"a" "ab" "abc"` back to back, so keyOffsets is [0, 1, 3, 6]. */
     private val keyBlobBase: Int = valueOffsetsBase + 4 * (entryCount + 1) + entryCount
+
+    /**
+     * [valid] with one byte no entry refers to inserted at [blobBase], the
+     * start of a blob: the blob's size field at [sizeField] and every offset
+     * of the table at [offsetsBase] grow by one, so the file breaks nothing
+     * but the rule that the table starts at 0.
+     */
+    private fun withLeadingByte(blobBase: Int, offsetsBase: Int, sizeField: Int): ByteArray {
+        val bytes = valid.copyOfRange(0, blobBase) + byteArrayOf(0) + valid.copyOfRange(blobBase, valid.size)
+        for (i in 0..entryCount) {
+            val at = offsetsBase + i * 4
+            SokFormatLayout.writeU32(bytes, at, SokFormatLayout.readU32(bytes, at) + 1)
+        }
+        SokFormatLayout.writeU32(bytes, sizeField, SokFormatLayout.readU32(bytes, sizeField) + 1)
+        return bytes
+    }
 
     private fun assertRejected(bytes: ByteArray, field: String) {
         val error = assertFailsWith<SokkuriException.InvalidFormat> {
@@ -104,6 +120,13 @@ class SokDecoderValidationTest {
     }
 
     @Test
+    fun nonZeroReservedFieldIsRejected() {
+        assertRejected(corrupt {
+            SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_RESERVED, 7)
+        }, "reserved")
+    }
+
+    @Test
     fun entryCountInconsistentWithFileSizeIsRejected() {
         assertRejected(corrupt {
             SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_ENTRY_COUNT, 4)
@@ -111,10 +134,24 @@ class SokDecoderValidationTest {
     }
 
     @Test
-    fun maxKeyLengthBeyondTheKeyBlobIsRejected() {
-        assertRejected(corrupt {
-            SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, 1000)
-        }, "maxKeyLength")
+    fun maxKeyLengthOtherThanTheLongestKeyIsRejected() {
+        // The longest key, "abc", has 3 code units: one fewer would lose its
+        // matches, one more is still not the length the format states.
+        for (stated in listOf(2L, 4L)) {
+            assertRejected(corrupt {
+                SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, stated)
+            }, "maxKeyLength is $stated, but the longest key has 3")
+        }
+    }
+
+    @Test
+    fun maxKeyLengthCountsUtf16CodeUnitsNotBytes() {
+        // "𠀀中" is 7 bytes of UTF-8 but 3 UTF-16 code units: a surrogate pair and one more.
+        val bytes = SokDictionaryEncoder.encode(listOf("𠀀中" to listOf("x"), "a" to listOf("y")))
+        assertEquals(3L, SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH))
+        assertEquals(3, SokDictionaryFormat.decode(bytes).maxKeyLength)
+        SokFormatLayout.writeU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, 7)
+        assertRejected(bytes, "the longest key has 3 UTF-16 code units")
     }
 
     @Test
@@ -132,6 +169,18 @@ class SokDecoderValidationTest {
         assertRejected(corrupt {
             SokFormatLayout.writeU32(this, keyOffsetsBase + n * 4, 1000)
         }, "keyOffsets")
+    }
+
+    @Test
+    fun keyOffsetsNotStartingAtZeroAreRejected() {
+        val bytes = withLeadingByte(keyBlobBase, SokFormatLayout.HEADER_BYTES, SokFormatLayout.OFFSET_KEY_BLOB_BYTES)
+        assertRejected(bytes, "keyOffsets[0]")
+    }
+
+    @Test
+    fun valueOffsetsNotStartingAtZeroAreRejected() {
+        val bytes = withLeadingByte(valueBlobBase, valueOffsetsBase, SokFormatLayout.OFFSET_VALUE_BLOB_BYTES)
+        assertRejected(bytes, "valueOffsets[0]")
     }
 
     @Test
@@ -191,7 +240,7 @@ class SokDecoderValidationTest {
 
     @Test
     fun candidateHeaderInTheLastByteIsRejected() {
-        // Regression: valueOffsets [0,3,8,9] is strictly increasing and
+        // Regression: valueOffsets [0,3,11,12] is strictly increasing and
         // terminates at the blob size, so it satisfied every pre-existing
         // check and decode() returned a usable dictionary — yet entry 2's
         // cursor sits at bytes.size - 1, so its first access read the u16
@@ -199,8 +248,9 @@ class SokDecoderValidationTest {
         // from the production matchAppend path). The structural walk now
         // rejects the file at decode time; the same edit over-stretches
         // entry 1's region, so that is the entry reported.
+        assertTrue(valueBlobBase + 11 == valid.size - 1, "entry 2 must start at the last byte")
         assertRejected(
-            corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 2 * 4, 8) },
+            corrupt { SokFormatLayout.writeU32(this, valueOffsetsBase + 2 * 4, 11) },
             "valueBlob",
         )
     }
@@ -223,6 +273,43 @@ class SokDecoderValidationTest {
         }
         assertTrue(Utf8.isWellFormed(bytes, keyBlobBase, 6), "the blob as a whole is well-formed")
         assertRejected(bytes, "key 0")
+    }
+
+    @Test
+    fun keysOutOfCodePointOrderAreRejected() {
+        // Key 2, "abc", becomes "aaa", which sorts before key 1, "ab".
+        assertRejected(
+            corrupt { "aaa".encodeToByteArray().copyInto(this, keyBlobBase + 3) },
+            "key 2 is not above key 1",
+        )
+        // As "aac" it sorts before "ab" too, but after key 0 and after the
+        // whole blob before it, "aab": only the key just before it shows it.
+        assertRejected(
+            corrupt { "aac".encodeToByteArray().copyInto(this, keyBlobBase + 3) },
+            "key 2 is not above key 1",
+        )
+    }
+
+    @Test
+    fun aRepeatedKeyIsRejected() {
+        // keyOffsets [0, 1, 2, 6] re-cut "aababc" as "a", "a" and "babc", and
+        // maxKeyLength 4 fits "babc", so only the repetition is wrong.
+        assertRejected(corrupt {
+            SokFormatLayout.writeU32(this, SokFormatLayout.HEADER_BYTES + 8, 2)
+            SokFormatLayout.writeU32(this, SokFormatLayout.OFFSET_MAX_KEY_LENGTH, 4)
+        }, "key 1 is not above key 0")
+    }
+
+    @Test
+    fun keysOrderedByCodePointNotByUtf16AreAccepted() {
+        // U+FF61 sorts before U+20000 by code point, but after it by UTF-16
+        // code unit (0xFF61 against the high surrogate 0xD840): the decoder
+        // must follow the code points, as the encoder does.
+        val dictionary = SokDictionaryFormat.decode(
+            SokDictionaryEncoder.encode(listOf("\uFF61" to listOf("a"), "𠀀" to listOf("b"))),
+        )
+        assertEquals(listOf("a"), dictionary.matchExact("\uFF61")?.candidates)
+        assertEquals(listOf("b"), dictionary.matchExact("𠀀")?.candidates)
     }
 
     @Test

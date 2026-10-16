@@ -40,6 +40,7 @@ sokkuri-runtime    聚合门面 + 平台资源加载器 actual + 打包词典数
 tools:dictgen      词典编译器;同构建的普通模块,非发布产物
 tools:benchmark    基准工具;同构建的普通模块,非发布产物
 tools:upstream-diff 上游比对与性能参照;同构建的普通模块,非发布产物
+tools/sok-rs       .sok 的 Rust 独立读取器与对拍;Cargo 工作区,Gradle 只注册调用 cargo 的任务,非发布产物
 ```
 
 `sokkuri-resource` 注册表内的 `.sok` 编解码读写同侧，`DictionaryFormat` 注册表同时承载编码器与解码器。
@@ -49,6 +50,8 @@ tools:upstream-diff 上游比对与性能参照;同构建的普通模块,非发�
 `tools:benchmark` 测量转换吞吐、装配延迟、词典解码与 inspect 开销，只走消费视角，依赖白名单限定为 `runtime` 与 `resource`，禁止依赖 engine 与 config，且不挂入 `check`。
 
 `tools:upstream-diff` 以 OpenCC 参考克隆的构建为预言机做比对，并给出上游的性能参照，见 10.4。转换与 inspect 的比对只走消费视角，依赖 `runtime`；配置比对必须直接运行 `ConfigParser`，因为在 D12 落地之前，消费者无法让 Sokkuri 载入任意配置，所以它另外依赖 `config` 与 `resource`。它的 C++ 代码作为资源随工具分发，在运行时编译，不挂入 `check`。
+
+`tools/sok-rs` 按 `SokFormatLayout` 独立实现 `.sok` 的只读读取、审计与规范化摘要，与 Kotlin 解码器逐条对拍，并以模糊测试积累语料，设计见 `docs/design/sok-rs.md`，验证方式见 10.5。它是 Cargo 工作区，Rust 代码由 cargo 构建；Gradle 只把它纳入设置并注册调用 cargo 的任务，不应用任何插件，因此 `./gradlew build` 与 `check` 不触及它，没有 Rust 也能完整构建与发布。它只读不写：编码器只此一份，D6 不变。
 
 ### 2.2 模块职责与允许依赖
 
@@ -61,6 +64,7 @@ tools:upstream-diff 上游比对与性能参照;同构建的普通模块,非发�
 | `sokkuri-runtime`  | `Sokkuri` 门面、平台 loader            | api（api）、其余（implementation）                         | 转换与解析逻辑，只做组装                                   |
 | `tools:dictgen`    | 上游数据 → `.sok` + 重写配置           | 依赖主构建模块，必须是同构建普通模块                    | 发布、持有独立格式实现                                    |
 | `tools:benchmark`  | 性能测量：公开路径端到端与格式解码对照 | runtime、resource（白名单）                              | 发布、依赖 engine 或 config、测量进 check                 |
+| `tools/sok-rs`     | `.sok` 规范的独立读取、审计与对拍语料 | Rust 标准库；模糊测试另用 `libfuzzer-sys` | 写 `.sok`、进入发布产物、挂入 `build` 或 `check` |
 | `tools:upstream-diff` | 上游比对：执行、inspect、配置与模糊语料；上游性能参照 | runtime；config、resource 仅供配置比对               | 发布、比对进 check                                        |
 
 ### 2.3 法则
@@ -167,7 +171,7 @@ interface Dictionary {
 
 | #  | 场景                                | 改动位置                                                                                                                                                               | 禁止                                  |
 |----|-----------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| 1  | 新词典格式（`.sok` 及其他）                 | resource：新 `Dictionary` 实现 + `DictionaryFormat`，注册 `DefaultDictionaryFormats`；编码器放同模块 internal                                                                     | engine、config 改动；在 dictgen 另写编码器    |
+| 1  | 新词典格式（`.sok` 及其他）                 | resource：新 `Dictionary` 实现 + `DictionaryFormat`，注册 `DefaultDictionaryFormats`；编码器放同模块 internal；改动 `.sok` 布局时，同一组提交同步 `SokFormatLayout`、Kotlin 编解码、`tools/sok-rs` 与对拍期望，`SokFormatLayout` 仍是唯一的规范 | engine、config 改动；在 dictgen 另写编码器    |
 | 2  | 新分词器（jieba 类）                     | engine：实现 `Segmentation`；config：`SegmentationProvider` 注册表接入（8.3）；用户经 `Sokkuri.create` 高级重载注入                                                                      | `Conversion`、热路径改动                  |
 | 3  | 新配置字段                             | config：`ConfigDocument` 加字段 + `ConfigParser` 消费；上游语义优先；未知键继续忽略                                                                                                     | 改变已知键的宽容度（R8）                       |
 | 4  | 新内置 profile（seal 类）               | api：`SokkuriConfig` 枚举加法（遵守 I8）；dictgen：词典 + 重写配置进 runtime 资源；README 与第 7 章登记                                                                                      | 重排或删除枚举值                            |
@@ -479,6 +483,7 @@ JFR 采样另显示，词典组的 `mayStartKey` 占转换时间的 11% 至 20%�
 | D16 | 削减各级转换的固定开销：首码点上下界、按级处理分段、分词只取长度、词典组合并首码点集合，见 8.7 | 已实现       |
 | D14 | OpenCC 参考克隆以锁文件加按需检出管理，不用 git 子模块，见 10.3                       | 已实现       |
 | D18 | 热点修复：位图加秩的码点集合、各级持有跳过所用的键首字集合、索引随检索构建、加载时校验键的 UTF-8、short_circuit 组转发写出，见 8.8 | 已实现       |
+| D19 | `.sok` 的 Rust 独立读取器、审计与跨实现对拍，见 10.5 与 `docs/design/sok-rs.md` | 实施中       |
 
 ## 10. 测试与对齐策略
 
@@ -516,10 +521,11 @@ JFR 采样另显示，词典组的 `mayStartKey` 占转换时间的 11% 至 20%�
 
 | 层         | 工作流                        | 触发                               | 内容                                                                                                                                                                              | 失败的含义                         |
 |------------|-------------------------------|------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------|
-| 1 构建门禁 | `ci.yml`                      | push 到 `main`、所有 PR、手动      | `./gradlew build --continue`：JVM、Android host 与 iOS 模拟器三端测试，tools 单测，ABI 校验                                                                                          | 阻断合并                           |
+| 1 构建门禁 | `ci.yml`                      | push 到 `main`、所有 PR、手动      | `./gradlew build --continue`：JVM、Android host 与 iOS 模拟器三端测试，含 `.sok` 回放语料，tools 单测，ABI 校验                                                                                          | 阻断合并                           |
+| 1′ 读取器对拍 | `ci.yml` 的 `sok reader` 任务 | 与构建门禁相同 | 安装锁定版本的 Rust，执行 `./gradlew sokConformance`：rustfmt、clippy、rustdoc、`cargo test`、对打包词典的 `sokcheck audit`、喂入 `sokcheck expect` 的 Kotlin 对拍测试，以及回放语料的期望核对，见 10.5 | `.sok` 的 Rust 读取器与 Kotlin 解码器对打包词典有分歧，回放语料的期望已不是 Rust 读取器的结论，或 Rust 侧自身有缺陷；暂不阻断合并，稳定后再议 |
 | 2 上游对齐 | `upstream.yml` 的 pinned 任务 | 每周一定时、手动、由发布流程调用   | 按 `UPSTREAM` 取得 OpenCC；golden 语料逐字节比对；`checkDictionaries`；带 `OPENCC_DIR` 运行 `:sokkuri-runtime:jvmTest` 与 `:tools:dictgen:test` 并校验未跳过；`upstream-diff` 两种 tofu 口径各跑一次，含 inspect 结构与模糊语料回放；配置比对 | 阻断发布                           |
 | 3 发布     | `release.yml`                 | 推送 `v*` tag                      | 校验 tag 与 `VERSION_NAME` 一致；调用第 2 层；通过后执行 `build` 与 `publishToMavenCentral`                                                                                          | 不上传                             |
-| 演练       | `upstream.yml` 的 head 任务   | 每周一定时、手动                   | 上游默认分支的最新提交若已偏离锁定，就演练一次推进锁定：在工作区内把锁改到该提交并检出，重新生成词典、换入新的 golden 语料，再跑 `:sokkuri-runtime:jvmTest`、带克隆的验收测试、两种口径的比对与配置比对；摘要列出推进将改变的资源 | 只提示上游已变化，需评估是否推进锁定 |
+| 演练       | `upstream.yml` 的 head 任务   | 每周一定时、手动                   | 上游默认分支的最新提交若已偏离锁定，就演练一次推进锁定：在工作区内把锁改到该提交并检出，重新生成词典、换入新的 golden 语料，再跑 `:sokkuri-runtime:jvmTest`、带克隆的验收测试、两种口径的比对与配置比对，并以 Rust 读取器审计新词典、与 Kotlin 对拍；摘要列出推进将改变的资源 | 只提示上游已变化，需评估是否推进锁定 |
 
 除只读 `gradle.properties` 的版本校验跑在 ubuntu-latest 外，全部任务使用 macos-latest：iOS 模拟器测试只能在 macOS 上运行，统一 runner 也让环境只需维护一份；第 2 层所需的 cmake、clang++ 与 python3 在该镜像中预装。
 
@@ -595,3 +601,22 @@ JFR 采样另显示，词典组的 `mayStartKey` 占转换时间的 11% 至 20%�
 | jp2t | 0.17 | 0.13（0.76×） | 0.21（1.22×） | 3.63 | 3.25（0.90×） | 4.46（1.23×） |
 
 亚微秒的数值受 42 ns 计时粒度影响，以 `long` 为准。2026-10-15 的同机对照中，OpenCC 在长文本上比 Sokkuri 的 JVM 实现快 2.6 至 4.1 倍，iOS 上的差距约为其两倍；8.8 剖析了成因并消除了大部分。现在简转繁五档上游仍快 JVM 1.6 至 2.0 倍、iOS 3.0 至 3.6 倍，剩下的是检索结构的内存取舍，见 8.8；其余各档 JVM 为上游的 0.7 至 1.2 倍，iOS 为 0.9 至 1.9 倍。
+
+### 10.5 `.sok` 独立读取器
+
+**状态：实施中，2026-10-16 起。** 设计见 `docs/design/sok-rs.md`，本节记录已落地的部分。
+
+`SokFormatLayout` 的 KDoc 是 `.sok` 唯一的规范，编码器与解码器都在 `sokkuri-resource`，D6 保证两端一致，却证明不了规范本身完整：规范漏写的规则，解码器也照样漏掉。`tools/sok-rs` 以 Rust 按规范另写一个只读读取器，与 Kotlin 解码器对同一输入比对接受判定与拆出的结构，并审计规范要求而运行时不检查的不变量。
+
+- 读取器：`sok` 库按规范实现接受规则 V1 至 V12，与运行时解码器的接受集合一一对应；良构 UTF-8 按 RFC 3629 的字节表独立写成，与 Rust 标准库对拍；任何输入都不 panic，`unsafe` 被禁止，越界访问由 clippy 的 `indexing_slicing` 拦下；
+- 夹具：`tools/sok-rs/fixtures` 的四个小词典由 Kotlin 编码器写出，`SokFixtureFilesTest` 逐字节钉住，Rust 侧不编码；
+- 摘要：两端对原始字节流计算 FNV-1a 64，夹具的摘要另由 Python 独立算出并在两端钉住；
+- 对拍：`sokcheck expect --packaged` 写出打包词典的判定与摘要，`PackagedSokConformanceTest` 用 Kotlin 解码器逐条比对，并用运行时的 `matchExact` 与 `matchPrefix` 查回每个键。2026-10-16 起，22 个打包词典在两端完全一致；
+- 审计与收紧：`sok::audit` 原先检查规范要求而运行时不查的 A1 至 A5。2026-10-16 按设计文档第 8 节的决定，A1 至 A4 收紧为接受规则，在 Kotlin 解码器与 Rust 读取器中同步执行：键按码点严格递增成为 V12，maxKeyLength 必须恰为最长键的 UTF-16 长度并入 V5，两个偏移表从 0 开始并入 V7 与 V9，保留字段为 0 并入 V4。审计只剩 A5，即候选非空且良构，编号不复用；`sokcheck audit` 报出位置与原因，期望行附带审计结论。`verifyPackaged` 运行审计，`PackagedSokConformanceTest` 要求每个打包词典审计通过，22 个全部通过；`upstream.yml` 的演练任务对重新生成的词典跑同样两项。收紧使 JVM 上新进程里 STPhrases 的首次解码由约 15.4 ms 增至约 16.3 ms，见设计文档第 8 节。同批提交里，编码器改为拒绝含孤立代理项的键与候选：宽容编码在 JVM 上写成 `?`，在 Kotlin/Native 上写成 U+FFFD，同一组条目会在两端编出不同的文件；
+- 回放语料：`sokkuri-runtime/src/commonTest/resources/sok-conformance` 下的 `corpus.hex` 与 `expected.txt` 由 Rust 写出并提交，`SokConformanceTest` 在 JVM、Android host 与 iOS 上用 Kotlin 解码器逐条回放，随 `./gradlew build` 运行，不需要 Rust；`sokConformance` 中的 `checkCorpusExpectations` 确认期望仍是 Rust 读取器的结论。现有 236 条，接受 59 条、拒绝 177 条：两次模糊运行精简出的输入，加 `tools/sok-rs/sok/tests/violations.rs` 的手写用例，后者现有 35 个；
+- 手写用例的作用：模糊输入大多同时违反多条规则，删掉 Kotlin 解码器的某一条检查，回放的判定多半不变。逐条关掉解码器的检查，只用模糊语料时 V3 至 V11 的十二处只发现五处；并入手写用例、再经第 8 节收紧之后，V1 至 V12 的十八处发现十六处，存活的 V9 递增与 V10 在 V11 的铺满之下互相蕴含，是等价变异，论证见设计文档第 7 节；
+- 模糊测试：依 2026-10-15 的决定只在本地运行，`./gradlew :tools:sok-rs:fuzz` 串起种子、运行、精简、导入与重写期望，需要 nightly 与 cargo-fuzz。目标对任意字节解析并遍历，接受之后的任何越界都会 panic。首次运行于 2026-10-16，十分钟约 5.07 亿次；收紧之后在新规则下又跑十分钟，约 5.26 亿次，新增 72 条。两次都没有 panic，回放也没有发现两端分歧；
+- 运行：`./gradlew sokConformance` 聚合以上全部检查，各任务见设计文档 10.1。任务一律不挂入 `build` 与 `check`，cargo 依次从 `CARGO`、`~/.cargo/bin/cargo` 与 `PATH` 查找。CI 的 `sok reader` 任务运行同一条命令，见 10.2；
+- 变异检查：`./gradlew :tools:sok-rs:cargoMutants` 运行 cargo-mutants，需另行安装。唯一的存活变异是一个等价变异，连同理由记在 `tools/sok-rs/.cargo/mutants.toml`，其余存活即令任务失败；
+- 工具链：Rust 版本由 `tools/sok-rs/rust-toolchain.toml` 锁定，`Cargo.lock` 提交，cargo 调用一律带 `--locked`；
+- 交叉复读的副产品：Rust 侧按规范算出 `prefixes.sok` 的值偏移为 [0, 3, 7, 12]，暴露出 `SokDecoderValidationTest` 的注释仍写着旧夹具的 [0, 3, 6, 9]，且末字节回归用例的补丁值随夹具变化已不再命中末字节；两处均已修正。

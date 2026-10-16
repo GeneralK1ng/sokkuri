@@ -4,13 +4,17 @@
 # cannot drift apart. macOS runners only: the iOS targets need them, and the
 # command-line tools fetched below are the macOS distribution.
 name: Set up the Sokkuri build environment
-description: JDK 21 (Azul Zulu), Gradle with caching, the Android SDK and the Kotlin/Native toolchain cache.
+description: JDK 21 (Azul Zulu), Gradle with caching, the Android SDK, the Kotlin/Native toolchain cache and, on request, the pinned Rust toolchain.
 
 inputs:
   kotlin-native:
     description: Restore and save the Kotlin/Native toolchain (~/.konan). Only jobs that compile Apple targets need it.
     required: false
     default: "true"
+  rust:
+    description: Install the Rust toolchain pinned in tools/sok-rs/rust-toolchain.toml and cache cargo. Only the independent .sok reader needs it.
+    required: false
+    default: "false"
 
 runs:
   using: composite
@@ -76,3 +80,34 @@ runs:
       run: |
         echo "ANDROID_HOME=$HOME/android-sdk" >> "$GITHUB_ENV"
         echo "ANDROID_SDK_ROOT=$HOME/android-sdk" >> "$GITHUB_ENV"
+
+    # The independent .sok reader (docs/design/sok-rs.md §10.2). The version
+    # comes from its rust-toolchain.toml, the one place that pins it; rustup is
+    # preinstalled on the macOS runners, and installed here if an image drops it.
+    - name: Install the pinned Rust toolchain
+      if: inputs.rust == 'true'
+      shell: bash
+      run: |
+        version=$(sed -n 's/^channel = "\(.*\)"$/\1/p' tools/sok-rs/rust-toolchain.toml)
+        if [ -z "$version" ]; then
+          echo "::error file=tools/sok-rs/rust-toolchain.toml::no channel line to install"
+          exit 1
+        fi
+        if ! command -v rustup > /dev/null; then
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain none
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.cargo/bin:$PATH"
+        fi
+        rustup toolchain install "$version" --profile minimal --component rustfmt --component clippy
+
+    - name: Cache cargo
+      if: inputs.rust == 'true'
+      uses: actions/cache@v6
+      with:
+        path: |
+          ~/.cargo/registry
+          ~/.cargo/git
+          tools/sok-rs/target
+        key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tools/sok-rs/rust-toolchain.toml', 'tools/sok-rs/Cargo.lock') }}
+        restore-keys: |
+          cargo-${{ runner.os }}-${{ runner.arch }}-

@@ -32,15 +32,17 @@ package com.generalk1ng.sokkuri.resource
  * 4       4         formatVersion = 1
  * 8       4         flags = 0 (reserved; decoders must reject non-zero)
  * 12      4         entryCount
- * 16      4         maxKeyLength (UTF-16 code units, invariant I1)
+ * 16      4         maxKeyLength: the longest key in UTF-16 code units
+ *                   (invariant I1, decoder-enforced)
  * 20      4         keyBlobBytes
  * 24      4         valueBlobBytes
- * 28      4         reserved = 0
- * 32      4×(n+1)   keyOffsets, strictly increasing, last = keyBlobBytes
- * …       4×(n+1)   valueOffsets, strictly increasing, last = valueBlobBytes
+ * 28      4         reserved = 0 (decoders must reject non-zero)
+ * 32      4×(n+1)   keyOffsets, from 0, strictly increasing, last = keyBlobBytes
+ * …       4×(n+1)   valueOffsets, from 0, strictly increasing, last = valueBlobBytes
  * …       n         valueCounts (u8), candidates per entry, ≥ 1
- * …       *         keyBlob: UTF-8 keys in code-point order (invariant I2),
- *                   each well-formed on its own (decoder-enforced)
+ * …       *         keyBlob: UTF-8 keys, each well-formed on its own and
+ *                   strictly increasing in code-point order (invariant
+ *                   I2), so unique (both decoder-enforced)
  * …       *         valueBlob: per candidate u16 byteLen + UTF-8 bytes; the
  *                   candidates of entry i tile [valueOffsets[i],
  *                   valueOffsets[i+1]) exactly (decoder-enforced)
@@ -61,6 +63,7 @@ internal object SokFormatLayout {
     internal const val OFFSET_MAX_KEY_LENGTH: Int = 16
     internal const val OFFSET_KEY_BLOB_BYTES: Int = 20
     internal const val OFFSET_VALUE_BLOB_BYTES: Int = 24
+    internal const val OFFSET_RESERVED: Int = 28
 
     /** u8 cap on candidates per entry (the valueCounts column). */
     internal const val MAX_CANDIDATES_PER_ENTRY: Int = 0xFF

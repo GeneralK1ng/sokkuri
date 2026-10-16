@@ -48,7 +48,8 @@ public object SokDictionaryFormat : DictionaryFormat {
 @SokkuriInternalApi
 public class SokDictionary internal constructor(
     private val bytes: ByteArray,
-    private val entryCount: Int,
+    /** Number of entries, as stored in the header. */
+    public val entryCount: Int,
     override val maxKeyLength: Int,
     private val keyOffsetsBase: Int,
     private val valueOffsetsBase: Int,
@@ -135,6 +136,44 @@ public class SokDictionary internal constructor(
 
     override fun keyStarts(): CodePointSet = retrieval.keyStarts()
 
+    /**
+     * The stored bytes of key [index], not decoded. With [entryCount] and
+     * [rawCandidates], this is what the conformance tests against the
+     * independent Rust reader compare (docs/design/sok-rs.md §6): bytes, so a
+     * malformed value is compared as what it is rather than as each reader's
+     * replacement text. A fresh copy; never called at run time.
+     *
+     * @throws IndexOutOfBoundsException when [index] is not below [entryCount].
+     */
+    public fun rawKey(index: Int): ByteArray {
+        checkEntryIndex(index)
+        return bytes.copyOfRange(keyStart(index), keyEnd(index))
+    }
+
+    /**
+     * The stored bytes of each candidate of entry [index], in order, without
+     * their length prefixes, as fresh copies; the companion of [rawKey].
+     *
+     * @throws IndexOutOfBoundsException when [index] is not below [entryCount].
+     */
+    public fun rawCandidates(index: Int): List<ByteArray> {
+        checkEntryIndex(index)
+        val count = bytes[valueCountsBase + index].toInt() and 0xFF
+        val candidates = ArrayList<ByteArray>(count)
+        var cursor = valueCursor(index)
+        repeat(count) {
+            val start = cursor + SokFormatLayout.CANDIDATE_HEADER_BYTES
+            val end = start + SokFormatLayout.readU16(bytes, cursor)
+            candidates.add(bytes.copyOfRange(start, end))
+            cursor = end
+        }
+        return candidates
+    }
+
+    private fun checkEntryIndex(index: Int) {
+        if (index !in 0..<entryCount) throw IndexOutOfBoundsException("entry $index of $entryCount")
+    }
+
     private fun keyAt(index: Int): String = bytes.decodeToString(keyStart(index), keyEnd(index))
 
     private fun defaultValueAt(index: Int): String {
@@ -169,9 +208,11 @@ public class SokDictionary internal constructor(
 
         /**
          * Decodes [bytes] into a [SokDictionary], applying the strict
-         * decoder validation: magic/version/flags,
-         * entryCount consistency with the file size, monotone offset tables
-         * terminating at their blob sizes, `valueCounts ≥ 1`, and each
+         * decoder validation: magic, version, flags and the reserved field,
+         * entryCount consistency with the file size, offset tables rising
+         * strictly from 0 to their blob sizes, well-formed keys in strictly
+         * increasing code-point order, maxKeyLength equal to the longest
+         * key, `valueCounts ≥ 1`, and each
          * entry's candidates tiling its valueOffsets region exactly. Every
          * failure is an [SokkuriException.InvalidFormat] naming the field.
          */
@@ -194,18 +235,14 @@ public class SokDictionary internal constructor(
             if (flags != 0L) {
                 throw SokkuriException.InvalidFormat("sok: flags must be 0, was $flags")
             }
+            val reserved = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_RESERVED)
+            if (reserved != 0L) {
+                throw SokkuriException.InvalidFormat("sok: reserved field must be 0, was $reserved")
+            }
             val entryCount = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_ENTRY_COUNT)
             val maxKeyLength = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_MAX_KEY_LENGTH)
             val keyBlobBytes = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_KEY_BLOB_BYTES)
             val valueBlobBytes = SokFormatLayout.readU32(bytes, SokFormatLayout.OFFSET_VALUE_BLOB_BYTES)
-
-            // Every key holds at least one UTF-16 code unit per byte, so a
-            // maxKeyLength beyond the blob can only come from a corrupt file.
-            if (maxKeyLength > keyBlobBytes) {
-                throw SokkuriException.InvalidFormat(
-                    "sok: maxKeyLength $maxKeyLength exceeds keyBlobBytes $keyBlobBytes",
-                )
-            }
 
             // Region layout derived from entryCount; the declared total must
             // match the actual file size exactly (Long math: no overflow).
@@ -227,7 +264,12 @@ public class SokDictionary internal constructor(
             val valueBlobBase = keyBlobBase + keyBlobBytes.toInt()
 
             // Offset tables: strictly increasing from 0, terminating exactly
-            // at their blob size (strictness also excludes empty keys).
+            // at their blob size (strictness also excludes empty keys). From
+            // 0, so that no blob starts with bytes no entry refers to.
+            val firstKeyOffset = SokFormatLayout.readU32(bytes, keyOffsetsBase)
+            if (firstKeyOffset != 0L) {
+                throw SokkuriException.InvalidFormat("sok: keyOffsets[0] must be 0, was $firstKeyOffset")
+            }
             var previousKeyOffset = -1L
             for (i in 0..n) {
                 val offset = SokFormatLayout.readU32(bytes, keyOffsetsBase + i * 4)
@@ -248,12 +290,43 @@ public class SokDictionary internal constructor(
             // malformed key is rejected here, once, rather than tolerated on
             // every probe. Per key, not per blob: a sequence split across two
             // keys is valid as a blob but leaves both keys malformed.
+            // Each key must also sort strictly after the one before it
+            // (invariant I2): retrieval's binary searches rely on the order,
+            // and strictness rules out a repeated key. For well-formed UTF-8
+            // the unsigned byte order is the code-point order, and the key
+            // before this one is the region that ends where it starts.
+            var longestKey = 0
+            var previousStart = 0
+            var start = 0
             for (i in 0 until n) {
-                val start = SokFormatLayout.readU32(bytes, keyOffsetsBase + i * 4).toInt()
                 val end = SokFormatLayout.readU32(bytes, keyOffsetsBase + (i + 1) * 4).toInt()
                 if (!Utf8.isWellFormed(bytes, keyBlobBase + start, end - start)) {
                     throw SokkuriException.InvalidFormat("sok: key $i is not well-formed UTF-8")
                 }
+                val key = keyBlobBase + start
+                if (i > 0 && compareBytes(bytes, keyBlobBase + previousStart, key, keyBlobBase + end) >= 0) {
+                    throw SokkuriException.InvalidFormat("sok: key $i is not above key ${i - 1} in code-point order")
+                }
+                // A key never has more UTF-16 code units than UTF-8 bytes, so
+                // only one longer in bytes than the longest so far can be
+                // longer in code units; most keys skip the count.
+                if (end - start > longestKey) {
+                    longestKey = maxOf(longestKey, utf16Length(bytes, keyBlobBase + start, keyBlobBase + end))
+                }
+                previousStart = start
+                start = end
+            }
+            // maxKeyLength is the longest key in UTF-16 code units (invariant
+            // I1): retrieval cuts its window to it, so a smaller value would
+            // silently lose the matches of longer keys.
+            if (maxKeyLength != longestKey.toLong()) {
+                throw SokkuriException.InvalidFormat(
+                    "sok: maxKeyLength is $maxKeyLength, but the longest key has $longestKey UTF-16 code units",
+                )
+            }
+            val firstValueOffset = SokFormatLayout.readU32(bytes, valueOffsetsBase)
+            if (firstValueOffset != 0L) {
+                throw SokkuriException.InvalidFormat("sok: valueOffsets[0] must be 0, was $firstValueOffset")
             }
             var previousValueOffset = -1L
             for (i in 0..n) {
@@ -318,6 +391,36 @@ public class SokDictionary internal constructor(
                 keyBlobBase = keyBlobBase,
                 valueBlobBase = valueBlobBase,
             )
+        }
+
+        /**
+         * Compares the adjacent regions `[firstStart, secondStart)` and
+         * `[secondStart, secondEnd)` of [bytes] as unsigned bytes: negative
+         * when the first sorts before the second, zero when they are equal.
+         */
+        private fun compareBytes(bytes: ByteArray, firstStart: Int, secondStart: Int, secondEnd: Int): Int {
+            val firstLength = secondStart - firstStart
+            val secondLength = secondEnd - secondStart
+            for (k in 0 until minOf(firstLength, secondLength)) {
+                val first = bytes[firstStart + k]
+                val second = bytes[secondStart + k]
+                if (first != second) return (first.toInt() and 0xFF) - (second.toInt() and 0xFF)
+            }
+            return firstLength - secondLength
+        }
+
+        /**
+         * UTF-16 code units of the well-formed UTF-8 in `[start, end)`: one
+         * for every sequence, two for a four-byte one. Counts lead bytes
+         * rather than decoding, which only well-formedness makes correct.
+         */
+        private fun utf16Length(bytes: ByteArray, start: Int, end: Int): Int {
+            var units = 0
+            for (k in start until end) {
+                val byte = bytes[k].toInt() and 0xFF
+                if (byte < 0x80 || byte >= 0xC0) units += if (byte >= 0xF0) 2 else 1
+            }
+            return units
         }
     }
 }
