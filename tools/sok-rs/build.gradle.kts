@@ -268,5 +268,6 @@ tasks.register("fuzz") {
 tasks.register("sokConformance") {
     group = "sok-rs"
     description = "Every check of the independent .sok reader (docs/architecture.md §10.5)."
-    dependsOn(cargoLint, cargoTest, verifyPackaged, ":sokkuri-runtime:sokConformanceTest")
+    dependsOn(cargoLint, cargoTest, verifyPackaged, checkCorpusExpectations)
+    dependsOn(":sokkuri-runtime:sokConformanceTest")
 }
