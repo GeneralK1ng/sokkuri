@@ -86,6 +86,20 @@ fn verify_exits_one_on_a_violation_and_names_it() {
 }
 
 #[test]
+fn a_directory_contributes_only_its_sok_files() {
+    let directory = scratch("listing", "b.sok", b"SOK1")
+        .parent()
+        .expect("parent")
+        .to_path_buf();
+    std::fs::write(directory.join("a.sok"), b"SOK1").expect("a.sok");
+    std::fs::write(directory.join("notes.txt"), b"not a dictionary").expect("notes.txt");
+    std::fs::create_dir_all(directory.join("nested.sok")).expect("a directory named like a dictionary");
+    let output = sokcheck(&["expect", "--packaged", directory.to_str().expect("path")]);
+    assert_eq!(Some(0), output.status.code());
+    assert_eq!("a.sok\treject\tV1\nb.sok\treject\tV1\n", stdout(&output));
+}
+
+#[test]
 fn verify_of_a_directory_passes_on_the_fixtures() {
     let output = sokcheck(&["verify", fixtures().to_str().expect("path")]);
     assert_eq!(Some(0), output.status.code());
@@ -115,16 +129,24 @@ fn stats_describe_the_shape() {
         text.contains("  supplementary    2 keys start outside the BMP\n"),
         "{text}"
     );
+    assert!(
+        text.contains("  candidates       11, at most 3 per entry, 3 entries with several\n"),
+        "{text}"
+    );
 }
 
 #[test]
 fn usage_and_io_errors_exit_two() {
+    let fixtures = fixtures();
+    let fixtures = fixtures.to_str().expect("path");
     for arguments in [
         &[][..],
         &["nope"],
         &["verify"],
         &["dump"],
+        &["dump", fixtures, fixtures],
         &["expect", "corpus.hex"],
+        &["expect", "--unknown", fixtures],
         &["verify", "/no/such/file.sok"],
     ] {
         let output = sokcheck(arguments);

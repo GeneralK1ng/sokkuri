@@ -21,14 +21,20 @@
 use std::fs;
 use std::path::PathBuf;
 
-/// The repository root, three levels above this crate.
+/// The repository root: `SOKKURI_REPOSITORY` when set, otherwise three levels
+/// above this crate. The variable is for runs from a copy of the workspace,
+/// such as `cargo mutants`, whose copy holds no packaged dictionaries.
 pub fn repository() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../..")
+    std::env::var_os("SOKKURI_REPOSITORY").map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../.."),
+        PathBuf::from,
+    )
 }
 
-/// The encoder-written fixtures, pinned by the Kotlin `SokFixtureFilesTest`.
+/// The encoder-written fixtures, pinned by the Kotlin `SokFixtureFilesTest`;
+/// they live in this workspace, so a copy of it carries them.
 pub fn fixture(name: &str) -> Vec<u8> {
-    let path = repository().join("tools/sok-rs/fixtures").join(name);
+    let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../fixtures").join(name);
     fs::read(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display()))
 }
 

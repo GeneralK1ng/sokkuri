@@ -60,6 +60,11 @@ fn cases() -> Vec<(&'static str, Vec<u8>, Rule)> {
             corrupt(|bytes| bytes.truncate(31)),
             Rule::Header,
         ),
+        (
+            "exactly the header and nothing else",
+            corrupt(|bytes| bytes.truncate(32)),
+            Rule::Size,
+        ),
         ("truncated by one byte", corrupt(|bytes| bytes.truncate(84)), Rule::Size),
         ("bad magic", corrupt(|bytes| bytes[0] = b'X'), Rule::Magic),
         (
@@ -174,6 +179,49 @@ fn every_rule_has_a_case() {
     assert!(missing.is_empty(), "rules without a negative case: {missing:?}");
 }
 
+/// The byte each violation points at: the offending field, or the start of the
+/// offending region, so a report leads straight to the bytes to look at.
+#[test]
+fn violations_point_at_the_offending_bytes() {
+    let place = |edit: fn(&mut Vec<u8>)| SokFile::parse(&corrupt(edit)).expect_err("rejected");
+    let last_key_offset = place(|bytes| common::put_u32(bytes, KEY_OFFSETS + 12, 1000));
+    assert_eq!(
+        (Rule::KeyOffsets, KEY_OFFSETS + 12),
+        (last_key_offset.rule(), last_key_offset.offset())
+    );
+    let rising = place(|bytes| common::put_u32(bytes, KEY_OFFSETS + 4, 0));
+    assert_eq!((Rule::KeyOffsets, KEY_OFFSETS + 4), (rising.rule(), rising.offset()));
+    let last_value_offset = place(|bytes| common::put_u32(bytes, VALUE_OFFSETS + 12, 13));
+    assert_eq!(
+        (Rule::ValueOffsets, VALUE_OFFSETS + 12),
+        (last_value_offset.rule(), last_value_offset.offset())
+    );
+
+    // Entry 1's region [3, 7) cut to [3, 4): its candidate's length prefix
+    // cannot fit, reported where the prefix would start.
+    let too_many = place(|bytes| common::put_u32(bytes, VALUE_OFFSETS + 8, 4));
+    assert_eq!(
+        (Rule::ValueTiling, VALUE_BLOB + 3),
+        (too_many.rule(), too_many.offset())
+    );
+    assert!(too_many.detail().contains("claims 1 candidates"), "{too_many}");
+    // Entry 0's candidate lengthened by one byte: reported at the region start.
+    let overshoot = place(|bytes| common::put_u16(bytes, VALUE_BLOB, 2));
+    assert_eq!((Rule::ValueTiling, VALUE_BLOB), (overshoot.rule(), overshoot.offset()));
+    assert!(
+        overshoot.detail().contains("end at 4, but its region ends at 3"),
+        "{overshoot}"
+    );
+    // Entry 1's candidate lengthened, so the region start is not zero.
+    let later = place(|bytes| common::put_u16(bytes, VALUE_BLOB + 3, 3));
+    assert_eq!((Rule::ValueTiling, VALUE_BLOB + 3), (later.rule(), later.offset()));
+    let empty_entry = place(|bytes| bytes[VALUE_COUNTS + 1] = 0);
+    assert_eq!(
+        (Rule::ValueCounts, VALUE_COUNTS + 1),
+        (empty_entry.rule(), empty_entry.offset())
+    );
+}
+
 #[test]
 fn violations_name_their_rule_and_place() {
     let violation = SokFile::parse(&corrupt(|bytes| bytes[KEY_BLOB + 1] = 0xED)).expect_err("rejected");
@@ -195,14 +243,18 @@ fn oddities_the_runtime_accepts_are_accepted() {
     let understated = corrupt(|bytes| common::put_u32(bytes, 16, 1));
     assert_eq!(None, rule_of(&understated), "maxKeyLength below the longest key");
 
-    // Entry 2's five value bytes re-cut as an empty candidate and "C".
-    let empty_candidate = corrupt(|bytes| {
-        bytes[VALUE_COUNTS + 2] = 2;
-        bytes[VALUE_BLOB + 7..VALUE_BLOB + 12].copy_from_slice(&[0, 0, 1, 0, b'C']);
-    });
-    let file = SokFile::parse(&empty_candidate).expect("an empty candidate is accepted");
-    let candidates: Vec<&[u8]> = file.entry(2).expect("entry 2").candidates().collect();
-    assert_eq!(vec![&b""[..], &b"C"[..]], candidates);
+    // Entry 2's five value bytes re-cut as an empty candidate and "C", then
+    // the other way round, where the empty candidate's prefix ends the region.
+    let cuts: [([u8; 5], [&[u8]; 2]); 2] = [([0, 0, 1, 0, b'C'], [b"", b"C"]), ([1, 0, b'C', 0, 0], [b"C", b""])];
+    for (cut, expected) in cuts {
+        let empty_candidate = corrupt(|bytes| {
+            bytes[VALUE_COUNTS + 2] = 2;
+            bytes[VALUE_BLOB + 7..VALUE_BLOB + 12].copy_from_slice(&cut);
+        });
+        let file = SokFile::parse(&empty_candidate).expect("an empty candidate is accepted");
+        let candidates: Vec<&[u8]> = file.entry(2).expect("entry 2").candidates().collect();
+        assert_eq!(expected.to_vec(), candidates);
+    }
 }
 
 #[test]
