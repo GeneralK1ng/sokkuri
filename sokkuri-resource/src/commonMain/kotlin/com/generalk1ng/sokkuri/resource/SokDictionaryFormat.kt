@@ -48,7 +48,8 @@ public object SokDictionaryFormat : DictionaryFormat {
 @SokkuriInternalApi
 public class SokDictionary internal constructor(
     private val bytes: ByteArray,
-    private val entryCount: Int,
+    /** Number of entries, as stored in the header. */
+    public val entryCount: Int,
     override val maxKeyLength: Int,
     private val keyOffsetsBase: Int,
     private val valueOffsetsBase: Int,
@@ -134,6 +135,44 @@ public class SokDictionary internal constructor(
     override fun mayStartKey(codePoint: Int): Boolean = retrieval.mayStartKey(codePoint)
 
     override fun keyStarts(): CodePointSet = retrieval.keyStarts()
+
+    /**
+     * The stored bytes of key [index], not decoded. With [entryCount] and
+     * [rawCandidates], this is what the conformance tests against the
+     * independent Rust reader compare (docs/design/sok-rs.md §6): bytes, so a
+     * malformed value is compared as what it is rather than as each reader's
+     * replacement text. A fresh copy; never called at run time.
+     *
+     * @throws IndexOutOfBoundsException when [index] is not below [entryCount].
+     */
+    public fun rawKey(index: Int): ByteArray {
+        checkEntryIndex(index)
+        return bytes.copyOfRange(keyStart(index), keyEnd(index))
+    }
+
+    /**
+     * The stored bytes of each candidate of entry [index], in order, without
+     * their length prefixes, as fresh copies; the companion of [rawKey].
+     *
+     * @throws IndexOutOfBoundsException when [index] is not below [entryCount].
+     */
+    public fun rawCandidates(index: Int): List<ByteArray> {
+        checkEntryIndex(index)
+        val count = bytes[valueCountsBase + index].toInt() and 0xFF
+        val candidates = ArrayList<ByteArray>(count)
+        var cursor = valueCursor(index)
+        repeat(count) {
+            val start = cursor + SokFormatLayout.CANDIDATE_HEADER_BYTES
+            val end = start + SokFormatLayout.readU16(bytes, cursor)
+            candidates.add(bytes.copyOfRange(start, end))
+            cursor = end
+        }
+        return candidates
+    }
+
+    private fun checkEntryIndex(index: Int) {
+        if (index !in 0..<entryCount) throw IndexOutOfBoundsException("entry $index of $entryCount")
+    }
 
     private fun keyAt(index: Int): String = bytes.decodeToString(keyStart(index), keyEnd(index))
 

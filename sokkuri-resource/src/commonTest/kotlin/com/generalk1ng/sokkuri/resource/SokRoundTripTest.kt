@@ -20,9 +20,11 @@ package com.generalk1ng.sokkuri.resource
 
 import com.generalk1ng.sokkuri.engine.Dictionary
 import com.generalk1ng.sokkuri.engine.SortedListDictionary
+import com.generalk1ng.sokkuri.engine.Utf
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 /**
@@ -134,5 +136,28 @@ class SokRoundTripTest {
         assertEquals(0, decoded.maxKeyLength)
         assertNull(decoded.matchExact("a"))
         assertNull(decoded.matchPrefix("a".toCharArray(), 0, 1))
+    }
+
+    /**
+     * The raw accessors the cross-implementation conformance tests read
+     * (docs/design/sok-rs.md §6) return the encoder's bytes, entry by entry in
+     * code-point order, and nothing past the last entry.
+     */
+    @Test
+    fun rawAccessorsReturnTheStoredBytes() {
+        val dictionary = SokDictionaryFormat.decode(SokDictionaryEncoder.encode(sample)) as SokDictionary
+        val sorted = sample.sortedWith { a, b -> Utf.compareByCodePoint(a.first, b.first) }
+        assertEquals(sorted.size, dictionary.entryCount)
+        for ((index, entry) in sorted.withIndex()) {
+            val (key, candidates) = entry
+            assertContentEquals(key.encodeToByteArray(), dictionary.rawKey(index), key)
+            assertEquals(
+                candidates.map { it.encodeToByteArray().toList() },
+                dictionary.rawCandidates(index).map { it.toList() },
+                key,
+            )
+        }
+        assertFailsWith<IndexOutOfBoundsException> { dictionary.rawKey(sorted.size) }
+        assertFailsWith<IndexOutOfBoundsException> { dictionary.rawCandidates(-1) }
     }
 }
