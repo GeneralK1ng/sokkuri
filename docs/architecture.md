@@ -608,14 +608,14 @@ JFR 采样另显示，词典组的 `mayStartKey` 占转换时间的 11% 至 20%�
 
 `SokFormatLayout` 的 KDoc 是 `.sok` 唯一的规范，编码器与解码器都在 `sokkuri-resource`，D6 保证两端一致，却证明不了规范本身完整：规范漏写的规则，解码器也照样漏掉。`tools/sok-rs` 以 Rust 按规范另写一个只读读取器，与 Kotlin 解码器对同一输入比对接受判定与拆出的结构，并审计规范要求而运行时不检查的不变量。
 
-- 读取器：`sok` 库按规范实现接受规则 V1 至 V11，与运行时解码器的接受集合一一对应；良构 UTF-8 按 RFC 3629 的字节表独立写成，与 Rust 标准库对拍；任何输入都不 panic，`unsafe` 被禁止，越界访问由 clippy 的 `indexing_slicing` 拦下；
+- 读取器：`sok` 库按规范实现接受规则 V1 至 V12，与运行时解码器的接受集合一一对应；良构 UTF-8 按 RFC 3629 的字节表独立写成，与 Rust 标准库对拍；任何输入都不 panic，`unsafe` 被禁止，越界访问由 clippy 的 `indexing_slicing` 拦下；
 - 夹具：`tools/sok-rs/fixtures` 的四个小词典由 Kotlin 编码器写出，`SokFixtureFilesTest` 逐字节钉住，Rust 侧不编码；
 - 摘要：两端对原始字节流计算 FNV-1a 64，夹具的摘要另由 Python 独立算出并在两端钉住；
 - 对拍：`sokcheck expect --packaged` 写出打包词典的判定与摘要，`PackagedSokConformanceTest` 用 Kotlin 解码器逐条比对，并用运行时的 `matchExact` 与 `matchPrefix` 查回每个键。2026-10-16 起，22 个打包词典在两端完全一致；
-- 审计：`sok::audit` 检查规范要求而运行时不查的 A1 至 A5，即键按码点严格递增、maxKeyLength 恰为最长键、两个偏移表首项为 0、保留字段为 0、候选非空且良构；`sokcheck audit` 报出位置与原因，期望行附带审计结论。`verifyPackaged` 运行审计，`PackagedSokConformanceTest` 要求每个打包词典审计通过，22 个全部通过；`upstream.yml` 的演练任务对重新生成的词典跑同样两项。A1 至 A4 是否收紧为接受规则，待设计文档第 8 节决定；
-- 回放语料：`sokkuri-runtime/src/commonTest/resources/sok-conformance` 下的 `corpus.hex` 与 `expected.txt` 由 Rust 写出并提交，`SokConformanceTest` 在 JVM、Android host 与 iOS 上用 Kotlin 解码器逐条回放，随 `./gradlew build` 运行，不需要 Rust；`sokConformance` 中的 `checkCorpusExpectations` 确认期望仍是 Rust 读取器的结论。现有 158 条：首次模糊运行精简出的 125 条，加 `tools/sok-rs/sok/tests/violations.rs` 的 33 个手写用例；
-- 手写用例的作用：模糊输入大多同时违反多条规则，删掉 Kotlin 解码器的某一条检查，回放的判定多半不变。逐条关掉解码器的检查，只用模糊语料时 V3 至 V11 的十二处只发现五处，并入手写用例后 V1 至 V11 的十四处发现十二处；存活的 V9 递增与 V10 在 V11 的铺满之下互相蕴含，是等价变异，论证见设计文档第 7 节；
-- 模糊测试：依 2026-10-15 的决定只在本地运行，`./gradlew :tools:sok-rs:fuzz` 串起种子、运行、精简、导入与重写期望，需要 nightly 与 cargo-fuzz。目标对任意字节解析并遍历，接受之后的任何越界都会 panic。首次运行于 2026-10-16，十分钟约 5.07 亿次，没有 panic，回放也没有发现两端分歧；
+- 审计与收紧：`sok::audit` 原先检查规范要求而运行时不查的 A1 至 A5。2026-10-16 按设计文档第 8 节的决定，A1 至 A4 收紧为接受规则，在 Kotlin 解码器与 Rust 读取器中同步执行：键按码点严格递增成为 V12，maxKeyLength 必须恰为最长键的 UTF-16 长度并入 V5，两个偏移表从 0 开始并入 V7 与 V9，保留字段为 0 并入 V4。审计只剩 A5，即候选非空且良构，编号不复用；`sokcheck audit` 报出位置与原因，期望行附带审计结论。`verifyPackaged` 运行审计，`PackagedSokConformanceTest` 要求每个打包词典审计通过，22 个全部通过；`upstream.yml` 的演练任务对重新生成的词典跑同样两项。收紧使 JVM 上新进程里 STPhrases 的首次解码由约 15.4 ms 增至约 16.3 ms，见设计文档第 8 节。同批提交里，编码器改为拒绝含孤立代理项的键与候选：宽容编码在 JVM 上写成 `?`，在 Kotlin/Native 上写成 U+FFFD，同一组条目会在两端编出不同的文件；
+- 回放语料：`sokkuri-runtime/src/commonTest/resources/sok-conformance` 下的 `corpus.hex` 与 `expected.txt` 由 Rust 写出并提交，`SokConformanceTest` 在 JVM、Android host 与 iOS 上用 Kotlin 解码器逐条回放，随 `./gradlew build` 运行，不需要 Rust；`sokConformance` 中的 `checkCorpusExpectations` 确认期望仍是 Rust 读取器的结论。现有 236 条，接受 59 条、拒绝 177 条：两次模糊运行精简出的输入，加 `tools/sok-rs/sok/tests/violations.rs` 的手写用例，后者现有 35 个；
+- 手写用例的作用：模糊输入大多同时违反多条规则，删掉 Kotlin 解码器的某一条检查，回放的判定多半不变。逐条关掉解码器的检查，只用模糊语料时 V3 至 V11 的十二处只发现五处；并入手写用例、再经第 8 节收紧之后，V1 至 V12 的十八处发现十六处，存活的 V9 递增与 V10 在 V11 的铺满之下互相蕴含，是等价变异，论证见设计文档第 7 节；
+- 模糊测试：依 2026-10-15 的决定只在本地运行，`./gradlew :tools:sok-rs:fuzz` 串起种子、运行、精简、导入与重写期望，需要 nightly 与 cargo-fuzz。目标对任意字节解析并遍历，接受之后的任何越界都会 panic。首次运行于 2026-10-16，十分钟约 5.07 亿次；收紧之后在新规则下又跑十分钟，约 5.26 亿次，新增 72 条。两次都没有 panic，回放也没有发现两端分歧；
 - 运行：`./gradlew sokConformance` 聚合以上全部检查，各任务见设计文档 10.1。任务一律不挂入 `build` 与 `check`，cargo 依次从 `CARGO`、`~/.cargo/bin/cargo` 与 `PATH` 查找。CI 的 `sok reader` 任务运行同一条命令，见 10.2；
 - 变异检查：`./gradlew :tools:sok-rs:cargoMutants` 运行 cargo-mutants，需另行安装。唯一的存活变异是一个等价变异，连同理由记在 `tools/sok-rs/.cargo/mutants.toml`，其余存活即令任务失败；
 - 工具链：Rust 版本由 `tools/sok-rs/rust-toolchain.toml` 锁定，`Cargo.lock` 提交，cargo 调用一律带 `--locked`；
