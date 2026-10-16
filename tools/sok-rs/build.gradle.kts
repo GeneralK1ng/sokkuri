@@ -160,8 +160,8 @@ val sokcheck = listOf("run", "--quiet", "--locked", "--package", "sokcheck", "--
 
 val verifyPackaged by tasks.registering(CargoTask::class) {
     cargoTask()
-    description = "Checks every packaged dictionary against the acceptance rules."
-    arguments = sokcheck + listOf("verify", packagedDictionaries)
+    description = "Checks every packaged dictionary against the acceptance rules, then audits it (A1 to A5)."
+    arguments = sokcheck + listOf("audit", packagedDictionaries)
     mustRunAfter(cargoTest)
 }
 
