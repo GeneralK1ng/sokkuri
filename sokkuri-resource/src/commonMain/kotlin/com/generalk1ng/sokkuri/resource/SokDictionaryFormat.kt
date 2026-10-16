@@ -296,19 +296,16 @@ public class SokDictionary internal constructor(
             // the unsigned byte order is the code-point order, and the key
             // before this one is the region that ends where it starts.
             var longestKey = 0
+            var previousStart = 0
+            var start = 0
             for (i in 0 until n) {
-                val start = SokFormatLayout.readU32(bytes, keyOffsetsBase + i * 4).toInt()
                 val end = SokFormatLayout.readU32(bytes, keyOffsetsBase + (i + 1) * 4).toInt()
                 if (!Utf8.isWellFormed(bytes, keyBlobBase + start, end - start)) {
                     throw SokkuriException.InvalidFormat("sok: key $i is not well-formed UTF-8")
                 }
-                if (i > 0) {
-                    val previousStart = SokFormatLayout.readU32(bytes, keyOffsetsBase + (i - 1) * 4).toInt()
-                    if (compareBytes(bytes, keyBlobBase + previousStart, keyBlobBase + start, keyBlobBase + end) >= 0) {
-                        throw SokkuriException.InvalidFormat(
-                            "sok: key $i is not above key ${i - 1} in code-point order",
-                        )
-                    }
+                val key = keyBlobBase + start
+                if (i > 0 && compareBytes(bytes, keyBlobBase + previousStart, key, keyBlobBase + end) >= 0) {
+                    throw SokkuriException.InvalidFormat("sok: key $i is not above key ${i - 1} in code-point order")
                 }
                 // A key never has more UTF-16 code units than UTF-8 bytes, so
                 // only one longer in bytes than the longest so far can be
@@ -316,6 +313,8 @@ public class SokDictionary internal constructor(
                 if (end - start > longestKey) {
                     longestKey = maxOf(longestKey, utf16Length(bytes, keyBlobBase + start, keyBlobBase + end))
                 }
+                previousStart = start
+                start = end
             }
             // maxKeyLength is the longest key in UTF-16 code units (invariant
             // I1): retrieval cuts its window to it, so a smaller value would
@@ -403,8 +402,9 @@ public class SokDictionary internal constructor(
             val firstLength = secondStart - firstStart
             val secondLength = secondEnd - secondStart
             for (k in 0 until minOf(firstLength, secondLength)) {
-                val difference = (bytes[firstStart + k].toInt() and 0xFF) - (bytes[secondStart + k].toInt() and 0xFF)
-                if (difference != 0) return difference
+                val first = bytes[firstStart + k]
+                val second = bytes[secondStart + k]
+                if (first != second) return (first.toInt() and 0xFF) - (second.toInt() and 0xFF)
             }
             return firstLength - secondLength
         }
