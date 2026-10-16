@@ -2,25 +2,40 @@
 00b8f1bd04604142	reject	V4
 01455f01388107a7	reject	V11
 03e205e3ea492705	reject	V4
+0474c4d03f55bcb0	accept	7	3	28d127243166226f	audit:A5
+05bb6a845efaa355	accept	3	3	e47eb09b8b67548e	audit:A5
 07376c48289fe689	reject	V4
 073c00daf68a8313	reject	V4
 074a3e67397dc2cf	reject	V10
+074c1a08e1305f61	accept	7	3	30a875396e336462	audit:A5
 0782580c546c6583	reject	V8
 079e8a1f7e24eb20	reject	V4
+07ae86344bce1487	accept	7	3	a11f0b4d919a7664	audit:A5
+0a0cf697f193efcd	reject	V8
+0a7e5050c70470c5	accept	7	3	ac0468a9a71b207e	audit:A5
 0b7c13f3c66b57a3	reject	V12
 0bf5ff956ec2a5bf	reject	V4
+0c3df6cd50e615db	reject	V8
+0c3e8bcd50e7130a	reject	V5
 0c7ed71b919c59ac	reject	V1
+0ec8957462a3708a	reject	V8
 10bfe409f31bda96	reject	V9
 11b23823ed23aad2	reject	V4
 14f531997317d360	reject	V12
 18f4f411e32d4fae	reject	V12
+196e028fb9e9bbfc	accept	7	3	61885758054616e9	audit:A5
+19c6d46637f430d2	reject	V8
+19ced523142b69a2	accept	7	3	c8e0de4f69301a47	audit:A5
 19d37e0c2c03e2fb	reject	V12
 1b4636c4294eaef6	reject	V4
 1bc7bb8e3f4a8d64	reject	V8
+1be8dcd89d8fb590	accept	7	3	df84eee8fab622eb	audit:A5
 1cf936c42ac04376	reject	V4
+1d6d4f409c45e879	reject	V9
 1e24c304220a4cf8	reject	V9
 1f269547834476d2	accept	3	3	6f52dad2684987c7	audit:A5
 20440c06c7a828b1	reject	V12
+211f3d1b02fa43ff	accept	7	3	bad377d7d801d140	audit-ok
 22e2d64186dee40e	reject	V8
 23ccd0680d2d943f	reject	V4
 24f4820e51ecd6ac	reject	V7
@@ -32,24 +47,36 @@
 2a4233adc7d511c7	reject	V4
 2ab9c556b44d7b26	reject	V2
 2ac873c94080753a	reject	V4
+2b83ff2405f37396	accept	7	3	baa3869d6a455a3b	audit:A5
 2b9099de124ed80d	reject	V4
+2d5d3b1e58fd3c37	accept	7	3	35b01080df8396d4	audit:A5
 2dc8fce50ab8a0d0	reject	V4
+2e35d4d0ad1f68b5	reject	V12
+2e4a1faeca3fbcb0	accept	7	3	3b21149fabdafcbf	audit:A5
 322a33364ed48f72	accept	7	3	de98a1e368ef90c1	audit:A5
 32529280bba18169	reject	V3
 3420113edbf8d491	reject	V11
 3427c1f9e6e0eae9	reject	V4
+3431e0e2a5a21391	reject	V12
 3656049fb503668b	reject	V4
 36bb01093e32f95c	reject	V4
 371e71fa495c6e20	accept	7	3	c1648b17b444c343	audit:A5
 38de7e2fe03a9045	reject	V8
+39002a57a6c4f6b5	accept	7	3	9375957142b2d596	audit-ok
 395a5ff02f688517	reject	V4
 39940c9c7b27397d	reject	V4
+3b941dce77ca6490	accept	7	3	ef3f060f949a696f	audit:A5
 3b9f269cbceb34d6	reject	V4
+3bde2fb6f7a79031	reject	V8
+3c55a069dca55a03	reject	V5
+3cd84d240fc5b974	accept	7	3	a950989d60756a7d	audit:A5
 3d60528f05dd3e6e	reject	V8
 3d72922d2414c3bb	reject	V12
 3d7769413aa9a5fd	reject	V11
+3fbc2cdb61e3b3f5	accept	7	3	0f4ccd5c867b32a6	audit:A5
 411a4edcf52909fd	reject	V12
 4373fd034776865f	reject	V4
+43eefee84830d7ee	accept	7	3	e3b1307450c2dd33	audit:A5
 44eba6317ed1ffa2	reject	V4
 480dda4a6d930a4f	reject	V4
 4be1b5dd3d811059	reject	V4
@@ -61,39 +88,58 @@
 516ea818c0b46dee	reject	V4
 521886a55b1660c1	reject	V4
 5564f4319fe923e9	reject	V4
+5664a72faf8d0480	accept	7	3	e53eed6fc2393cc7	audit:A5
 56f0b7710bad14f7	reject	V4
 57d744b5857caa0d	reject	V1
 588d20a01d6ff508	reject	V12
+58e80a1bdf0f330d	accept	7	3	a63cdda9b9d1ec90	audit:A5
+595ef24fcdd7a511	reject	V12
+5b64240bec3a7f62	reject	V8
+5bc39d442aca78f4	reject	V8
 5bff83cb75a39c30	reject	V9
 5d27c194d943eed6	reject	V8
 5d4547847d58d7c7	reject	V4
+5dfd1078faf75e5e	accept	7	3	7ef5b6a42c6be939	audit:A5
 5e25c2f57c120585	reject	V8
+5f31189863b20441	accept	7	3	7ee63f7c16e1b512	audit:A5
 6405134e505970a9	reject	V5
+64f9ff4a5fabcd5b	reject	V8
 65222e6f4723f83d	reject	V5
 65e821a50714c841	reject	V4
 6697830c1efb67fa	reject	V4
 669eaca37ecf369d	reject	V4
+67f04ce23125edb2	accept	7	3	d6ce66da1d544c17	audit:A5
 690ee6d3b1097e71	accept	7	3	f4404022f4390a72	audit-ok
+69c4f78a801233e6	accept	3	3	b6e20165669271ad	audit:A5
 6a161597ed322c07	reject	V4
 6b5bccc641456ea6	reject	V1
+6dc5cbee396ad89b	accept	7	3	5b74ac71fdaa0d56	audit:A5
+6ddbb6b0bde49c50	accept	7	3	13ef14944b83872b	audit:A5
 6f48b0746997214d	reject	V4
+6f57ca62b28b53b0	reject	V10
 73fec2187b4a27a0	accept	3	3	faf573e7d74dc81d	audit:A5
 74547d24541c1c5f	reject	V1
 745d23b8bef925d2	reject	V5
 77ab1b2454015132	reject	V2
 79f9d4489fff30e7	reject	V12
+7ecf0e4f884c8a6c	reject	V11
 7f5adfac3794d4da	reject	V4
 8388293ac02f8bf0	reject	V12
 84047fc20aaa5cc8	reject	V5
 840fc56a4feeede6	reject	V4
 84146419a87a48fe	reject	V7
 8442c113c42fbd24	reject	V12
+84f5ca5250df760d	accept	7	3	dc75bc86c577b0cc	audit:A5
 8c3dfb6c23110382	reject	V6
 8cbb4c24d827cb7e	reject	V4
 8f2e9e196a8a2801	reject	V4
 8fb9ee3ded00f68f	reject	V4
 90a2d278f92d0286	reject	V12
+91a9f9455ff58846	reject	V12
+920cc9830b02f7ce	accept	3	3	aa9e5527062a54d3	audit:A5
 926225d087f633b9	reject	V12
+935cf94561671cc6	reject	V8
+93baac6880945191	reject	V7
 9533f260a2d4e0ab	reject	V9
 9618ddf0944355d8	reject	V7
 96d4c0b8f6300b32	reject	V12
@@ -103,23 +149,34 @@
 9c7763199b2d8de1	accept	3	3	6d5a075bcef2b484	audit:A5
 9c7a1c7ccc8896ab	reject	V4
 9d76f22d81f16705	reject	V12
+9e374df5a74a1781	reject	V11
+a066756756f3280d	accept	7	3	d8917cfabeb72752	audit:A5
 a29051176f88945f	reject	V12
+a33c774754786e61	accept	7	3	90d2992f78b2f1ce	audit:A5
 a44b14548563cf82	reject	V8
+a466c52362abc112	accept	7	3	5379ce4fb7b224b7	audit:A5
 a5d2003584e97c55	reject	V11
 a63358d4fb05f68d	reject	V4
+a69bdd77ad8a2bd0	accept	7	3	bbd7e4ca6ac4b36b	audit:A5
 a7a0c15c3cdafa05	accept	7	3	463da99707854a06	audit:A5
 a7a11a5c3cdb9140	accept	7	3	463d0c9707843f3f	audit:A5
+a8f19bd1919d2acb	accept	7	3	eb88df201ad53974	audit:A5
+a98297b0df66e923	accept	7	3	66b2c3947bc0e988	audit:A5
 a99df9d8ee59862d	reject	V4
 aaaac9fc85282ad0	reject	V12
 aabbe835c6ddde15	reject	V4
 ad90337b3678ea36	accept	7	3	ba4e84bfff19f663	audit:A5
 af63bd4c8601b7df	reject	V1
 b0dedd453edc40b1	accept	3	3	adb00d329f435734	audit:A5
+b12ebb5705366d16	reject	V5
+b170f1e7545e3cf6	reject	V7
 b2289d2b3bea5dbe	reject	V4
 b9550afb51412fc8	reject	V4
 ba748a09b23183d4	reject	V1
+bc7c21ff173506aa	accept	7	3	cb91ce0a5e5e01ef	audit:A5
 bd91454890089ec4	reject	V4
 beb1c591d3627157	reject	V1
+bffa8c25d9b49d99	accept	7	3	f55490fba7985962	audit:A5
 c0257d35e25dc0fe	accept	3	3	d34f6b817197f04d	audit:A5
 c093dce9ee7ba249	reject	V4
 c1b073aa5e6c62ff	reject	V1
@@ -129,11 +186,15 @@ c404dd594f965662	reject	V4
 c45af3948cce9491	reject	V12
 c52bc5dc74662434	accept	7	3	92be5391117137bd	audit:A5
 c6ed94ed1b738439	accept	7	3	cd6d3097176127a6	audit-ok
+c83725cb761a89f1	reject	V5
+c9dc76cb77806ab8	reject	V9
 c9e7356ced75fbca	reject	V8
 cacd443151693939	reject	V4
 cb873f2f7bd74969	reject	V4
 cbf29ce484222325	reject	V1
+cc62b15ba2855b3e	reject	V8
 ce2e8b0f3740380d	reject	V4
+ce6166577cd5dc7f	reject	V7
 cfadda18abeccd11	reject	V12
 cfb729db16a7c3f1	reject	V4
 d0c2471e624b65de	reject	V4
@@ -144,7 +205,11 @@ d9273660195ec82e	reject	V7
 d92ff35a9c3929e2	reject	V11
 d9a87a9cb5a063c7	accept	7	3	8e9ca6d1285c7ccc	audit-ok
 d9aa3c725240af78	reject	V7
+daf197e6818ab233	reject	V8
 db9e71c73fc3abcc	reject	V7
+dd429c3cc21141f0	accept	7	3	9b5b3a5ca3cb8daf	audit:A5
+dd7bd8dacfd5293e	accept	7	3	86dc662b18e2451d	audit:A5
+e0808af97879ce1a	reject	V8
 e0db827d081c5d9f	reject	V10
 e1d383a4285e35c0	accept	7	3	042da05406bf2cbf	audit:A5
 e25090175cf53a72	reject	V4
@@ -153,13 +218,20 @@ e43201280550fc27	reject	V4
 e7624341c1fb5c21	reject	V4
 e914427b57dcebcd	accept	7	3	3a490dbfb720be28	audit:A5
 e97719cb0398a073	reject	V4
+ed1fa7b91df342e1	reject	V12
 ed905e819f4bcc91	reject	V4
 f08d39b2699431c9	reject	V4
+f1627a94f0d61a67	accept	7	3	66ef94421f5b89de	audit:A5
+f4fd4412cd755ecb	accept	7	3	e9d0cb8f078820ec	audit:A5
 f51be2bd27129b8c	reject	V9
+f5962f551b6aa635	reject	V8
 f5da708ce63dd506	reject	V4
+f72b5c562d7cdacc	reject	V12
 f77a037f76b41e06	reject	V7
 f927c5281bbeb172	reject	V8
+fb006133506dc5c5	accept	7	3	046596987f10d7ae	audit:A5
 fd1f6087222167a5	reject	V1
 fde2fccd3cd44b85	reject	V4
 fe69fbfb6a751202	reject	V6
+fef96652f7dd4066	reject	V7
 feff176f0d767ecb	accept	7	3	37fd83165b3be4ec	audit:A5
