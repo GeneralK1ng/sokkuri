@@ -72,3 +72,5 @@ include(":tools:benchmark")
 // JVM-only application, deliberately not wired into check, because it needs a
 // C++ toolchain and a cmake build of the clone.
 include(":tools:upstream-diff")
+// A cargo workspace: Gradle only registers the tasks that run cargo (docs/design/sok-rs.md §10.1).
+include(":tools:sok-rs")

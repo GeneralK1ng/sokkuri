@@ -26,3 +26,6 @@ node_modules/
 # Upstream OpenCC reference clone, checked out at the pinned commit by
 # ./gradlew fetchOpencc (docs/architecture.md §10.3)
 OpenCC/
+
+# cargo output of the independent .sok reader (tools/sok-rs)
+tools/sok-rs/target/
