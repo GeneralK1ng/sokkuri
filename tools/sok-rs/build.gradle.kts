@@ -196,10 +196,33 @@ val checkCorpusExpectations by tasks.registering(CargoTask::class) {
     mustRunAfter(cargoTest)
 }
 
+val corpusSeeds: String = layout.buildDirectory.dir("fuzz/seeds").get().asFile.path
+
+// The hand-made cases of tests/violations.rs, each breaking one acceptance
+// rule (or none) in an otherwise valid file: the inputs that show the Kotlin
+// decoder still has every check, which fuzzed inputs, breaking several rules
+// at once, cannot.
+val writeCorpusSeeds by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Writes the single-violation and accepted-oddity cases of the Rust tests as corpus seeds."
+    arguments = listOf(
+        "test", "--locked", "--package", "sok", "--test", "violations", "--", "--ignored", "write_corpus_seeds",
+    )
+    extraEnvironment = mapOf("SOKKURI_SOK_SEEDS" to corpusSeeds)
+}
+
+val importCorpusSeeds by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Adds the seeds to the committed corpus; follow with writeCorpusExpectations."
+    arguments = sokcheck + listOf("corpus", "import", corpusSeeds, corpusFile)
+    dependsOn(writeCorpusSeeds)
+}
+
 val fuzzSeed by tasks.registering(CargoTask::class) {
     cargoTask()
     description = "Writes the committed corpus into the fuzzer's working corpus."
     arguments = sokcheck + listOf("corpus", "export", corpusFile, fuzzCorpus)
+    dependsOn(importCorpusSeeds)
 }
 
 val fuzzRun by tasks.registering(CargoTask::class) {
@@ -233,7 +256,7 @@ val writeCorpusExpectations by tasks.registering(CargoTask::class) {
     description = "Rewrites the committed corpus expectations; run it after the corpus or the reader changes."
     arguments = sokcheck + listOf("expect", "--corpus", corpusFile)
     standardOutputFile = file(expectedFile)
-    mustRunAfter(fuzzImport)
+    mustRunAfter(fuzzImport, importCorpusSeeds)
 }
 
 tasks.register("fuzz") {
