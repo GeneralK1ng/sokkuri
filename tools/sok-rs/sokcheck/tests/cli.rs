@@ -156,6 +156,92 @@ fn audit_passes_on_the_fixtures() {
 }
 
 #[test]
+fn a_corpus_imports_exports_and_expects_in_id_order() {
+    // The inputs in a directory of their own, as libFuzzer keeps them; the
+    // corpus file beside it, so an import never reads the corpus back in.
+    let base = scratch("corpus", "placeholder", b"")
+        .parent()
+        .expect("parent")
+        .to_path_buf();
+    let directory = base.join("inputs");
+    std::fs::create_dir_all(&directory).expect("inputs directory");
+    std::fs::write(directory.join("a"), b"SOK1").expect("an input");
+    std::fs::copy(fixtures().join("prefixes.sok"), directory.join("b")).expect("seed");
+    std::fs::write(directory.join("large"), vec![0u8; 513]).expect("an input over the limit");
+    let file = base.join("corpus.hex");
+    let path = |p: &std::path::Path| p.to_str().expect("path").to_owned();
+
+    let imported = sokcheck(&["corpus", "import", &path(&directory), &path(&file)]);
+    assert_eq!(
+        Some(0),
+        imported.status.code(),
+        "{}",
+        String::from_utf8_lossy(&imported.stderr)
+    );
+    assert!(
+        stdout(&imported).starts_with("2 new, 0 already known, 1 over 512 bytes skipped; 2 inputs"),
+        "{}",
+        stdout(&imported)
+    );
+    let again = sokcheck(&["corpus", "import", &path(&directory), &path(&file)]);
+    assert!(
+        stdout(&again).starts_with("0 new, 2 already known"),
+        "{}",
+        stdout(&again)
+    );
+
+    let expected = sokcheck(&["expect", "--corpus", &path(&file)]);
+    assert_eq!(Some(0), expected.status.code());
+    let lines: Vec<String> = stdout(&expected).lines().skip(1).map(str::to_owned).collect();
+    assert_eq!(2, lines.len(), "{lines:?}");
+    let mut ids: Vec<&str> = lines.iter().map(|line| &line[..16]).collect();
+    let sorted = {
+        let mut copy = ids.clone();
+        copy.sort_unstable();
+        copy
+    };
+    assert_eq!(sorted, ids);
+    assert!(lines.iter().any(|line| line.ends_with("\treject\tV1")), "{lines:?}");
+    assert!(
+        lines
+            .iter()
+            .any(|line| line.contains("\taccept\t3\t3\td48af38172a39280\taudit-ok")),
+        "{lines:?}"
+    );
+
+    let exported = base.join("exported");
+    assert_eq!(
+        Some(0),
+        sokcheck(&["corpus", "export", &path(&file), &path(&exported)])
+            .status
+            .code()
+    );
+    let mut names: Vec<String> = std::fs::read_dir(&exported)
+        .expect("exported")
+        .map(|entry| entry.expect("entry").file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    ids.sort_unstable();
+    assert_eq!(ids, names);
+    assert_eq!(std::fs::read(fixtures().join("prefixes.sok")).expect("fixture"), {
+        let id = lines
+            .iter()
+            .find(|line| line.contains("accept"))
+            .map(|line| line[..16].to_owned())
+            .expect("accept line");
+        std::fs::read(exported.join(id)).expect("exported input")
+    });
+}
+
+#[test]
+fn a_corrupted_corpus_is_refused() {
+    let file = scratch("corrupted", "corpus.hex", b"0000000000000000\t534f4b31\n");
+    let output = sokcheck(&["expect", "--corpus", file.to_str().expect("path")]);
+    assert_eq!(Some(2), output.status.code());
+    assert!(String::from_utf8_lossy(&output.stderr).contains("does not match its bytes"));
+}
+
+#[test]
 fn verify_of_a_directory_passes_on_the_fixtures() {
     let output = sokcheck(&["verify", fixtures().to_str().expect("path")]);
     assert_eq!(Some(0), output.status.code());
@@ -204,6 +290,9 @@ fn usage_and_io_errors_exit_two() {
         &["dump", fixtures, fixtures],
         &["expect", "corpus.hex"],
         &["expect", "--unknown", fixtures],
+        &["expect", "--corpus", "/no/such/corpus.hex"],
+        &["corpus", "import", fixtures],
+        &["corpus", "sideways", fixtures, fixtures],
         &["verify", "/no/such/file.sok"],
     ] {
         let output = sokcheck(arguments);

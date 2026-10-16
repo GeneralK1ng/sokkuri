@@ -22,6 +22,7 @@
 //! standard error, and every output is deterministic: files in name order,
 //! fixed formats.
 
+mod corpus;
 mod files;
 mod report;
 
@@ -41,6 +42,9 @@ commands:
   dump <file>                list a file's entries: key, then its candidates, tab-separated
   stats <path>...            sizes and shape of each file
   expect --packaged <dir>    one expectation line per .sok in <dir>, for the Kotlin conformance test
+  expect --corpus <file>     one expectation line per input of a conformance corpus, in corpus order
+  corpus import <dir> <file> add every file of a libFuzzer corpus directory (up to 512 bytes) to a corpus
+  corpus export <file> <dir> write a corpus's inputs into a directory, to seed libFuzzer
   help                       this text
 
 exit status: 0 when every check passes, 1 when a file violates the format or the audit, 2 on a usage or I/O error";
@@ -101,7 +105,26 @@ fn run(arguments: &[String]) -> Result<Outcome, Failure> {
             [flag, directory] if flag == "--packaged" => {
                 expect(&files::read_directory(&PathBuf::from(directory))?, &mut out)?
             }
-            _ => return Err(Failure::Error("expect takes --packaged <dir>".to_owned())),
+            [flag, file] if flag == "--corpus" => expect_corpus(&PathBuf::from(file), &mut out)?,
+            _ => {
+                return Err(Failure::Error(
+                    "expect takes --packaged <dir> or --corpus <file>".to_owned(),
+                ));
+            }
+        },
+        "corpus" => match rest {
+            [action, directory, file] if action == "import" => {
+                corpus_import(&PathBuf::from(directory), &PathBuf::from(file), &mut out)?
+            }
+            [action, file, directory] if action == "export" => {
+                corpus::export(&corpus::read(&PathBuf::from(file))?, &PathBuf::from(directory))?;
+                Outcome::Passed
+            }
+            _ => {
+                return Err(Failure::Error(
+                    "corpus takes import <dir> <file> or export <file> <dir>".to_owned(),
+                ));
+            }
         },
         "help" | "--help" | "-h" => {
             writeln!(out, "{USAGE}")?;
@@ -195,5 +218,45 @@ fn expect(inputs: &[SokInput], out: &mut impl Write) -> Result<Outcome, Failure>
     for input in inputs {
         writeln!(out, "{}", report::expectation(&input.name, &input.bytes))?;
     }
+    Ok(Outcome::Passed)
+}
+
+/// The expectations of a conformance corpus, a comment line first, then one
+/// line per input in corpus order, named by its id.
+fn expect_corpus(path: &std::path::Path, out: &mut impl Write) -> Result<Outcome, Failure> {
+    let inputs = corpus::read(path)?;
+    if inputs.is_empty() {
+        return Err(Failure::Error(format!("{}: no input", path.display())));
+    }
+    writeln!(
+        out,
+        "# Expectations for the conformance corpus beside this file, written by `sokcheck expect --corpus`."
+    )?;
+    for (id, bytes) in &inputs {
+        writeln!(out, "{}", report::expectation(id, bytes))?;
+    }
+    Ok(Outcome::Passed)
+}
+
+/// Merges a libFuzzer corpus directory into the committed corpus file.
+fn corpus_import(
+    directory: &std::path::Path,
+    file: &std::path::Path,
+    out: &mut impl Write,
+) -> Result<Outcome, Failure> {
+    let mut inputs = corpus::read(file)?;
+    let import = corpus::import(&mut inputs, directory)?;
+    std::fs::write(file, corpus::format(&inputs))
+        .map_err(|error| Failure::Error(format!("{}: {error}", file.display())))?;
+    writeln!(
+        out,
+        "{} new, {} already known, {} over {} bytes skipped; {} inputs in {}",
+        import.added,
+        import.known,
+        import.too_large,
+        corpus::MAX_INPUT_BYTES,
+        inputs.len(),
+        file.display(),
+    )?;
     Ok(Outcome::Passed)
 }
