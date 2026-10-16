@@ -103,8 +103,24 @@ abstract class CargoTask : DefaultTask() {
     }
 }
 
+/**
+ * Lets one cargo task run at a time. Every cargo invocation re-links the
+ * binaries under target/debug, even when nothing changed (a no-op `cargo run`
+ * leaves target/debug/sokcheck with a new inode), and cargo's build lock does
+ * not reach the moment it executes one: a `cargo run` whose binary another
+ * invocation is replacing fails with "No such file or directory", or is
+ * killed on macOS. Both happened to sokConformance's parallel tasks.
+ */
+abstract class CargoSerialization : BuildService<BuildServiceParameters.None>
+
+val cargoSerialization: Provider<CargoSerialization> =
+    gradle.sharedServices.registerIfAbsent("sokRsCargo", CargoSerialization::class) {
+        maxParallelUsages = 1
+    }
+
 val cargoTask: CargoTask.() -> Unit = {
     workspace = layout.projectDirectory
+    usesService(cargoSerialization)
 }
 
 val cargoFmtCheck by tasks.registering(CargoTask::class) {
