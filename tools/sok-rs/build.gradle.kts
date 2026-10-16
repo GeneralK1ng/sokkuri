@@ -173,6 +173,75 @@ val expectPackaged by tasks.registering(CargoTask::class) {
     mustRunAfter(cargoTest)
 }
 
+// ---------------------------------------------------------------------------
+// The conformance corpus (docs/design/sok-rs.md §6.2 and §7). Fuzzing is local
+// only (decided 2026-10-15): CI checks the committed expectations, and the
+// Kotlin build replays the committed corpus on every platform. The fuzz tasks
+// need a nightly toolchain and cargo-fuzz (`rustup toolchain install nightly`,
+// `cargo install cargo-fuzz`), and cargo must be rustup's, for `+nightly`.
+// ---------------------------------------------------------------------------
+
+val conformance: String = layout.projectDirectory
+    .dir("../../sokkuri-runtime/src/commonTest/resources/sok-conformance")
+    .asFile.normalize().path
+val corpusFile = "$conformance/corpus.hex"
+val expectedFile = "$conformance/expected.txt"
+val fuzzCorpus: String = layout.buildDirectory.dir("fuzz/corpus/read").get().asFile.path
+val fuzzSeconds: Provider<String> = providers.gradleProperty("fuzzSeconds").orElse("600")
+
+val checkCorpusExpectations by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Fails when the committed corpus expectations no longer say what the reader says."
+    arguments = sokcheck + listOf("expect", "--corpus", corpusFile, "--check", expectedFile)
+    mustRunAfter(cargoTest)
+}
+
+val fuzzSeed by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Writes the committed corpus into the fuzzer's working corpus."
+    arguments = sokcheck + listOf("corpus", "export", corpusFile, fuzzCorpus)
+}
+
+val fuzzRun by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Fuzzes the reader for -PfuzzSeconds (default 600), from the corpus and the fixtures."
+    // Locals, not the script's properties: a lambda that reached the script
+    // object could not be stored in the configuration cache.
+    val corpus = fuzzCorpus
+    arguments = fuzzSeconds.map { seconds ->
+        listOf("+nightly", "fuzz", "run", "read", corpus, "fixtures", "--", "-max_len=512", "-max_total_time=$seconds")
+    }
+    dependsOn(fuzzSeed)
+}
+
+val fuzzMinimize by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Keeps the smallest set of inputs that covers what the run reached."
+    arguments = listOf("+nightly", "fuzz", "cmin", "read", fuzzCorpus, "--", "-max_len=512")
+    dependsOn(fuzzRun)
+}
+
+val fuzzImport by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Adds the minimized inputs to the committed corpus."
+    arguments = sokcheck + listOf("corpus", "import", fuzzCorpus, corpusFile)
+    dependsOn(fuzzMinimize)
+}
+
+val writeCorpusExpectations by tasks.registering(CargoTask::class) {
+    cargoTask()
+    description = "Rewrites the committed corpus expectations; run it after the corpus or the reader changes."
+    arguments = sokcheck + listOf("expect", "--corpus", corpusFile)
+    standardOutputFile = file(expectedFile)
+    mustRunAfter(fuzzImport)
+}
+
+tasks.register("fuzz") {
+    group = "sok-rs"
+    description = "Fuzzes the reader, grows the committed corpus and rewrites its expectations."
+    dependsOn(fuzzImport, writeCorpusExpectations)
+}
+
 tasks.register("sokConformance") {
     group = "sok-rs"
     description = "Every check of the independent .sok reader (docs/architecture.md §10.5)."
