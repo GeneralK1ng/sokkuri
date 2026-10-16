@@ -21,6 +21,7 @@ import kotlin.random.Random
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 
 /**
  * The parity-critical group-policy semantics (OpenCC `DictGroupTest` /
@@ -197,6 +198,12 @@ class DictGroupTest {
                 "keyStarts members, round $round",
             )
         }
+    }
+
+    @Test
+    fun keyStarts_ofASingleChildGroupIsTheChildsOwnSet() {
+        val child = dict("猫" to listOf("cat"))
+        assertSame(child.keyStarts(), DictGroup(listOf(child), GroupMatchPolicy.UNION).keyStarts())
     }
 
     @Test

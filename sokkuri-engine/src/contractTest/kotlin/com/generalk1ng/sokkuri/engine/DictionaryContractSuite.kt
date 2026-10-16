@@ -24,6 +24,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -246,6 +247,18 @@ abstract class DictionaryContractSuite {
                 if (keyStarts != null) assertEquals(expected, codePoint in keyStarts, "keyStarts$where")
             }
         }
+    }
+
+    /**
+     * An enumerated key-start set is kept by the backend, not rebuilt per
+     * call: every conversion stage over the dictionary references it, so a
+     * backend that built a fresh set would cost each converter a copy.
+     */
+    @Test
+    fun enumeratedKeyStartsAreTheSameSetOnEveryCall() {
+        val d = dictionaryOf("发" to listOf("發"), "𠀀" to listOf("x"))
+        val keyStarts = d.keyStarts() ?: return
+        assertSame(keyStarts, d.keyStarts())
     }
 
     @Test

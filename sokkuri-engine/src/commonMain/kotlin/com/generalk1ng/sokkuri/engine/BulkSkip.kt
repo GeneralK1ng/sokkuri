@@ -27,19 +27,21 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  * cannot begin a key, stopping at each IDS operator with non-zero arity
  * ([stopsBulkSkip]).
  *
- * The stop set, the dictionary's [Dictionary.keyStarts] plus those operators,
- * is built once with the stage, as upstream builds its `Utf8SkipTable` once
- * per `PrefixMatch`; the skip then costs one bitmap test per character and no
- * call into the dictionary. A dictionary that cannot enumerate its key starts
- * is asked through [stopsBulkSkip] instead, with the same result.
+ * The stage takes the dictionary's [Dictionary.keyStarts] once, when it is
+ * built, as upstream builds its `Utf8SkipTable` once per `PrefixMatch`; the
+ * skip then costs one bitmap test and one range comparison per character and
+ * no call into the dictionary. The set is referenced, not copied: a `.sok`
+ * dictionary's set is shared by every converter in the process, and a group
+ * builds its union once for the stage. A dictionary that cannot enumerate its
+ * key starts is asked through [stopsBulkSkip] instead, with the same result.
  *
  * Immutable and safe for concurrent use, like the stage that owns it.
  */
 @OptIn(SokkuriInternalApi::class)
 internal class BulkSkip(private val dict: Dictionary) {
 
-    /** Where a skip must stop, or `null` when [dict] cannot enumerate its key starts. */
-    private val stops: CodePointSet? = dict.keyStarts()?.union(IDS_OPERATORS)
+    /** The code points that begin a key of [dict], or `null` when it cannot enumerate them. */
+    private val keyStarts: CodePointSet? = dict.keyStarts()
 
     /**
      * End of the unmatched run that begins at [start], which must be `< end`
@@ -51,11 +53,11 @@ internal class BulkSkip(private val dict: Dictionary) {
         var width = Utf.ideographicDescriptionSequenceLength(chars, start, end)
         if (width == 0) width = Utf.charCount(Utf.codePointAt(chars, start, end))
         var position = start + width
-        val stops = stops
-        if (stops != null) {
+        val keyStarts = keyStarts
+        if (keyStarts != null) {
             while (position < end) {
                 val codePoint = Utf.codePointAt(chars, position, end)
-                if (codePoint in stops) break
+                if (codePoint in keyStarts || isIdsOperator(codePoint)) break
                 position += Utf.charCount(codePoint)
             }
         } else {
@@ -68,12 +70,15 @@ internal class BulkSkip(private val dict: Dictionary) {
         return position
     }
 
-    private companion object {
-        /** Every ideographic description operator with non-zero arity: each one stops a skip. */
-        val IDS_OPERATORS: CodePointSet = CodePointSet.of(
-            *(Utf.FIRST_IDS_OPERATOR..Utf.LAST_IDS_OPERATOR)
-                .filter { Utf.ideographicDescriptionOperatorArity(it) != 0 }
-                .toIntArray(),
-        )
-    }
+    /**
+     * The operator half of [stopsBulkSkip], for every character a skip
+     * passes. Inline, with the range test first, so a character outside the
+     * operator block costs two comparisons and no call on every target:
+     * Kotlin/Native does not reliably inline small helpers by itself.
+     */
+    @Suppress("NOTHING_TO_INLINE")
+    private inline fun isIdsOperator(codePoint: Int): Boolean =
+        codePoint >= Utf.FIRST_IDS_OPERATOR &&
+            codePoint <= Utf.LAST_IDS_OPERATOR &&
+            Utf.ideographicDescriptionOperatorArity(codePoint) != 0
 }
