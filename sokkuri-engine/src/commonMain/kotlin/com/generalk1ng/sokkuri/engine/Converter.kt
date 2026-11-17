@@ -52,13 +52,22 @@ public sealed interface Converter {
         public val chain: ConversionChain,
     ) : Converter {
 
+        /**
+         * Segmentation fused with stage 1 when stage 1 begins with the
+         * segmentation dictionary, which then is queried once instead of
+         * twice; same output ([SegmentReuse]). [inspect] keeps the reference
+         * path, segment by segment.
+         */
+        private val reuse: SegmentReuse? = SegmentReuse.of(segmentation, chain)
+
         override fun convert(input: String): String {
             val chars = input.toCharArray()
             val out = StringBuilder(chars.size + chars.size / 5)
-            if (segmentation == null) {
-                chain.appendConverted(chars, 0, chars.size, out)
-            } else {
-                chain.appendConvertedSegments(chars, segmentation.segment(chars), out)
+            val reuse = reuse
+            when {
+                segmentation == null -> chain.appendConverted(chars, 0, chars.size, out)
+                reuse != null -> reuse.appendConverted(chars, out)
+                else -> chain.appendConvertedSegments(chars, segmentation.segment(chars), out)
             }
             return out.toString()
         }

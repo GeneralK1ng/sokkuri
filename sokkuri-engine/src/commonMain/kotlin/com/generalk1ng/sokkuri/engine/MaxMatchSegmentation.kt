@@ -31,10 +31,11 @@ import com.generalk1ng.sokkuri.SokkuriInternalApi
  */
 @SokkuriInternalApi
 public class MaxMatchSegmentation public constructor(
-    private val dict: Dictionary,
+    internal val dict: Dictionary,
 ) : Segmentation {
 
-    private val bulkSkip = BulkSkip(dict)
+    /** Shared with [SegmentReuse], which scans with this same dictionary. */
+    internal val bulkSkip: BulkSkip = BulkSkip(dict)
 
     override fun segment(chars: CharArray): List<IntRange> {
         val segments = ArrayList<IntRange>()

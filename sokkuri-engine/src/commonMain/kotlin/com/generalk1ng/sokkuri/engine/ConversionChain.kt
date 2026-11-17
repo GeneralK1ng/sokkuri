@@ -80,25 +80,45 @@ public class ConversionChain public constructor(
             for (range in segments) appendConverted(chars, range.first, range.last + 1, out)
             return
         }
+        val starts = IntArray(segments.size) { segments[it].first }
+        val ends = IntArray(segments.size) { segments[it].last + 1 }
+        appendStagesFrom(0, chars, starts, ends, segments.size, out)
+    }
+
+    /**
+     * Runs stages [first] to the last over the first [count] segments of
+     * [chars], segment `k` being `chars[starts[k], ends[k])`, appending the
+     * last stage's output to [out]: the stage-by-stage loop of
+     * [appendConvertedSegments], entered at [first] by [SegmentReuse], which
+     * produces stage 0's output itself. [first] must be a valid stage index.
+     */
+    internal fun appendStagesFrom(
+        first: Int,
+        chars: CharArray,
+        starts: IntArray,
+        ends: IntArray,
+        count: Int,
+        out: StringBuilder,
+    ) {
         var current = chars
-        var starts = IntArray(segments.size) { segments[it].first }
-        var ends = IntArray(segments.size) { segments[it].last + 1 }
-        for (index in 0 until conversions.lastIndex) {
+        var currentStarts = starts
+        var currentEnds = ends
+        for (index in first until conversions.lastIndex) {
             val conversion = conversions[index]
             val buffer = StringBuilder(current.size + current.size / 5)
-            val nextStarts = IntArray(segments.size)
-            val nextEnds = IntArray(segments.size)
-            for (segment in starts.indices) {
+            val nextStarts = IntArray(count)
+            val nextEnds = IntArray(count)
+            for (segment in 0 until count) {
                 nextStarts[segment] = buffer.length
-                conversion.appendConverted(current, starts[segment], ends[segment], buffer)
+                conversion.appendConverted(current, currentStarts[segment], currentEnds[segment], buffer)
                 nextEnds[segment] = buffer.length
             }
             current = buffer.toString().toCharArray()
-            starts = nextStarts
-            ends = nextEnds
+            currentStarts = nextStarts
+            currentEnds = nextEnds
         }
         val last = conversions[conversions.lastIndex]
-        for (segment in starts.indices) last.appendConverted(current, starts[segment], ends[segment], out)
+        for (segment in 0 until count) last.appendConverted(current, currentStarts[segment], currentEnds[segment], out)
     }
 
     public fun convert(text: String): String {
