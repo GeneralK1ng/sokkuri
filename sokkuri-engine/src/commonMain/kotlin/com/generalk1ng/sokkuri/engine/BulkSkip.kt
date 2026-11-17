@@ -19,8 +19,8 @@ package com.generalk1ng.sokkuri.engine
 import com.generalk1ng.sokkuri.SokkuriInternalApi
 
 /**
- * The miss branch both scan loops share ([Conversion] and
- * [MaxMatchSegmentation]), the port of the unmatched case of OpenCC's
+ * The miss branch every scan loop shares ([Conversion], [MaxMatchSegmentation]
+ * and, with the segmentation's own instance, [SegmentReuse]), the port of the unmatched case of OpenCC's
  * `Conversion::AppendConverted` and `SegmentText`: the ideographic
  * description sequence or code point at the cursor is consumed whole, then
  * `PrefixMatch::SkipUnmatchable` extends the run over every character that
