@@ -45,7 +45,7 @@ public enum class GroupMatchPolicy {
 @SokkuriInternalApi
 public class DictGroup public constructor(
     children: List<Dictionary>,
-    private val policy: GroupMatchPolicy,
+    internal val policy: GroupMatchPolicy,
 ) : Dictionary {
 
     init {
@@ -60,7 +60,7 @@ public class DictGroup public constructor(
      * but Kotlin/Native does not; on s2t that allocation was about a tenth of
      * the Native conversion time.
      */
-    private val members: Array<Dictionary> = children.toTypedArray()
+    internal val members: Array<Dictionary> = children.toTypedArray()
 
     override fun matchExact(key: String): DictionaryEntry? {
         for (index in members.indices) {

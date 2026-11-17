@@ -74,4 +74,30 @@ class InspectionSmokeTest {
             }
         }
     }
+
+    /**
+     * `convert` takes faster paths than `inspect`, which converts segment by
+     * segment and stage by stage: the four segmented s2* profiles fuse
+     * segmentation with stage 1. Both must give the same text, on every
+     * profile and tofu setting, for every corpus input and for IDS text,
+     * which the corpus lacks.
+     */
+    @Test
+    fun convertAgreesWithInspectionOnEveryProfile() {
+        val inputs = OpenccTestcases.byStem.values.flatten().map { it.input }.distinct() + listOf(
+            "⿰干发头发干燥", "头发⿱艹干燥鼠标", "鼠标⿰⿱干发后里", "里面⿺辶干的头发", "干⿰",
+        )
+        for (config in SokkuriConfig.entries) {
+            for (tofu in listOf(false, true)) {
+                val converter = Sokkuri.create(config, SokkuriOptions { includeTofuRiskDictionaries = tofu })
+                for (input in inputs) {
+                    assertEquals(
+                        converter.inspect(input).output,
+                        converter.convert(input),
+                        "${config.stem} (tofu $tofu): convert vs inspect for $input",
+                    )
+                }
+            }
+        }
+    }
 }

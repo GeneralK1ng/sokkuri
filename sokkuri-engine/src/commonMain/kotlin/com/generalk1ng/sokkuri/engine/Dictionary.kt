@@ -114,9 +114,9 @@ public interface Dictionary {
  * IDS sequences without consulting the dictionary, so skipping over an
  * operator would emit its operands as ordinary text and convert them.
  *
- * The port runs upstream's one skip from two loops ([Conversion] and
- * [MaxMatchSegmentation]); both go through [BulkSkip], which answers exactly
- * this predicate, so they cannot drift apart: the drift that let operators be
+ * The port runs upstream's one skip from several loops ([Conversion],
+ * [MaxMatchSegmentation] and [SegmentReuse]); all go through [BulkSkip], which
+ * answers exactly this predicate, so they cannot drift apart: the drift that let operators be
  * skipped in the first place.
  */
 @OptIn(SokkuriInternalApi::class)
