@@ -26,6 +26,7 @@ sealed interface Converter {
 
 - `ConversionChain` 中第 N 级的输出是第 N+1 级的输入，空链原样输出，对应上游 `AppendConvertedSegment`。
 - 有分词时，每一级一次处理全部分段：只分配一个缓冲，用偏移记录段的边界。每一级只读给定的范围，匹配不会跨段，结果与逐段转换相同。
+- 第一级以分词词典开头时（四个带分词的 s2* 档），`convert` 把分词与第一级合成一遍扫描（`SegmentReuse`）：整词段直接写出分词查到的值，不含 IDS 运算符的未匹配段只用第一级剩下的词典转换。输出与逐段转换相同，论证见 [segment-reuse.md](../performance/segment-reuse.md)。`inspect` 仍逐段转换。
 - 每一级在当前位置做最长前缀匹配。没有匹配时交给 `BulkSkip`：先整体消费一个 IDS（或一个码点），再跳过一串不可能开始匹配的字符。
 
 ## 批量跳过
@@ -34,7 +35,7 @@ sealed interface Converter {
 
 - 每一级在构建时取得词典的键首字集合（`Dictionary.keyStarts()`）。跳过一个字只需一次位测试和一次范围比较，不调用词典。
 - 无法列举键首字的词典返回 `null`，这时逐字询问 `stopsBulkSkip`。
-- `Conversion` 与 `MaxMatchSegmentation` 两个扫描循环都用 `BulkSkip`。不要在跳过循环里直接用 `mayStartKey`：它不认识 IDS 运算符。
+- 所有扫描循环都用 `BulkSkip`：`Conversion`、`MaxMatchSegmentation`，以及与分词共用同一实例的 `SegmentReuse`。不要在跳过循环里直接用 `mayStartKey`：它不认识 IDS 运算符。
 
 ## Inspection
 

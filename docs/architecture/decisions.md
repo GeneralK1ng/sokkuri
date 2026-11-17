@@ -21,3 +21,4 @@
 | D17 | 上游比对扩展到 inspect、配置与模糊语料，并提供上游性能参照（[upstream-diff.md](../verification/upstream-diff.md)） | 已实现 |
 | D18 | 热点修复：码点位图、每级持有跳过集合、加载时校验键等八项（[hot-paths.md](../performance/hot-paths.md)） | 已实现 |
 | D19 | `.sok` 的 Rust 独立读取器、审计与跨实现对拍，并据此收紧规范（[sok-reader.md](../verification/sok-reader.md)） | 已实现 |
+| D20 | 第一级以分词词典开头时，分词与第一级合成一遍扫描，复用分词的匹配（[segment-reuse.md](../performance/segment-reuse.md)） | 已实现 |
